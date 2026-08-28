@@ -25,6 +25,12 @@ import {
 } from './utils';
 import axios from 'axios';
 import { MESSAGE_ROLES } from '../constants/playground.constants';
+import {
+  clearAuthSession,
+  getAccessToken,
+  logoutAuthSession,
+  refreshAuthSession,
+} from './auth-session';
 
 export let API = axios.create({
   baseURL: import.meta.env.VITE_REACT_APP_SERVER_URL
@@ -34,8 +40,8 @@ export let API = axios.create({
     'New-API-User': getUserIdFromLocalStorage(),
     'Cache-Control': 'no-store',
   },
+  withCredentials: true,
 });
-
 
 function redirectToOAuthUrl(url, options = {}) {
   const { openInNewTab = false } = options;
@@ -48,7 +54,6 @@ function redirectToOAuthUrl(url, options = {}) {
 
   window.location.assign(targetUrl);
 }
-
 
 function patchAPIInstance(instance) {
   const originalGet = instance.get.bind(instance);
@@ -81,30 +86,44 @@ function patchAPIInstance(instance) {
 patchAPIInstance(API);
 
 export function updateAPI() {
-  API = axios.create({
-    baseURL: import.meta.env.VITE_REACT_APP_SERVER_URL
-      ? import.meta.env.VITE_REACT_APP_SERVER_URL
-      : '',
-    headers: {
-      'New-API-User': getUserIdFromLocalStorage(),
-      'Cache-Control': 'no-store',
-    },
-  });
-
-  patchAPIInstance(API);
+  API.defaults.headers.common['New-API-User'] = getUserIdFromLocalStorage();
 }
 
 API.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const config = error.config;
+    if (error.response?.status === 401 && config) {
+      if (!config.authRetry) {
+        config.authRetry = true;
+        const bundle = await refreshAuthSession();
+        if (bundle) {
+          config.headers.Authorization = `Bearer ${bundle.access_token}`;
+          return API.request(config);
+        }
+      }
+      clearAuthSession();
+      if (window.location.pathname !== '/login') {
+        window.location.replace('/login?expired=true');
+      }
+    }
     // 如果请求配置中显式要求跳过全局错误处理，则不弹出默认错误提示
-    if (error.config && error.config.skipErrorHandler) {
+    if (config?.skipErrorHandler) {
       return Promise.reject(error);
     }
     showError(error);
     return Promise.reject(error);
   },
 );
+
+API.interceptors.request.use((config) => {
+  const accessToken = getAccessToken();
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  config.headers['New-API-User'] = getUserIdFromLocalStorage();
+  return config;
+});
 
 // playground
 
@@ -260,9 +279,8 @@ async function prepareOAuthState(options = {}) {
   const { shouldLogout = false } = options;
   if (shouldLogout) {
     try {
-      await API.get('/api/user/logout', { skipErrorHandler: true });
+      await logoutAuthSession();
     } catch (err) {}
-    localStorage.removeItem('user');
     updateAPI();
   }
   return await getOAuthState();

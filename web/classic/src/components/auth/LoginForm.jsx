@@ -135,12 +135,12 @@ const LoginForm = () => {
     (status.custom_oauth_providers || []).length > 0;
   const hasOAuthLoginOptions = Boolean(
     status.github_oauth ||
-      status.discord_oauth ||
-      status.oidc_enabled ||
-      status.wechat_login ||
-      status.linuxdo_oauth ||
-      status.telegram_oauth ||
-      hasCustomOAuthProviders,
+    status.discord_oauth ||
+    status.oidc_enabled ||
+    status.wechat_login ||
+    status.linuxdo_oauth ||
+    status.telegram_oauth ||
+    hasCustomOAuthProviders,
   );
 
   useEffect(() => {
@@ -194,9 +194,8 @@ const LoginForm = () => {
       );
       const { success, message, data } = res.data;
       if (success) {
-        userDispatch({ type: 'login', payload: data });
-        localStorage.setItem('user', JSON.stringify(data));
-        setUserData(data);
+        const userData = setUserData(data);
+        userDispatch({ type: 'login', payload: userData });
         updateAPI();
         navigate('/');
         showSuccess('登录成功！');
@@ -244,8 +243,8 @@ const LoginForm = () => {
             return;
           }
 
-          userDispatch({ type: 'login', payload: data });
-          setUserData(data);
+          const userData = setUserData(data);
+          userDispatch({ type: 'login', payload: userData });
           updateAPI();
           showSuccess('登录成功！');
           if (username === 'root' && password === '123456') {
@@ -295,10 +294,9 @@ const LoginForm = () => {
       const res = await API.get(`/api/oauth/telegram/login`, { params });
       const { success, message, data } = res.data;
       if (success) {
-        userDispatch({ type: 'login', payload: data });
-        localStorage.setItem('user', JSON.stringify(data));
+        const userData = setUserData(data);
+        userDispatch({ type: 'login', payload: userData });
         showSuccess('登录成功！');
-        setUserData(data);
         updateAPI();
         navigate('/');
       } else {
@@ -452,8 +450,8 @@ const LoginForm = () => {
       );
       const finish = finishRes.data;
       if (finish.success) {
-        userDispatch({ type: 'login', payload: finish.data });
-        setUserData(finish.data);
+        const userData = setUserData(finish.data);
+        userDispatch({ type: 'login', payload: userData });
         updateAPI();
         showSuccess('登录成功！');
         navigate('/console');
@@ -487,8 +485,8 @@ const LoginForm = () => {
 
   // 2FA验证成功处理
   const handle2FASuccess = (data) => {
-    userDispatch({ type: 'login', payload: data });
-    setUserData(data);
+    const userData = setUserData(data);
+    userDispatch({ type: 'login', payload: userData });
     updateAPI();
     showSuccess('登录成功！');
     navigate('/console');
@@ -958,8 +956,7 @@ const LoginForm = () => {
         style={{ top: '50%', left: '-120px' }}
       />
       <div className='w-full max-w-sm mt-[60px]'>
-        {showEmailLogin ||
-        !hasOAuthLoginOptions
+        {showEmailLogin || !hasOAuthLoginOptions
           ? renderEmailLoginForm()
           : renderOAuthOptions()}
         {renderWeChatLoginModal()}

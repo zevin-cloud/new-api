@@ -29,6 +29,7 @@ import {
   prepareCredentialCreationOptions,
   buildRegistrationResult,
   isPasskeySupported,
+  logoutAuthSession,
   setUserData,
 } from '../../helpers';
 import { UserContext } from '../../context/User';
@@ -388,9 +389,8 @@ const PersonalSetting = () => {
 
     if (success) {
       showSuccess(t('账户已删除！'));
-      await API.get('/api/user/logout');
+      await logoutAuthSession();
       userDispatch({ type: 'logout' });
-      localStorage.removeItem('user');
       navigate('/login');
     } else {
       showError(message);

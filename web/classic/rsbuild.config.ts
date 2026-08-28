@@ -43,6 +43,9 @@ export default defineConfig(({ envMode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        // Semi UI still uses date-fns v2 APIs while the current frontend uses v4.
+        // Keep Classic on Semi UI's nested compatible copy during workspace installs.
+        'date-fns': path.resolve(semiUiDir, 'node_modules/date-fns'),
         '@douyinfe/semi-ui/dist/css/semi.css': path.resolve(
           semiUiDir,
           'dist/css/semi.css',

@@ -21,6 +21,7 @@ import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { reducer, initialState } from './reducer';
 import { normalizeLanguage } from '../../i18n/language';
+import { refreshAuthSession } from '../../helpers/auth-session';
 
 export const UserContext = React.createContext({
   state: initialState,
@@ -30,6 +31,20 @@ export const UserContext = React.createContext({
 export const UserProvider = ({ children }) => {
   const [state, dispatch] = React.useReducer(reducer, initialState);
   const { i18n } = useTranslation();
+
+  useEffect(() => {
+    let active = true;
+    refreshAuthSession()
+      .then((bundle) => {
+        if (active && bundle) {
+          dispatch({ type: 'login', payload: bundle.user });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Sync language preference when user data is loaded
   useEffect(() => {

@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 export * from './history';
 export * from './auth';
+export * from './auth-session';
 export * from './utils';
 export * from './base64';
 export * from './api';
