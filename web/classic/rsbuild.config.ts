@@ -10,6 +10,9 @@ const semiUiDir = path.resolve(
   path.dirname(require.resolve('@douyinfe/semi-ui')),
   '../..',
 )
+const vchartSemiThemeDir = path.dirname(
+  require.resolve('@visactor/vchart-semi-theme/package.json'),
+)
 
 export default defineConfig(({ envMode }) => {
   const env = loadEnv({ mode: envMode, prefixes: ['VITE_'] })
@@ -46,6 +49,17 @@ export default defineConfig(({ envMode }) => {
         // Semi UI still uses date-fns v2 APIs while the current frontend uses v4.
         // Keep Classic on Semi UI's nested compatible copy during workspace installs.
         'date-fns': path.resolve(semiUiDir, 'node_modules/date-fns'),
+        // Classic uses VChart 1.x. Isolate the renderer and theme from the
+        // official frontend's VChart 2.x dependency tree.
+        '@visactor/react-vchart': path.resolve(
+          __dirname,
+          'node_modules/@visactor/react-vchart',
+        ),
+        '@visactor/vchart': path.resolve(
+          __dirname,
+          'node_modules/@visactor/vchart',
+        ),
+        '@visactor/vchart-semi-theme': vchartSemiThemeDir,
         '@douyinfe/semi-ui/dist/css/semi.css': path.resolve(
           semiUiDir,
           'dist/css/semi.css',
