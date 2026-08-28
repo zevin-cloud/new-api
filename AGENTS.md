@@ -126,6 +126,8 @@ Do NOT directly import or call `encoding/json` in business code. `json.RawMessag
 
 ### Frontend Rules
 
+- Frontend development must target only the classic frontend under `web/classic/`. Do not modify or port changes to `web/default/` unless the user explicitly requests it for the current task.
+- Backend development is in scope alongside classic-frontend development. Keep custom changes focused and avoid unrelated refactors so the fork can continue merging useful upstream changes with minimal conflicts.
 - Use `bun` as the preferred package manager and script runner for the frontend (`web/default/`):
   - `bun install` for dependency installation
   - `bun run dev` for development server
