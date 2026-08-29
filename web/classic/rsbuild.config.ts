@@ -13,6 +13,10 @@ const semiUiDir = path.resolve(
 const vchartSemiThemeDir = path.dirname(
   require.resolve('@visactor/vchart-semi-theme/package.json'),
 )
+const classicVChartDir = path.resolve(
+  __dirname,
+  'node_modules/@visactor/vchart',
+)
 
 export default defineConfig(({ envMode }) => {
   const env = loadEnv({ mode: envMode, prefixes: ['VITE_'] })
@@ -60,6 +64,22 @@ export default defineConfig(({ envMode }) => {
           'node_modules/@visactor/vchart',
         ),
         '@visactor/vchart-semi-theme': vchartSemiThemeDir,
+        '@visactor/vrender-core': path.resolve(
+          classicVChartDir,
+          'node_modules/@visactor/vrender-core',
+        ),
+        '@visactor/vrender-kits': path.resolve(
+          classicVChartDir,
+          'node_modules/@visactor/vrender-kits',
+        ),
+        '@visactor/vrender-components': path.resolve(
+          classicVChartDir,
+          'node_modules/@visactor/vrender-components',
+        ),
+        '@visactor/vutils': path.resolve(
+          classicVChartDir,
+          'node_modules/@visactor/vutils',
+        ),
         '@douyinfe/semi-ui/dist/css/semi.css': path.resolve(
           semiUiDir,
           'dist/css/semi.css',
