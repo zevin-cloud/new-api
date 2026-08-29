@@ -129,6 +129,12 @@ Do NOT directly import or call `encoding/json` in business code. `json.RawMessag
 
 ### Frontend Rules
 
+- The long-term development baseline for this fork is `codex/latest-backend-classic`: keep the backend close to the latest `upstream/main` while independently maintaining the restored Classic frontend.
+- All custom frontend features and visual iteration must target `web/classic/`. Do not implement product work in the official frontend under `web/` unless the user explicitly requests it for the current task.
+- Prefer adapting `web/classic/` to the latest backend API. Centralize API calls and response normalization in the Classic frontend service layer instead of scattering compatibility checks across page components.
+- Do not create a broad legacy-backend compatibility layer or copy the old backend into the latest backend. Add backend compatibility code only when the latest backend genuinely lacks required behavior, or when security, authorization, billing, payment, secret handling, or server-side aggregation requires it.
+- Keep custom backend changes focused and minimally invasive so `upstream/main` can continue to be merged. Expect integration-sensitive changes around frontend embedding, web routing, Dockerfiles, build scripts, package manifests, and lockfiles, and verify those areas during every upstream sync.
+- Treat `codex/major-refactor` as a runnable legacy reference/fallback and `classic-base` as the immutable Classic baseline; do not develop new product features on those branches.
 - Use `bun` as the preferred package manager and script runner for the frontend (`web/`):
   - `bun install` for dependency installation
   - `bun run dev` for development server
