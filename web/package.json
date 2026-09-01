@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": false,
   "type": "module",
+  "workspaces": [
+    "classic"
+  ],
   "scripts": {
     "dev": "rsbuild dev",
     "build": "rsbuild build",
