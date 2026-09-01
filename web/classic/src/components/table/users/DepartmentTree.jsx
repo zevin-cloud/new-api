@@ -22,6 +22,8 @@ const DepartmentTree = ({ selectedDeptId, onSelectDept, t }) => {
   const [editingDept, setEditingDept] = useState(null);
   const [parentDeptId, setParentDeptId] = useState(0);
 
+  const [expandedKeys, setExpandedKeys] = useState(['0']);
+
   const loadTree = async () => {
     setLoading(true);
     try {
@@ -44,7 +46,21 @@ const DepartmentTree = ({ selectedDeptId, onSelectDept, t }) => {
           key: '0',
           children: formatNodes(res.data.data),
         };
-        setTreeData([rootNode]);
+        const allNodes = [rootNode];
+        setTreeData(allNodes);
+
+        // Collect all node keys to expand by default
+        const collectKeys = (nodes) => {
+          let keys = [];
+          nodes.forEach((n) => {
+            keys.push(n.key);
+            if (n.children && n.children.length > 0) {
+              keys = keys.concat(collectKeys(n.children));
+            }
+          });
+          return keys;
+        };
+        setExpandedKeys(collectKeys(allNodes));
       } else {
         showError(res.data?.message || '获取部门树失败');
       }
@@ -167,11 +183,12 @@ const DepartmentTree = ({ selectedDeptId, onSelectDept, t }) => {
         <Tree
           treeData={treeData}
           value={String(selectedDeptId || 0)}
+          expandedKeys={expandedKeys}
+          onExpand={(keys) => setExpandedKeys(keys)}
           onSelect={(val) => {
             onSelectDept(Number(val));
           }}
           renderLabel={(label, item) => renderLabel(label, item.raw)}
-          defaultExpandAll
         />
       </div>
 

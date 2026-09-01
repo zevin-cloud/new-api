@@ -151,9 +151,9 @@ func GetModelSets(page int, pageSize int, keyword string, status int) ([]*ModelS
 	}
 
 	for _, s := range sets {
-		var modelCount int64
-		_ = DB.Model(&ModelSetItem{}).Where("model_set_id = ?", s.Id).Count(&modelCount)
-		s.ModelCount = int(modelCount)
+		models, _ := GetModelNamesByModelSetId(s.Id)
+		s.Models = models
+		s.ModelCount = len(models)
 
 		var deptCount, groupCount, userCount int64
 		_ = DB.Model(&ModelGrant{}).Where("model_set_id = ? AND subject_type = ?", s.Id, SubjectTypeDepartment).Count(&deptCount)

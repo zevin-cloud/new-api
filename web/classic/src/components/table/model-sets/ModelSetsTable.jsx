@@ -39,15 +39,17 @@ const ModelSetsTable = ({
     {
       title: t('包含模型'),
       dataIndex: 'models',
-      render: (models) => {
-        if (!models || models.length === 0) {
-          return <Tag color='grey'>{t('0 个模型')}</Tag>;
+      render: (models, record) => {
+        const list = Array.isArray(models) ? models : [];
+        const count = record?.model_count || list.length;
+        if (list.length === 0) {
+          return <Tag color='grey'>{count > 0 ? `${count} ${t('个模型')}` : t('0 个模型')}</Tag>;
         }
         return (
           <Popover
             content={
               <div className='max-w-md max-h-60 overflow-y-auto p-2 flex flex-wrap gap-1'>
-                {models.map((m) => (
+                {list.map((m) => (
                   <Tag key={m} color='blue' size='small'>
                     {m}
                   </Tag>
@@ -57,7 +59,7 @@ const ModelSetsTable = ({
             trigger='hover'
           >
             <Tag color='blue' className='cursor-pointer'>
-              {models.length} {t('个模型 (查看)')}
+              {list.length} {t('个模型 (查看)')}
             </Tag>
           </Popover>
         );
@@ -65,9 +67,12 @@ const ModelSetsTable = ({
     },
     {
       title: t('已授权主体'),
-      dataIndex: 'grant_count',
+      key: 'grant_count',
       width: 120,
-      render: (v) => <Tag color='cyan'>{v || 0} {t('个主体')}</Tag>,
+      render: (_, r) => {
+        const totalGrants = (r?.department_count || 0) + (r?.user_group_count || 0) + (r?.user_count || 0) || r?.grant_count || 0;
+        return <Tag color='cyan'>{totalGrants} {t('个主体')}</Tag>;
+      },
     },
     {
       title: t('状态'),
@@ -112,7 +117,7 @@ const ModelSetsTable = ({
 
           <Popconfirm
             title={t('确认删除模型集')}
-            content={t('确定要删除模型集 {{name}} 吗？若存在生效中的授权将无法直接删除。', { name: record.name })}
+            content={t('确定要删除模型集 {{name}} 吗？若存在生效中的授权将无法直接删除。', { name: record?.name })}
             onConfirm={() => onDelete(record)}
           >
             <Button
@@ -129,13 +134,14 @@ const ModelSetsTable = ({
 
   return (
     <Table
+      rowKey='id'
       columns={columns}
-      dataSource={sets}
+      dataSource={Array.isArray(sets) ? sets : []}
       loading={loading}
       pagination={{
         currentPage: page,
         pageSize: pageSize,
-        total: total,
+        total: total || 0,
         onPageChange: onPageChange,
       }}
       size='middle'

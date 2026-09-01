@@ -102,7 +102,7 @@ const UserGroupsTable = ({
 
           <Popconfirm
             title={t('确认删除用户组')}
-            content={t('确定删除用户组 {{name}} 吗？若存在生效中的模型集授权将无法直接删除。', { name: record.name })}
+            content={t('确定删除用户组 {{name}} 吗？若存在生效中的模型集授权将无法直接删除。', { name: record?.name })}
             onConfirm={() => onDelete(record)}
           >
             <Button
@@ -119,13 +119,14 @@ const UserGroupsTable = ({
 
   return (
     <Table
+      rowKey='id'
       columns={columns}
-      dataSource={groups}
+      dataSource={Array.isArray(groups) ? groups : []}
       loading={loading}
       pagination={{
         currentPage: page,
         pageSize: pageSize,
-        total: total,
+        total: total || 0,
         onPageChange: onPageChange,
       }}
       size='middle'
