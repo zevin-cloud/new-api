@@ -41,6 +41,7 @@ const ModelsActions = ({
   applyUpstreamOverwrite,
   compactMode,
   setCompactMode,
+  refresh,
   t,
 }) => {
   // Modal states
@@ -219,6 +220,7 @@ const ModelsActions = ({
       <MissingModelsModal
         visible={showMissingModal}
         onClose={() => setShowMissingModal(false)}
+        onSuccess={refresh}
         onConfigureModel={(name) => {
           setEditingModel({ id: undefined, model_name: name });
           setShowEdit(true);

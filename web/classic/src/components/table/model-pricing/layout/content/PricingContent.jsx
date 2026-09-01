@@ -51,7 +51,11 @@ const PricingContent = ({ isMobile, sidebarProps, ...props }) => {
           isMobile ? 'pricing-view-container-mobile' : 'pricing-view-container'
         }
       >
-        <PricingView {...props} viewMode={sidebarProps.viewMode} />
+        <PricingView
+          {...props}
+          isMobile={isMobile}
+          viewMode={sidebarProps.viewMode}
+        />
       </div>
     </div>
   );

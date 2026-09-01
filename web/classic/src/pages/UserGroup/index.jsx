@@ -11,7 +11,11 @@ import React from 'react';
 import UserGroupsPage from '../../components/table/user-groups';
 
 const UserGroup = () => {
-  return <UserGroupsPage />;
+  return (
+    <div className='mt-[60px] px-2'>
+      <UserGroupsPage />
+    </div>
+  );
 };
 
 export default UserGroup;

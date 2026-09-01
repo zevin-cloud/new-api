@@ -67,16 +67,30 @@ func GetAdminUserGroup(c *gin.Context) {
 	})
 }
 
+type UserGroupCreateRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Status      int    `json:"status"`
+	UserIds     []int  `json:"user_ids"`
+}
+
+type UserGroupUpdateRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Status      int    `json:"status"`
+	UserIds     *[]int `json:"user_ids"`
+}
+
 func CreateAdminUserGroup(c *gin.Context) {
-	var group model.UserGroup
-	if err := c.ShouldBindJSON(&group); err != nil {
+	var req UserGroupCreateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "参数解析失败: " + err.Error(),
 		})
 		return
 	}
-	if group.Name == "" {
+	if req.Name == "" {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "用户组名称不能为空",
@@ -84,13 +98,25 @@ func CreateAdminUserGroup(c *gin.Context) {
 		return
 	}
 
-	group.CreatedBy = c.GetInt("id")
+	group := model.UserGroup{
+		Name:        req.Name,
+		Description: req.Description,
+		Status:      req.Status,
+		CreatedBy:   c.GetInt("id"),
+	}
 	if err := group.Insert(); err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": err.Error(),
 		})
 		return
+	}
+
+	if len(req.UserIds) > 0 {
+		_ = model.AddUsersToGroup(group.Id, req.UserIds)
+		for _, uid := range req.UserIds {
+			service.InvalidateUserModelAuthCache(uid)
+		}
 	}
 
 	actorId := c.GetInt("id")
@@ -104,27 +130,36 @@ func CreateAdminUserGroup(c *gin.Context) {
 }
 
 func UpdateAdminUserGroup(c *gin.Context) {
-	var group model.UserGroup
-	if err := c.ShouldBindJSON(&group); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "参数解析失败: " + err.Error(),
-		})
-		return
-	}
-	if group.Id <= 0 {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "无效的用户组 ID",
 		})
 		return
 	}
-	if group.Name == "" {
+
+	var req UserGroupUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "参数解析失败: " + err.Error(),
+		})
+		return
+	}
+	if req.Name == "" {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": "用户组名称不能为空",
 		})
 		return
+	}
+
+	group := model.UserGroup{
+		Id:          id,
+		Name:        req.Name,
+		Description: req.Description,
+		Status:      req.Status,
 	}
 
 	if err := group.Update(); err != nil {
@@ -133,6 +168,13 @@ func UpdateAdminUserGroup(c *gin.Context) {
 			"message": err.Error(),
 		})
 		return
+	}
+
+	if req.UserIds != nil {
+		_ = model.SetGroupMembers(id, *req.UserIds)
+		for _, uid := range *req.UserIds {
+			service.InvalidateUserModelAuthCache(uid)
+		}
 	}
 
 	service.InvalidateGroupModelAuthCache(group.Id)

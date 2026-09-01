@@ -76,6 +76,8 @@ const PricingCardView = ({
   selectedRowKeys = [],
   setSelectedRowKeys,
   openModelDetail,
+  getModelAuthStatus,
+  openRequestAccess,
 }) => {
   const showSkeleton = useMinimumLoadingTime(loading);
   const startIndex = (currentPage - 1) * pageSize;

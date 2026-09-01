@@ -11,7 +11,11 @@ import React from 'react';
 import ModelSetsPage from '../../components/table/model-sets';
 
 const ModelSet = () => {
-  return <ModelSetsPage />;
+  return (
+    <div className='mt-[60px] px-2'>
+      <ModelSetsPage />
+    </div>
+  );
 };
 
 export default ModelSet;
