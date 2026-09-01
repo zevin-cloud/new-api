@@ -1,4 +1,4 @@
-WEB_DIR = ./web
+WEB_DIR = ./web/classic
 API_DIR = .
 DEV_WEB_PORT ?= 5173
 DEV_COMPOSE_FILE = docker-compose.dev.yml
@@ -13,9 +13,10 @@ DEV_SQLITE_PATH ?= one-api.db
 all: build-all-web start-api
 
 build-web:
-	@echo "Building web frontend..."
-	@cd $(WEB_DIR) && bun install --frozen-lockfile
-	@cd $(WEB_DIR) && DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$$(cat ../VERSION) bun run build
+	@echo "Building classic web frontend..."
+	@cd $(WEB_DIR) && bun install
+	@cd $(WEB_DIR) && bun run build
+	@mkdir -p ./web/dist && rm -rf ./web/dist/* && cp -r ./web/classic/dist/* ./web/dist/
 
 build-all-web: build-web
 
