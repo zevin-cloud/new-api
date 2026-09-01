@@ -80,6 +80,9 @@ import {
   Package,
   Server,
   CalendarClock,
+  ShieldCheck,
+  Boxes,
+  Users,
 } from 'lucide-react';
 import {
   SiAtlassian,
@@ -143,8 +146,14 @@ export function getLucideIcon(key, selected = false) {
     case 'user':
     case 'personal':
       return <User {...commonProps} color={iconColor} />;
+    case 'user_group':
+      return <Users {...commonProps} color={iconColor} />;
     case 'models':
       return <Package {...commonProps} color={iconColor} />;
+    case 'model_set':
+      return <Boxes {...commonProps} color={iconColor} />;
+    case 'model_grant':
+      return <ShieldCheck {...commonProps} color={iconColor} />;
     case 'deployment':
       return <Server {...commonProps} color={iconColor} />;
     case 'subscription':

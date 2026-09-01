@@ -21,7 +21,6 @@ const UserGroupsTable = ({
   onPageChange,
   onEdit,
   onManageMembers,
-  onManageGrants,
   onDelete,
   t,
 }) => {
@@ -44,12 +43,6 @@ const UserGroupsTable = ({
       render: (v) => <Tag color='cyan'>{v || 0} {t('人')}</Tag>,
     },
     {
-      title: t('授权模型集'),
-      dataIndex: 'model_set_count',
-      width: 120,
-      render: (v) => <Tag color='blue'>{v || 0} {t('个集合')}</Tag>,
-    },
-    {
       title: t('状态'),
       dataIndex: 'status',
       width: 90,
@@ -67,7 +60,7 @@ const UserGroupsTable = ({
       title: t('操作'),
       key: 'op',
       fixed: 'right',
-      width: 260,
+      width: 190,
       render: (_, record) => (
         <Space>
           <Button
@@ -78,16 +71,6 @@ const UserGroupsTable = ({
             onClick={() => onManageMembers(record)}
           >
             {t('成员')}
-          </Button>
-
-          <Button
-            theme='light'
-            type='warning'
-            size='small'
-            icon={<IconLock />}
-            onClick={() => onManageGrants(record)}
-          >
-            {t('模型集授权')}
           </Button>
 
           <Button

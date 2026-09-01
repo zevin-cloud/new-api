@@ -13,15 +13,16 @@ import { IconPlus } from '@douyinfe/semi-icons';
 
 const UserGroupsActions = ({ onAdd, t }) => {
   return (
-    <Button
-      icon={<IconPlus />}
-      theme='solid'
-      type='primary'
-      onClick={onAdd}
-      size='small'
-    >
-      {t('新建用户组')}
-    </Button>
+    <div className='flex flex-wrap gap-2 w-full md:w-auto order-2 md:order-1'>
+      <Button
+        icon={<IconPlus />}
+        type='primary'
+        onClick={onAdd}
+        size='small'
+      >
+        {t('新建用户组')}
+      </Button>
+    </div>
   );
 };
 

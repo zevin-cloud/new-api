@@ -23,6 +23,7 @@ import Loading from './components/common/ui/Loading';
 import User from './pages/User';
 import UserGroup from './pages/UserGroup';
 import ModelSet from './pages/ModelSet';
+import ModelGrant from './pages/ModelGrant';
 import { AuthRedirect, PrivateRoute, AdminRoute } from './helpers';
 import RegisterForm from './components/auth/RegisterForm';
 import LoginForm from './components/auth/LoginForm';
@@ -202,6 +203,22 @@ function App() {
           element={
             <AdminRoute>
               <ModelSet />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/model-grants'
+          element={
+            <AdminRoute>
+              <ModelGrant />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/model-grant'
+          element={
+            <AdminRoute>
+              <ModelGrant />
             </AdminRoute>
           }
         />

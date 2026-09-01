@@ -13,10 +13,9 @@ import { IconPlus } from '@douyinfe/semi-icons';
 
 const ModelSetsActions = ({ onAdd, onOpenRequests, t }) => {
   return (
-    <div className='flex gap-2'>
+    <div className='flex flex-wrap gap-2 w-full md:w-auto order-2 md:order-1'>
       <Button
         icon={<IconPlus />}
-        theme='solid'
         type='primary'
         onClick={onAdd}
         size='small'
@@ -25,7 +24,6 @@ const ModelSetsActions = ({ onAdd, onOpenRequests, t }) => {
       </Button>
 
       <Button
-        theme='light'
         type='warning'
         onClick={onOpenRequests}
         size='small'

@@ -130,14 +130,15 @@ const GroupMembersModal = ({ visible, group, onClose, t }) => {
       visible={visible}
       onCancel={onClose}
       width={780}
+      className='!rounded-2xl'
       footer={
-        <Button theme='light' onClick={onClose}>
+        <Button theme='light' className='!rounded-lg' onClick={onClose}>
           {t('关闭')}
         </Button>
       }
     >
       <div className='flex flex-col gap-4'>
-        <div className='flex gap-2 items-center p-3 bg-[var(--semi-color-fill-0)] rounded-lg'>
+        <div className='flex gap-2 items-center p-3 bg-[var(--semi-color-fill-0)] !rounded-xl border border-[var(--semi-color-border)]'>
           <Select
             placeholder={t('输入用户名、姓名或工号搜索待添加的用户')}
             filter
@@ -147,6 +148,7 @@ const GroupMembersModal = ({ visible, group, onClose, t }) => {
             onSearch={handleSearchUsers}
             value={selectedUserIdsToAdd}
             onChange={(val) => setSelectedUserIdsToAdd(val)}
+            className='!rounded-lg'
             style={{ width: '100%' }}
           >
             {userOptions.map((u) => (
@@ -158,6 +160,7 @@ const GroupMembersModal = ({ visible, group, onClose, t }) => {
           <Button
             theme='solid'
             type='primary'
+            className='!rounded-lg whitespace-nowrap'
             icon={<IconPlus />}
             onClick={handleAddMembers}
             disabled={selectedUserIdsToAdd.length === 0}

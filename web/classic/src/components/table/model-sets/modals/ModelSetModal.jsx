@@ -9,7 +9,7 @@ License, or (at your option) any later version.
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
-  Modal,
+  SideSheet,
   Form,
   Radio,
   Button,
@@ -17,13 +17,27 @@ import {
   Tag,
   Typography,
   Input,
-  Empty,
+  Card,
+  Avatar,
+  Spin,
+  Row,
+  Col,
 } from '@douyinfe/semi-ui';
-import { IconPlus, IconDelete, IconSearch } from '@douyinfe/semi-icons';
+import {
+  IconPlus,
+  IconSave,
+  IconClose,
+  IconBox,
+  IconLayers,
+} from '@douyinfe/semi-icons';
 import { API, showError, showSuccess } from '../../../../helpers';
+import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 import ModelCategoryPickerModal from './ModelCategoryPickerModal';
 
+const { Title, Text } = Typography;
+
 const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
+  const isMobile = useIsMobile();
   const formApiRef = useRef(null);
   const [configuredModels, setConfiguredModels] = useState([]);
   const [allPresetModels, setAllPresetModels] = useState([]);
@@ -31,6 +45,9 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
   const [selectedModels, setSelectedModels] = useState([]);
   const [showPicker, setShowPicker] = useState(false);
   const [customModelInput, setCustomModelInput] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const isEdit = Boolean(editingSet);
 
   useEffect(() => {
     if (visible) {
@@ -65,7 +82,7 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
       const configuredSet = new Set();
       const presetSet = new Set();
 
-      // 1. Fetch from Pricing (包含所有定价和系统模型)
+      // 1. Fetch from Pricing
       try {
         const resPricing = await API.get('/api/pricing');
         if (resPricing.data?.success && Array.isArray(resPricing.data?.data)) {
@@ -74,11 +91,9 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
             if (name) configuredSet.add(name);
           });
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) {}
 
-      // 2. Fetch from Model Management (模型管理元数据)
+      // 2. Fetch from Model Management
       try {
         const resMeta = await API.get('/api/models/?p=1&page_size=1000');
         const metaItems = resMeta.data?.data?.items || resMeta.data?.data || [];
@@ -88,23 +103,19 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
             if (name) configuredSet.add(name);
           });
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) {}
 
-      // 3. Fetch enabled models from channels (渠道已启用模型)
+      // 3. Fetch enabled models from channels
       try {
         const resEnabled = await API.get('/api/channel/models_enabled');
-        if (resEnabled.data?.success && Array.isArray(resEnabled.data?.data)) {
+        if (resEnabled.data?.success && Array.isArray(resEnabled.data.data)) {
           resEnabled.data.data.forEach((m) => {
             if (typeof m === 'string' && m) configuredSet.add(m);
             else if (m?.id) configuredSet.add(m.id);
             else if (m?.name) configuredSet.add(m.name);
           });
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) {}
 
       // 4. Fetch channel adapter predefined models
       try {
@@ -116,9 +127,7 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
             if (name) presetSet.add(name);
           });
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) {}
 
       // 5. Fetch dashboard models mapping
       try {
@@ -141,11 +150,8 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
             });
           }
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) {}
 
-      // 6. Include models already in editingSet
       if (editingSet?.models && Array.isArray(editingSet.models)) {
         editingSet.models.forEach((m) => {
           if (m) configuredSet.add(m);
@@ -203,6 +209,7 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
         return;
       }
 
+      setLoading(true);
       if (editingSet) {
         const res = await API.put(`/api/model-set/${editingSet.id}`, {
           name: values.name,
@@ -213,6 +220,7 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
         if (res.data?.success) {
           showSuccess(t('更新模型集成功'));
           onSuccess();
+          onClose();
         } else {
           showError(res.data?.message || '更新失败');
         }
@@ -226,128 +234,207 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
         if (res.data?.success) {
           showSuccess(t('创建模型集成功'));
           onSuccess();
+          onClose();
         } else {
           showError(res.data?.message || '创建失败');
         }
       }
     } catch (e) {
       // validation error
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <>
-      <Modal
-        title={editingSet ? t('编辑模型集') : t('新建模型集')}
+      <SideSheet
+        placement='right'
+        title={
+          <Space>
+            <Tag color={isEdit ? 'blue' : 'green'} shape='circle'>
+              {isEdit ? t('更新') : t('新建')}
+            </Tag>
+            <Title heading={4} className='m-0'>
+              {isEdit ? t('编辑模型集') : t('新建模型集')}
+            </Title>
+          </Space>
+        }
+        bodyStyle={{ padding: '0' }}
         visible={visible}
-        onOk={handleSubmit}
-        onCancel={onClose}
-        width={720}
-        destroyOnClose
-      >
-        <Form getFormApi={(api) => (formApiRef.current = api)}>
-          <Form.Input
-            field='name'
-            label={t('模型集名称')}
-            placeholder={t('例如：通用大语言模型集、编程助手模型集')}
-            rules={[{ required: true, message: t('请输入模型集名称') }]}
-          />
-          <Form.TextArea
-            field='description'
-            label={t('模型集说明')}
-            placeholder={t('说明该模型集的适用场景及包含能力（可选）')}
-            rows={2}
-          />
-
-          {/* 模型清单管理区域 */}
-          <div className='mt-4 flex flex-col gap-2'>
-            <div className='flex justify-between items-center'>
-              <div className='flex items-center gap-2'>
-                <span className='font-medium text-[var(--semi-color-text-0)]'>
-                  {t('包含的模型清单')}
-                </span>
-                <Tag color='blue' size='small'>
-                  {t('已选 {{count}} 个', { count: selectedModels.length })}
-                </Tag>
-              </div>
-
-              <Space>
-                <Button
-                  theme='solid'
-                  type='primary'
-                  size='small'
-                  icon={<IconPlus />}
-                  onClick={() => setShowPicker(true)}
-                  loading={loadingModels}
-                >
-                  {t('分类选择模型')}
-                </Button>
-                {selectedModels.length > 0 && (
-                  <Button
-                    type='danger'
-                    theme='borderless'
-                    size='small'
-                    onClick={handleClearAll}
-                  >
-                    {t('清空')}
-                  </Button>
-                )}
-              </Space>
-            </div>
-
-            {/* 已选模型标签容器 */}
-            <div className='min-h-[90px] max-h-[180px] overflow-y-auto p-3 rounded-lg border border-[var(--semi-color-border)] bg-[var(--semi-color-fill-0)] flex flex-wrap gap-1.5 items-center content-start'>
-              {selectedModels.length === 0 ? (
-                <div className='w-full text-center py-4 text-xs text-[var(--semi-color-text-2)]'>
-                  {t(
-                    '暂未选择任何模型，请点击上方「分类选择模型」按钮选择，或在下方输入添加自定义模型',
-                  )}
-                </div>
-              ) : (
-                selectedModels.map((m) => (
-                  <Tag
-                    key={m}
-                    color='blue'
-                    closable
-                    onClose={() => handleRemoveModel(m)}
-                    className='!text-xs'
-                  >
-                    {m}
-                  </Tag>
-                ))
-              )}
-            </div>
-
-            {/* 手动添加自定义模型 */}
-            <div className='flex items-center gap-2 mt-1'>
-              <Input
-                placeholder={t('输入任意自定义模型名称按回车或点击添加...')}
-                value={customModelInput}
-                onChange={(v) => setCustomModelInput(v)}
-                onEnterPress={handleAddCustomModel}
-                size='small'
-              />
+        width={isMobile ? '100%' : 680}
+        footer={
+          <div className='flex justify-end bg-white p-3'>
+            <Space>
               <Button
-                type='secondary'
-                size='small'
-                onClick={handleAddCustomModel}
+                theme='solid'
+                className='!rounded-lg'
+                onClick={handleSubmit}
+                icon={<IconSave />}
+                loading={loading}
               >
-                {t('添加')}
+                {t('提交')}
               </Button>
-            </div>
+              <Button
+                theme='light'
+                className='!rounded-lg'
+                type='primary'
+                onClick={onClose}
+                icon={<IconClose />}
+              >
+                {t('取消')}
+              </Button>
+            </Space>
           </div>
+        }
+        closeIcon={null}
+        onCancel={onClose}
+      >
+        <Spin spinning={loading}>
+          <Form getFormApi={(api) => (formApiRef.current = api)}>
+            <div className='p-2 space-y-3'>
+              {/* 基本信息卡片 */}
+              <Card className='!rounded-2xl shadow-sm border-0'>
+                <div className='flex items-center mb-3'>
+                  <Avatar size='small' color='blue' className='mr-2 shadow-md'>
+                    <IconBox size={16} />
+                  </Avatar>
+                  <div>
+                    <Text className='text-lg font-medium'>{t('基本信息')}</Text>
+                    <div className='text-xs text-gray-600'>
+                      {t('定义模型集的名称与适用场景')}
+                    </div>
+                  </div>
+                </div>
 
-          <Form.RadioGroup
-            field='status'
-            label={t('状态')}
-            initValue={1}
-            className='mt-4'
-          >
-            <Radio value={1}>{t('启用')}</Radio>
-            <Radio value={2}>{t('禁用')}</Radio>
-          </Form.RadioGroup>
-        </Form>
-      </Modal>
+                <Row gutter={12}>
+                  <Col span={24}>
+                    <Form.Input
+                      field='name'
+                      label={t('模型集名称')}
+                      placeholder={t('例如：通用大语言模型集、编程助手模型集')}
+                      rules={[{ required: true, message: t('请输入模型集名称') }]}
+                      showClear
+                    />
+                  </Col>
+
+                  <Col span={24}>
+                    <Form.TextArea
+                      field='description'
+                      label={t('模型集说明')}
+                      placeholder={t('说明该模型集的适用场景及包含能力（可选）')}
+                      rows={3}
+                      showClear
+                    />
+                  </Col>
+
+                  <Col span={24}>
+                    <Form.RadioGroup
+                      field='status'
+                      label={t('状态')}
+                      initValue={1}
+                    >
+                      <Radio value={1}>{t('启用')}</Radio>
+                      <Radio value={2}>{t('禁用')}</Radio>
+                    </Form.RadioGroup>
+                  </Col>
+                </Row>
+              </Card>
+
+              {/* 模型清单管理卡片 */}
+              <Card className='!rounded-2xl shadow-sm border-0'>
+                <div className='flex items-center mb-3'>
+                  <Avatar size='small' color='purple' className='mr-2 shadow-md'>
+                    <IconLayers size={16} />
+                  </Avatar>
+                  <div>
+                    <Text className='text-lg font-medium'>{t('包含的模型清单')}</Text>
+                    <div className='text-xs text-gray-600'>
+                      {t('已选 {{count}} 个模型', {
+                        count: selectedModels.length,
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className='flex flex-col gap-3'>
+                  <div className='flex justify-between items-center'>
+                    <Text type='secondary' className='text-xs'>
+                      {t('从系统支持的分类中选择模型，或直接输入自定义模型')}
+                    </Text>
+                    <Space>
+                      <Button
+                        theme='solid'
+                        type='primary'
+                        size='small'
+                        className='!rounded-lg'
+                        icon={<IconPlus />}
+                        onClick={() => setShowPicker(true)}
+                        loading={loadingModels}
+                      >
+                        {t('分类选择模型')}
+                      </Button>
+                      {selectedModels.length > 0 && (
+                        <Button
+                          type='danger'
+                          theme='borderless'
+                          size='small'
+                          onClick={handleClearAll}
+                        >
+                          {t('清空')}
+                        </Button>
+                      )}
+                    </Space>
+                  </div>
+
+                  {/* 已选模型标签容器 */}
+                  <div className='min-h-[100px] max-h-[220px] overflow-y-auto p-3 rounded-2xl border border-[var(--semi-color-border)] bg-[var(--semi-color-fill-0)] flex flex-wrap gap-1.5 items-center content-start'>
+                    {selectedModels.length === 0 ? (
+                      <div className='w-full text-center py-6 text-xs text-[var(--semi-color-text-2)]'>
+                        {t(
+                          '暂未选择任何模型，请点击上方「分类选择模型」按钮选择，或在下方输入添加自定义模型',
+                        )}
+                      </div>
+                    ) : (
+                      selectedModels.map((m) => (
+                        <Tag
+                          key={m}
+                          color='blue'
+                          closable
+                          onClose={() => handleRemoveModel(m)}
+                          className='!rounded-md'
+                        >
+                          {m}
+                        </Tag>
+                      ))
+                    )}
+                  </div>
+
+                  {/* 手动添加自定义模型 */}
+                  <div className='flex items-center gap-2 pt-1'>
+                    <Input
+                      placeholder={t('输入自定义模型名称按回车或点击添加...')}
+                      value={customModelInput}
+                      onChange={(v) => setCustomModelInput(v)}
+                      onEnterPress={handleAddCustomModel}
+                      className='!rounded-lg'
+                      showClear
+                    />
+                    <Button
+                      type='secondary'
+                      theme='light'
+                      className='!rounded-lg'
+                      onClick={handleAddCustomModel}
+                    >
+                      {t('添加')}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </Form>
+        </Spin>
+      </SideSheet>
 
       {/* 分类选择模型弹窗 */}
       <ModelCategoryPickerModal
@@ -366,4 +453,3 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
 };
 
 export default ModelSetModal;
-

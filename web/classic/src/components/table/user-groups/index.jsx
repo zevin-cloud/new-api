@@ -15,7 +15,6 @@ import UserGroupsActions from './UserGroupsActions';
 import UserGroupsFilters from './UserGroupsFilters';
 import UserGroupModal from './modals/UserGroupModal';
 import GroupMembersModal from './modals/GroupMembersModal';
-import GroupGrantModal from './modals/GroupGrantModal';
 import { API, showError, showSuccess } from '../../../helpers';
 import { Typography } from '@douyinfe/semi-ui';
 
@@ -35,8 +34,6 @@ const UserGroupsPage = () => {
   const [editingGroup, setEditingGroup] = useState(null);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [managingMembersGroup, setManagingMembersGroup] = useState(null);
-  const [showGrantModal, setShowGrantModal] = useState(false);
-  const [managingGrantGroup, setManagingGrantGroup] = useState(null);
 
   const loadGroups = async (p = page, kw = keyword) => {
     setLoading(true);
@@ -80,11 +77,6 @@ const UserGroupsPage = () => {
     setShowMembersModal(true);
   };
 
-  const handleManageGrants = (record) => {
-    setManagingGrantGroup(record);
-    setShowGrantModal(true);
-  };
-
   const handleDelete = async (record) => {
     try {
       const res = await API.delete(`/api/user-group/${record.id}`);
@@ -122,16 +114,6 @@ const UserGroupsPage = () => {
         t={t}
       />
 
-      <GroupGrantModal
-        visible={showGrantModal}
-        group={managingGrantGroup}
-        onClose={() => {
-          setShowGrantModal(false);
-          loadGroups(page);
-        }}
-        t={t}
-      />
-
       <CardPro
         type='type1'
         descriptionArea={
@@ -145,7 +127,9 @@ const UserGroupsPage = () => {
         actionsArea={
           <div className='flex flex-col md:flex-row justify-between items-center gap-2 w-full'>
             <UserGroupsActions onAdd={handleAdd} t={t} />
-            <UserGroupsFilters onSearch={handleSearch} loading={loading} t={t} />
+            <div className='w-full md:w-full lg:w-auto order-1 md:order-2'>
+              <UserGroupsFilters onSearch={handleSearch} loading={loading} t={t} />
+            </div>
           </div>
         }
         t={t}
@@ -159,7 +143,6 @@ const UserGroupsPage = () => {
           onPageChange={(p) => loadGroups(p)}
           onEdit={handleEdit}
           onManageMembers={handleManageMembers}
-          onManageGrants={handleManageGrants}
           onDelete={handleDelete}
           t={t}
         />

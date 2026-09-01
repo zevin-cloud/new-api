@@ -14,7 +14,6 @@ import ModelSetsTable from './ModelSetsTable';
 import ModelSetsActions from './ModelSetsActions';
 import ModelSetsFilters from './ModelSetsFilters';
 import ModelSetModal from './modals/ModelSetModal';
-import ModelSetSubjectsModal from './modals/ModelSetSubjectsModal';
 import AdminRequestsModal from './modals/AdminRequestsModal';
 import { API, showError, showSuccess } from '../../../helpers';
 import { Typography } from '@douyinfe/semi-ui';
@@ -33,8 +32,6 @@ const ModelSetsPage = () => {
   // Modal states
   const [showSetModal, setShowSetModal] = useState(false);
   const [editingSet, setEditingSet] = useState(null);
-  const [showSubjectsModal, setShowSubjectsModal] = useState(false);
-  const [managingSubjectsSet, setManagingSubjectsSet] = useState(null);
   const [showAdminRequests, setShowAdminRequests] = useState(false);
 
   const loadSets = async (p = page, kw = keyword) => {
@@ -74,11 +71,6 @@ const ModelSetsPage = () => {
     setShowSetModal(true);
   };
 
-  const handleManageSubjects = (record) => {
-    setManagingSubjectsSet(record);
-    setShowSubjectsModal(true);
-  };
-
   const handleDelete = async (record) => {
     try {
       const res = await API.delete(`/api/model-set/${record.id}`);
@@ -101,16 +93,6 @@ const ModelSetsPage = () => {
         onClose={() => setShowSetModal(false)}
         onSuccess={() => {
           setShowSetModal(false);
-          loadSets(page);
-        }}
-        t={t}
-      />
-
-      <ModelSetSubjectsModal
-        visible={showSubjectsModal}
-        modelSet={managingSubjectsSet}
-        onClose={() => {
-          setShowSubjectsModal(false);
           loadSets(page);
         }}
         t={t}
@@ -139,7 +121,9 @@ const ModelSetsPage = () => {
               onOpenRequests={() => setShowAdminRequests(true)}
               t={t}
             />
-            <ModelSetsFilters onSearch={handleSearch} loading={loading} t={t} />
+            <div className='w-full md:w-full lg:w-auto order-1 md:order-2'>
+              <ModelSetsFilters onSearch={handleSearch} loading={loading} t={t} />
+            </div>
           </div>
         }
         t={t}
@@ -152,7 +136,6 @@ const ModelSetsPage = () => {
           total={total}
           onPageChange={(p) => loadSets(p)}
           onEdit={handleEdit}
-          onManageSubjects={handleManageSubjects}
           onDelete={handleDelete}
           t={t}
         />
@@ -162,3 +145,4 @@ const ModelSetsPage = () => {
 };
 
 export default ModelSetsPage;
+

@@ -26,8 +26,156 @@ type ModelGrant struct {
 	UpdatedAt   int64 `json:"updated_at" gorm:"bigint"`
 
 	// Non-db response fields
-	SubjectName  string `json:"subject_name,omitempty" gorm:"-"`
-	ModelSetName string `json:"model_set_name,omitempty" gorm:"-"`
+	SubjectName  string   `json:"subject_name,omitempty" gorm:"-"`
+	ModelSetName string   `json:"model_set_name,omitempty" gorm:"-"`
+	Models       []string `json:"models,omitempty" gorm:"-"`
+	ModelCount   int      `json:"model_count,omitempty" gorm:"-"`
+}
+
+type UserGrantDetail struct {
+	DirectGrants     []*ModelGrant `json:"direct_grants"`
+	GroupGrants      []*ModelGrant `json:"group_grants"`
+	DepartmentGrants []*ModelGrant `json:"department_grants"`
+	EffectiveModels  []string      `json:"effective_models"`
+	IsAdmin          bool          `json:"is_admin"`
+	DepartmentName   string        `json:"department_name"`
+	GroupNames       []string      `json:"group_names"`
+}
+
+func populateGrantDetails(grants []*ModelGrant) {
+	if len(grants) == 0 {
+		return
+	}
+
+	modelSetIds := make([]int, 0, len(grants))
+	deptIds := make([]int, 0)
+	groupIds := make([]int, 0)
+	userIds := make([]int, 0)
+
+	for _, g := range grants {
+		if g.ModelSetId > 0 {
+			modelSetIds = append(modelSetIds, g.ModelSetId)
+		}
+		switch g.SubjectType {
+		case SubjectTypeDepartment:
+			deptIds = append(deptIds, g.SubjectId)
+		case SubjectTypeUserGroup:
+			groupIds = append(groupIds, g.SubjectId)
+		case SubjectTypeUser:
+			userIds = append(userIds, g.SubjectId)
+		}
+	}
+
+	// Fetch ModelSets & models
+	modelSetMap := make(map[int]string)
+	modelSetModelsMap := make(map[int][]string)
+	if len(modelSetIds) > 0 {
+		var sets []ModelSet
+		_ = DB.Where("id IN ?", modelSetIds).Find(&sets)
+		for _, s := range sets {
+			modelSetMap[s.Id] = s.Name
+		}
+
+		var items []ModelSetItem
+		_ = DB.Where("model_set_id IN ?", modelSetIds).Find(&items)
+		for _, item := range items {
+			modelSetModelsMap[item.ModelSetId] = append(modelSetModelsMap[item.ModelSetId], item.ModelName)
+		}
+	}
+
+	// Fetch Departments
+	deptMap := make(map[int]string)
+	if len(deptIds) > 0 {
+		var depts []Department
+		_ = DB.Where("id IN ?", deptIds).Find(&depts)
+		for _, d := range depts {
+			deptMap[d.Id] = d.Name
+		}
+	}
+
+	// Fetch UserGroups
+	groupMap := make(map[int]string)
+	if len(groupIds) > 0 {
+		var groups []UserGroup
+		_ = DB.Where("id IN ?", groupIds).Find(&groups)
+		for _, grp := range groups {
+			groupMap[grp.Id] = grp.Name
+		}
+	}
+
+	// Fetch Users
+	userMap := make(map[int]string)
+	if len(userIds) > 0 {
+		var users []User
+		_ = DB.Select("id", "username", "display_name").Where("id IN ?", userIds).Find(&users)
+		for _, u := range users {
+			if u.DisplayName != "" {
+				userMap[u.Id] = u.DisplayName
+			} else {
+				userMap[u.Id] = u.Username
+			}
+		}
+	}
+
+	for _, g := range grants {
+		g.ModelSetName = modelSetMap[g.ModelSetId]
+		g.Models = modelSetModelsMap[g.ModelSetId]
+		g.ModelCount = len(g.Models)
+
+		switch g.SubjectType {
+		case SubjectTypeDepartment:
+			g.SubjectName = deptMap[g.SubjectId]
+		case SubjectTypeUserGroup:
+			g.SubjectName = groupMap[g.SubjectId]
+		case SubjectTypeUser:
+			g.SubjectName = userMap[g.SubjectId]
+		}
+	}
+}
+
+func GetModelGrants(page int, pageSize int, subjectType int, subjectId int, modelSetId int, status int, keyword string) ([]*ModelGrant, int64, error) {
+	var grants []*ModelGrant
+	var total int64
+
+	tx := DB.Model(&ModelGrant{})
+
+	if subjectType > 0 {
+		tx = tx.Where("subject_type = ?", subjectType)
+	}
+	if subjectId > 0 {
+		tx = tx.Where("subject_id = ?", subjectId)
+	}
+	if modelSetId > 0 {
+		tx = tx.Where("model_set_id = ?", modelSetId)
+	}
+
+	now := common.GetTimestamp()
+	if status == 1 { // Active
+		tx = tx.Where("expired_at = 0 OR expired_at > ?", now)
+	} else if status == 2 { // Expired
+		tx = tx.Where("expired_at > 0 AND expired_at <= ?", now)
+	}
+
+	if err := tx.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+	offset := (page - 1) * pageSize
+
+	err := tx.Order("id DESC").Limit(pageSize).Offset(offset).Find(&grants).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	populateGrantDetails(grants)
+
+	return grants, total, nil
 }
 
 func GrantModelSet(subjectType int, subjectId int, modelSetId int, expiredAt int64, grantedBy int) error {
@@ -229,3 +377,69 @@ func GetEffectiveModelNamesForUser(userId int) ([]string, error) {
 	// Get distinct model names from those model sets
 	return GetModelNamesByModelSetIds(setIds)
 }
+
+func GetUserGrantDetail(userId int) (*UserGrantDetail, error) {
+	if userId <= 0 {
+		return nil, errors.New("无效的用户 ID")
+	}
+
+	var user User
+	if err := DB.Select("id", "username", "display_name", "department_id", "role").First(&user, userId).Error; err != nil {
+		return nil, err
+	}
+
+	detail := &UserGrantDetail{
+		IsAdmin: user.Role >= common.RoleAdminUser,
+	}
+
+	// 1. Department info & grants
+	if user.DepartmentId > 0 {
+		var dept Department
+		if err := DB.Select("id", "name", "path").First(&dept, user.DepartmentId).Error; err == nil {
+			detail.DepartmentName = dept.Name
+			deptIds := []int{dept.Id}
+			if dept.Path != "" {
+				for _, part := range strings.Split(dept.Path, "/") {
+					if part != "" {
+						if pid, err := strconv.Atoi(part); err == nil && pid > 0 {
+							deptIds = append(deptIds, pid)
+						}
+					}
+				}
+			}
+			var deptGrants []*ModelGrant
+			_ = DB.Where("subject_type = ? AND subject_id IN ?", SubjectTypeDepartment, deptIds).Find(&deptGrants)
+			populateGrantDetails(deptGrants)
+			detail.DepartmentGrants = deptGrants
+		}
+	}
+
+	// 2. User group info & grants
+	groupIds, _ := GetUserGroupIdsByUserId(userId)
+	if len(groupIds) > 0 {
+		var groups []UserGroup
+		_ = DB.Select("id", "name").Where("id IN ?", groupIds).Find(&groups)
+		for _, grp := range groups {
+			detail.GroupNames = append(detail.GroupNames, grp.Name)
+		}
+		var groupGrants []*ModelGrant
+		_ = DB.Where("subject_type = ? AND subject_id IN ?", SubjectTypeUserGroup, groupIds).Find(&groupGrants)
+		populateGrantDetails(groupGrants)
+		detail.GroupGrants = groupGrants
+	}
+
+	// 3. User direct grants
+	var userGrants []*ModelGrant
+	_ = DB.Where("subject_type = ? AND subject_id = ?", SubjectTypeUser, userId).Find(&userGrants)
+	populateGrantDetails(userGrants)
+	detail.DirectGrants = userGrants
+
+	// 4. Effective models
+	effectiveModels, err := GetEffectiveModelNamesForUser(userId)
+	if err == nil {
+		detail.EffectiveModels = effectiveModels
+	}
+
+	return detail, nil
+}
+

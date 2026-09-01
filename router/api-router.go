@@ -199,8 +199,10 @@ func SetApiRouter(router *gin.Engine) {
 		modelSetRoute := apiRouter.Group("/model-set")
 		modelSetRoute.Use(middleware.AdminAuth())
 		{
+			modelSetRoute.GET("", controller.GetModelSets)
 			modelSetRoute.GET("/", controller.GetModelSets)
 			modelSetRoute.GET("/:id", controller.GetModelSet)
+			modelSetRoute.POST("", controller.CreateModelSet)
 			modelSetRoute.POST("/", controller.CreateModelSet)
 			modelSetRoute.PUT("/:id", controller.UpdateModelSet)
 			modelSetRoute.DELETE("/:id", controller.DeleteModelSet)
@@ -210,6 +212,10 @@ func SetApiRouter(router *gin.Engine) {
 		modelGrantRoute := apiRouter.Group("/model-grant")
 		modelGrantRoute.Use(middleware.AdminAuth())
 		{
+			modelGrantRoute.GET("", controller.GetModelGrants)
+			modelGrantRoute.GET("/", controller.GetModelGrants)
+			modelGrantRoute.GET("/inspect/:userId", controller.InspectUserGrant)
+			modelGrantRoute.POST("", controller.GrantModelSet)
 			modelGrantRoute.POST("/", controller.GrantModelSet)
 			modelGrantRoute.DELETE("/:id", controller.RevokeModelGrant)
 		}

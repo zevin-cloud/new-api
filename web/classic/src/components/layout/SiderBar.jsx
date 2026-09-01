@@ -39,6 +39,7 @@ const routerMap = {
   user: '/console/user',
   user_group: '/console/user-groups',
   model_set: '/console/model-sets',
+  model_grant: '/console/model-grants',
   subscription: '/console/subscription',
   log: '/console/log',
   midjourney: '/console/midjourney',
@@ -173,6 +174,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('模型集管理'),
         itemKey: 'model_set',
         to: '/console/model-sets',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('授权管理'),
+        itemKey: 'model_grant',
+        to: '/console/model-grants',
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {

@@ -20,7 +20,6 @@ const ModelSetsTable = ({
   total,
   onPageChange,
   onEdit,
-  onManageSubjects,
   onDelete,
   t,
 }) => {
@@ -66,15 +65,6 @@ const ModelSetsTable = ({
       },
     },
     {
-      title: t('已授权主体'),
-      key: 'grant_count',
-      width: 120,
-      render: (_, r) => {
-        const totalGrants = (r?.department_count || 0) + (r?.user_group_count || 0) + (r?.user_count || 0) || r?.grant_count || 0;
-        return <Tag color='cyan'>{totalGrants} {t('个主体')}</Tag>;
-      },
-    },
-    {
       title: t('状态'),
       dataIndex: 'status',
       width: 90,
@@ -92,19 +82,9 @@ const ModelSetsTable = ({
       title: t('操作'),
       key: 'op',
       fixed: 'right',
-      width: 240,
+      width: 170,
       render: (_, record) => (
         <Space>
-          <Button
-            theme='light'
-            type='warning'
-            size='small'
-            icon={<IconUserGroup />}
-            onClick={() => onManageSubjects(record)}
-          >
-            {t('授权主体')}
-          </Button>
-
           <Button
             theme='light'
             type='tertiary'
