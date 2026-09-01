@@ -260,8 +260,49 @@ export const useModelPricingData = () => {
     setLoading(false);
   };
 
+  const [userPermissions, setUserPermissions] = useState({
+    all_access: false,
+    granted_models: [],
+    pending_models: {},
+  });
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestModalModel, setRequestModalModel] = useState('');
+
+  const loadPermissions = async () => {
+    try {
+      const res = await API.get('/api/user/model-permissions');
+      if (res.data?.success) {
+        setUserPermissions(res.data.data);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const openRequestAccess = (modelName) => {
+    setRequestModalModel(modelName);
+    setShowRequestModal(true);
+  };
+
+  const closeRequestAccess = () => {
+    setShowRequestModal(false);
+    setRequestModalModel('');
+  };
+
+  const getModelAuthStatus = (modelName) => {
+    if (userPermissions.all_access) return 'granted';
+    if (userPermissions.granted_models && userPermissions.granted_models.includes(modelName)) {
+      return 'granted';
+    }
+    if (userPermissions.pending_models && userPermissions.pending_models[modelName]) {
+      return 'pending';
+    }
+    return 'ungranted';
+  };
+
   const refresh = async () => {
     await loadPricing();
+    await loadPermissions();
   };
 
   const copyText = async (text) => {
@@ -398,6 +439,14 @@ export const useModelPricingData = () => {
     handleGroupClick,
     openModelDetail,
     closeModelDetail,
+
+    // 权限与申请
+    userPermissions,
+    showRequestModal,
+    requestModalModel,
+    openRequestAccess,
+    closeRequestAccess,
+    getModelAuthStatus,
 
     // 引用
     compositionRef,

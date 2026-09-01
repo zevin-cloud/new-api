@@ -108,22 +108,26 @@ type User struct {
 	StripeCustomer   string                     `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
 	CreatedAt        int64                      `json:"created_at" gorm:"autoCreateTime;column:created_at"`
 	LastLoginAt      int64                      `json:"last_login_at" gorm:"default:0;column:last_login_at"`
+	DepartmentId     int                        `json:"department_id" gorm:"type:int;default:0;index"`
+	EmployeeId       string                     `json:"employee_id" gorm:"type:varchar(64);column:employee_id;index"`
 	AuthVersion      int64                      `json:"-" gorm:"type:bigint;not null;default:1;column:auth_version"`
 	AdminPermissions map[string]map[string]bool `json:"admin_permissions,omitempty" gorm:"-:all"`
 }
 
 func (user *User) ToBaseUser() *UserBase {
 	cache := &UserBase{
-		Id:          user.Id,
-		Group:       user.Group,
-		Quota:       user.Quota,
-		Status:      user.Status,
-		Role:        user.Role,
-		Username:    user.Username,
-		Setting:     user.Setting,
-		Email:       user.Email,
-		AuthVersion: user.AuthVersion,
-		CacheSchema: userCacheSchemaVersion,
+		Id:           user.Id,
+		Group:        user.Group,
+		Quota:        user.Quota,
+		Status:       user.Status,
+		Role:         user.Role,
+		Username:     user.Username,
+		Setting:      user.Setting,
+		Email:        user.Email,
+		DepartmentId: user.DepartmentId,
+		EmployeeId:   user.EmployeeId,
+		AuthVersion:  user.AuthVersion,
+		CacheSchema:  userCacheSchemaVersion,
 	}
 	return cache
 }
@@ -422,6 +426,10 @@ func GetAllUsers(pageInfo *common.PageInfo, sortOptions ...UserSortOptions) (use
 }
 
 func SearchUsers(keyword string, group string, role *int, status *int, startIdx int, num int, sortOptions ...UserSortOptions) ([]*User, int64, error) {
+	return SearchUsersAdvanced(keyword, group, role, status, nil, nil, startIdx, num, sortOptions...)
+}
+
+func SearchUsersAdvanced(keyword string, group string, role *int, status *int, departmentId *int, userGroupId *int, startIdx int, num int, sortOptions ...UserSortOptions) ([]*User, int64, error) {
 	var users []*User
 	var total int64
 	var err error
@@ -440,19 +448,34 @@ func SearchUsers(keyword string, group string, role *int, status *int, startIdx 
 	// 构建基础查询
 	query := tx.Unscoped().Model(&User{})
 
-	// 构建搜索条件
-	likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ?"
-	likeArgs := []interface{}{"%" + keyword + "%", "%" + keyword + "%", "%" + keyword + "%"}
+	if keyword != "" {
+		// 构建搜索条件
+		likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ? OR employee_id LIKE ?"
+		likeArgs := []interface{}{"%" + keyword + "%", "%" + keyword + "%", "%" + keyword + "%", "%" + keyword + "%"}
 
-	// 尝试将关键字转换为整数ID
-	keywordInt, err := strconv.Atoi(keyword)
-	if err == nil {
-		// 如果是数字，同时搜索ID和其他字段
-		likeCondition = "id = ? OR " + likeCondition
-		likeArgs = append([]interface{}{keywordInt}, likeArgs...)
+		// 尝试将关键字转换为整数ID
+		keywordInt, err := strconv.Atoi(keyword)
+		if err == nil {
+			// 如果是数字，同时搜索ID和其他字段
+			likeCondition = "id = ? OR " + likeCondition
+			likeArgs = append([]interface{}{keywordInt}, likeArgs...)
+		}
+		query = query.Where("("+likeCondition+")", likeArgs...)
 	}
 
-	query = query.Where("("+likeCondition+")", likeArgs...)
+	if departmentId != nil && *departmentId > 0 {
+		deptIds, err := GetDepartmentAndSubIds(*departmentId)
+		if err == nil && len(deptIds) > 0 {
+			query = query.Where("department_id IN ?", deptIds)
+		} else {
+			query = query.Where("department_id = ?", *departmentId)
+		}
+	}
+
+	if userGroupId != nil && *userGroupId > 0 {
+		query = query.Where("id IN (SELECT user_id FROM user_group_members WHERE group_id = ?)", *userGroupId)
+	}
+
 	if group != "" {
 		query = query.Where(commonGroupCol+" = ?", group)
 	}

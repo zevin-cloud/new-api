@@ -104,7 +104,13 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
   const loadTokens = async (page = 1, size = pageSize) => {
     setLoading(true);
     setSearchMode(false);
-    const res = await API.get(`/api/token/?p=${page}&size=${size}`);
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetUserId = urlParams.get('user_id');
+    let url = `/api/token/?p=${page}&size=${size}`;
+    if (targetUserId) {
+      url += `&user_id=${targetUserId}`;
+    }
+    const res = await API.get(url);
     const { success, message, data } = res.data;
     if (success) {
       syncPageData(data);
@@ -316,9 +322,13 @@ export const useTokensData = (openFluentNotification, openCCSwitchModal) => {
       return;
     }
     setSearching(true);
-    const res = await API.get(
-      `/api/token/search?keyword=${encodeURIComponent(searchKeyword)}&token=${encodeURIComponent(searchToken)}&p=${normalizedPage}&size=${normalizedSize}`,
-    );
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetUserId = urlParams.get('user_id');
+    let url = `/api/token/search?keyword=${encodeURIComponent(searchKeyword)}&token=${encodeURIComponent(searchToken)}&p=${normalizedPage}&size=${normalizedSize}`;
+    if (targetUserId) {
+      url += `&user_id=${targetUserId}`;
+    }
+    const res = await API.get(url);
     const { success, message, data } = res.data;
     if (success) {
       setSearchMode(true);

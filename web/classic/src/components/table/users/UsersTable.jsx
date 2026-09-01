@@ -41,6 +41,12 @@ const UsersTable = (usersData) => {
     pageSize,
     userCount,
     compactMode,
+    selectedRowKeys,
+    setSelectedRowKeys,
+    showDetail,
+    setShowDetail,
+    detailUserId,
+    setDetailUserId,
     handlePageChange,
     handlePageSizeChange,
     handleRow,
@@ -52,6 +58,11 @@ const UsersTable = (usersData) => {
     resetUserTwoFA,
     t,
   } = usersData;
+
+  const showUserDetail = (uid) => {
+    setDetailUserId(uid);
+    setShowDetail(true);
+  };
 
   // Modal states
   const [showPromoteModal, setShowPromoteModal] = useState(false);
@@ -134,6 +145,7 @@ const UsersTable = (usersData) => {
       t,
       setEditingUser,
       setShowEditUser,
+      showUserDetail,
       showPromoteModal: showPromoteUserModal,
       showDemoteModal: showDemoteUserModal,
       showEnableDisableModal: showEnableDisableUserModal,
@@ -146,6 +158,7 @@ const UsersTable = (usersData) => {
     t,
     setEditingUser,
     setShowEditUser,
+    showUserDetail,
     showPromoteUserModal,
     showDemoteUserModal,
     showEnableDisableUserModal,
@@ -168,11 +181,21 @@ const UsersTable = (usersData) => {
       : columns;
   }, [compactMode, columns]);
 
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: (keys) => {
+      if (setSelectedRowKeys) {
+        setSelectedRowKeys(keys);
+      }
+    },
+  };
+
   return (
     <>
       <CardTable
         columns={tableColumns}
         dataSource={users}
+        rowSelection={rowSelection}
         scroll={compactMode ? undefined : { x: 'max-content' }}
         pagination={{
           currentPage: activePage,

@@ -384,9 +384,21 @@ func SearchUsers(c *gin.Context) {
 			status = &parsed
 		}
 	}
+	var departmentId *int
+	if deptStr := c.Query("department_id"); deptStr != "" {
+		if parsed, err := strconv.Atoi(deptStr); err == nil && parsed > 0 {
+			departmentId = &parsed
+		}
+	}
+	var userGroupId *int
+	if groupStr := c.Query("user_group_id"); groupStr != "" {
+		if parsed, err := strconv.Atoi(groupStr); err == nil && parsed > 0 {
+			userGroupId = &parsed
+		}
+	}
 	pageInfo := common.GetPageQuery(c)
 	sortOptions := model.NewUserSortOptions(c.Query("sort_by"), c.Query("sort_order"))
-	users, total, err := model.SearchUsers(keyword, group, role, status, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), sortOptions)
+	users, total, err := model.SearchUsersAdvanced(keyword, group, role, status, departmentId, userGroupId, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), sortOptions)
 	if err != nil {
 		common.ApiError(c, err)
 		return

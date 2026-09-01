@@ -129,6 +129,10 @@ func SetApiRouter(router *gin.Engine) {
 				// Custom OAuth bindings
 				selfRoute.GET("/oauth/bindings", controller.GetUserOAuthBindings)
 				selfRoute.DELETE("/oauth/bindings/:provider_id", controller.UnbindCustomOAuth)
+				selfRoute.GET("/model-permissions", controller.GetMyModelPermissions)
+				selfRoute.POST("/model-access-request", controller.SubmitModelAccessRequest)
+				selfRoute.GET("/model-access-request/my", controller.GetMyAccessRequests)
+				selfRoute.DELETE("/model-access-request/:id", controller.CancelAccessRequest)
 			}
 
 			adminRoute := userRoute.Group("/")
@@ -141,6 +145,7 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.GET("/:id/oauth/bindings", controller.GetUserOAuthBindingsByAdmin)
 				adminRoute.DELETE("/:id/oauth/bindings/:provider_id", controller.UnbindCustomOAuthByAdmin)
 				adminRoute.DELETE("/:id/bindings/:binding_type", controller.AdminClearUserBinding)
+				adminRoute.GET("/:id/detail", controller.GetUserDetailAdmin)
 				adminRoute.GET("/:id", controller.GetUser)
 				adminRoute.POST("/", controller.CreateUser)
 				adminRoute.POST("/manage", controller.ManageUser)
@@ -148,10 +153,65 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.DELETE("/:id", controller.DeleteUser)
 				adminRoute.DELETE("/:id/reset_passkey", controller.AdminResetPasskey)
 
+				// User import
+				adminRoute.POST("/import/preview", controller.PreviewUserImport)
+				adminRoute.POST("/import/execute", controller.ExecuteUserImport)
+
 				// Admin 2FA routes
 				adminRoute.GET("/2fa/stats", controller.Admin2FAStats)
 				adminRoute.DELETE("/:id/2fa", controller.AdminDisable2FA)
+
+				// Admin Model Access Request approval
+				adminRoute.GET("/model-access-request", controller.GetAllAccessRequests)
+				adminRoute.POST("/model-access-request/:id/approve", controller.ApproveAccessRequest)
+				adminRoute.POST("/model-access-request/:id/reject", controller.RejectAccessRequest)
 			}
+		}
+
+		// Department management (Admin)
+		departmentRoute := apiRouter.Group("/department")
+		departmentRoute.Use(middleware.AdminAuth())
+		{
+			departmentRoute.GET("/tree", controller.GetDepartmentTree)
+			departmentRoute.GET("/", controller.GetAllDepartments)
+			departmentRoute.GET("/:id", controller.GetDepartment)
+			departmentRoute.POST("/", controller.CreateDepartment)
+			departmentRoute.PUT("/", controller.UpdateDepartment)
+			departmentRoute.DELETE("/:id", controller.DeleteDepartment)
+		}
+
+		// User Group management (Admin)
+		userGroupRoute := apiRouter.Group("/user-group")
+		userGroupRoute.Use(middleware.AdminAuth())
+		{
+			userGroupRoute.GET("/", controller.GetAdminUserGroups)
+			userGroupRoute.GET("/:id", controller.GetAdminUserGroup)
+			userGroupRoute.POST("/", controller.CreateAdminUserGroup)
+			userGroupRoute.PUT("/:id", controller.UpdateAdminUserGroup)
+			userGroupRoute.DELETE("/:id", controller.DeleteAdminUserGroup)
+			userGroupRoute.GET("/:id/members", controller.GetAdminGroupMembers)
+			userGroupRoute.POST("/:id/members", controller.AddAdminGroupMembers)
+			userGroupRoute.DELETE("/:id/members", controller.RemoveAdminGroupMembers)
+			userGroupRoute.POST("/batch", controller.BatchUpdateUserGroupMembers)
+		}
+
+		// Model Set management (Admin)
+		modelSetRoute := apiRouter.Group("/model-set")
+		modelSetRoute.Use(middleware.AdminAuth())
+		{
+			modelSetRoute.GET("/", controller.GetModelSets)
+			modelSetRoute.GET("/:id", controller.GetModelSet)
+			modelSetRoute.POST("/", controller.CreateModelSet)
+			modelSetRoute.PUT("/:id", controller.UpdateModelSet)
+			modelSetRoute.DELETE("/:id", controller.DeleteModelSet)
+		}
+
+		// Model Grant management (Admin)
+		modelGrantRoute := apiRouter.Group("/model-grant")
+		modelGrantRoute.Use(middleware.AdminAuth())
+		{
+			modelGrantRoute.POST("/", controller.GrantModelSet)
+			modelGrantRoute.DELETE("/:id", controller.RevokeModelGrant)
 		}
 
 		// Subscription billing (plans, purchase, admin management)

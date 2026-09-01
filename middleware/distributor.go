@@ -20,7 +20,6 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
@@ -78,25 +77,11 @@ func Distribute() func(c *gin.Context) {
 			}
 		} else {
 			// Select a channel for the user
-			// check token model mapping
-			modelLimitEnable := common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled)
-			if modelLimitEnable {
-				s, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
-				if !ok {
-					// token model limit is empty, all models are not allowed
-					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenNoModelAccess))
-					return
-				}
-				var tokenModelLimit map[string]bool
-				tokenModelLimit, ok = s.(map[string]bool)
-				if !ok {
-					tokenModelLimit = map[string]bool{}
-				}
-				matchName := ratio_setting.FormatMatchingModelName(modelRequest.Model) // match gpts & thinking-*
-				if _, ok := tokenModelLimit[matchName]; !ok {
-					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenModelForbidden, map[string]any{"Model": modelRequest.Model}))
-					return
-				}
+			// Enforce user model grants and token model limits
+			userId := c.GetInt("id")
+			if allowed, errMsg := service.ValidateUserAndTokenModelAccess(c, userId, modelRequest.Model); !allowed {
+				abortWithOpenAiMessage(c, http.StatusForbidden, errMsg)
+				return
 			}
 
 			if shouldSelectChannel {

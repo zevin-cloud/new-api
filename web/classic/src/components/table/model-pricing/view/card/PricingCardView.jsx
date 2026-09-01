@@ -264,9 +264,28 @@ const PricingCardView = ({
                   <div className='flex items-start space-x-3 flex-1 min-w-0'>
                     {getModelIcon(model)}
                     <div className='flex-1 min-w-0'>
-                      <h3 className='text-lg font-bold text-gray-900 truncate'>
-                        {model.model_name}
-                      </h3>
+                      <div className='flex items-center gap-2 flex-wrap'>
+                        <h3 className='text-lg font-bold text-gray-900 truncate'>
+                          {model.model_name}
+                        </h3>
+                        {getModelAuthStatus && (
+                          getModelAuthStatus(model.model_name) === 'granted' ? (
+                            <Tag color='green' size='small'>{t('已授权')}</Tag>
+                          ) : getModelAuthStatus(model.model_name) === 'pending' ? (
+                            <Tag color='orange' size='small'>{t('审批中')}</Tag>
+                          ) : (
+                            <button
+                              className='px-2 py-0.5 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100 font-medium'
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (openRequestAccess) openRequestAccess(model.model_name);
+                              }}
+                            >
+                              {t('申请权限')}
+                            </button>
+                          )
+                        )}
+                      </div>
                       <div className='flex flex-col gap-1 text-xs mt-1'>
                         {priceData.isDynamicPricing ? (
                           formatDynamicPriceSummary(priceData.billingExpr, t, priceData.usedGroupRatio)

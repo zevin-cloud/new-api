@@ -129,6 +129,15 @@ func setTokenAutoGroups(c *gin.Context, token *model.Token, groups []string) boo
 
 func GetAllTokens(c *gin.Context) {
 	userId := c.GetInt("id")
+	role := c.GetInt("role")
+	if role >= common.RoleAdminUser {
+		if uidStr := c.Query("user_id"); uidStr != "" {
+			if uid, err := strconv.Atoi(uidStr); err == nil && uid > 0 {
+				userId = uid
+			}
+		}
+	}
+
 	pageInfo := common.GetPageQuery(c)
 	tokens, err := model.GetAllUserTokens(userId, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
 	if err != nil {
@@ -143,6 +152,15 @@ func GetAllTokens(c *gin.Context) {
 
 func SearchTokens(c *gin.Context) {
 	userId := c.GetInt("id")
+	role := c.GetInt("role")
+	if role >= common.RoleAdminUser {
+		if uidStr := c.Query("user_id"); uidStr != "" {
+			if uid, err := strconv.Atoi(uidStr); err == nil && uid > 0 {
+				userId = uid
+			}
+		}
+	}
+
 	keyword := c.Query("keyword")
 	token := c.Query("token")
 

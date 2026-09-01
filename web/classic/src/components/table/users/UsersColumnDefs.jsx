@@ -255,6 +255,14 @@ const renderOperations = (
 
   return (
     <Space>
+      <Button
+        type='primary'
+        theme='light'
+        size='small'
+        onClick={() => showUserDetail && showUserDetail(record.id)}
+      >
+        {t('详情')}
+      </Button>
       {record.status === 1 ? (
         <Button
           type='danger'
@@ -281,20 +289,6 @@ const renderOperations = (
       >
         {t('编辑')}
       </Button>
-      <Button
-        type='warning'
-        size='small'
-        onClick={() => showPromoteModal(record)}
-      >
-        {t('提升')}
-      </Button>
-      <Button
-        type='secondary'
-        size='small'
-        onClick={() => showDemoteModal(record)}
-      >
-        {t('降级')}
-      </Button>
       <Dropdown menu={moreMenu} trigger='click' position='bottomRight'>
         <Button type='tertiary' size='small' icon={<IconMore />} />
       </Dropdown>
@@ -309,6 +303,7 @@ export const getUsersColumns = ({
   t,
   setEditingUser,
   setShowEditUser,
+  showUserDetail,
   showPromoteModal,
   showDemoteModal,
   showEnableDisableModal,
@@ -321,11 +316,20 @@ export const getUsersColumns = ({
     {
       title: 'ID',
       dataIndex: 'id',
+      width: 70,
     },
     {
-      title: t('用户名'),
+      title: t('用户名 / 姓名'),
       dataIndex: 'username',
-      render: (text, record) => renderUsername(text, record),
+      render: (text, record) => (
+        <div
+          className='cursor-pointer hover:text-blue-600'
+          onClick={() => showUserDetail && showUserDetail(record.id)}
+        >
+          <div className='font-medium'>{record.display_name || text}</div>
+          <div className='text-xs text-gray-500'>@{text} {record.employee_id ? `(${record.employee_id})` : ''}</div>
+        </div>
+      ),
     },
     {
       title: t('状态'),
@@ -339,13 +343,6 @@ export const getUsersColumns = ({
       render: (text, record) => renderQuotaUsage(text, record, t),
     },
     {
-      title: t('分组'),
-      dataIndex: 'group',
-      render: (text, record, index) => {
-        return <div>{renderGroup(text)}</div>;
-      },
-    },
-    {
       title: t('角色'),
       dataIndex: 'role',
       render: (text, record, index) => {
@@ -353,29 +350,20 @@ export const getUsersColumns = ({
       },
     },
     {
-      title: t('邀请信息'),
-      dataIndex: 'invite',
-      render: (text, record, index) => renderInviteInfo(text, record, t),
-    },
-    {
       title: t('创建时间'),
       dataIndex: 'created_at',
       render: renderTimestamp,
     },
     {
-      title: t('最后登录'),
-      dataIndex: 'last_login_at',
-      render: renderTimestamp,
-    },
-    {
-      title: '',
+      title: t('操作'),
       dataIndex: 'operate',
       fixed: 'right',
-      width: 200,
+      width: 220,
       render: (text, record, index) =>
         renderOperations(text, record, {
           setEditingUser,
           setShowEditUser,
+          showUserDetail,
           showPromoteModal,
           showDemoteModal,
           showEnableDisableModal,

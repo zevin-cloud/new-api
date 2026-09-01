@@ -21,6 +21,8 @@ import React, { lazy, Suspense, useContext, useMemo } from 'react';
 import { Route, Routes, useLocation, useParams } from 'react-router-dom';
 import Loading from './components/common/ui/Loading';
 import User from './pages/User';
+import UserGroup from './pages/UserGroup';
+import ModelSet from './pages/ModelSet';
 import { AuthRedirect, PrivateRoute, AdminRoute } from './helpers';
 import RegisterForm from './components/auth/RegisterForm';
 import LoginForm from './components/auth/LoginForm';
@@ -168,6 +170,38 @@ function App() {
           element={
             <AdminRoute>
               <User />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/user-groups'
+          element={
+            <AdminRoute>
+              <UserGroup />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/user-group'
+          element={
+            <AdminRoute>
+              <UserGroup />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/model-sets'
+          element={
+            <AdminRoute>
+              <ModelSet />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/model-set'
+          element={
+            <AdminRoute>
+              <ModelSet />
             </AdminRoute>
           }
         />

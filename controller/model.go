@@ -237,6 +237,9 @@ func ListModels(c *gin.Context, modelType int) {
 		return
 	}
 	ownerGroups := groups.ownerGroups
+	userId := c.GetInt("id")
+	userGrantedMap, allAccess, _ := service.GetUserGrantedModelMap(userId)
+
 	modelLimitEnable := common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled)
 	var tokenModelLimit map[string]bool
 	if modelLimitEnable {
@@ -250,8 +253,13 @@ func ListModels(c *gin.Context, modelType int) {
 	}
 	models := service.GetGroupsEnabledModels(ownerGroups)
 	for _, modelName := range models {
+		matchingName := ratio_setting.FormatMatchingModelName(modelName)
+		// Check user grant
+		if !allAccess && !userGrantedMap[modelName] && !userGrantedMap[matchingName] {
+			continue
+		}
+		// Check token model limits
 		if modelLimitEnable {
-			matchingName := ratio_setting.FormatMatchingModelName(modelName)
 			if !tokenModelLimit[modelName] && !tokenModelLimit[matchingName] {
 				continue
 			}

@@ -5,23 +5,16 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
-import { Layout, ImagePreview } from '@douyinfe/semi-ui';
+import React, { useState } from 'react';
+import { Layout, ImagePreview, Tabs, TabPane } from '@douyinfe/semi-ui';
 import PricingSidebar from './PricingSidebar';
 import PricingContent from './content/PricingContent';
 import ModelDetailSideSheet from '../modal/ModelDetailSideSheet';
+import RequestAccessModal from '../modal/RequestAccessModal';
+import MyRequestsView from '../view/MyRequestsView';
+import TokensPage from '../../tokens';
 import { useModelPricingData } from '../../../../hooks/model-pricing/useModelPricingData';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 
@@ -29,8 +22,9 @@ const PricingPage = () => {
   const pricingData = useModelPricingData();
   const { Sider, Content } = Layout;
   const isMobile = useIsMobile();
-  const [showRatio, setShowRatio] = React.useState(false);
-  const [viewMode, setViewMode] = React.useState('card');
+  const [activeTab, setActiveTab] = useState('models');
+  const [showRatio, setShowRatio] = useState(false);
+  const [viewMode, setViewMode] = useState('card');
   const allProps = {
     ...pricingData,
     showRatio,
@@ -40,22 +34,50 @@ const PricingPage = () => {
   };
 
   return (
-    <div className='bg-white'>
-      <Layout className='pricing-layout'>
-        {!isMobile && (
-          <Sider className='pricing-scroll-hide pricing-sidebar'>
-            <PricingSidebar {...allProps} />
-          </Sider>
+    <div className='bg-white min-h-[calc(100vh-60px)] flex flex-col'>
+      <div className='px-4 pt-2 border-b border-[var(--semi-color-border)]'>
+        <Tabs
+          type='line'
+          activeKey={activeTab}
+          onChange={(key) => setActiveTab(key)}
+        >
+          <TabPane tab={pricingData.t('全部模型')} itemKey='models' />
+          <TabPane tab={pricingData.t('我的申请')} itemKey='my_requests' />
+          <TabPane tab={pricingData.t('我的 API Key')} itemKey='my_tokens' />
+        </Tabs>
+      </div>
+
+      <div className='flex-1'>
+        {activeTab === 'models' && (
+          <Layout className='pricing-layout'>
+            {!isMobile && (
+              <Sider className='pricing-scroll-hide pricing-sidebar'>
+                <PricingSidebar {...allProps} />
+              </Sider>
+            )}
+
+            <Content className='pricing-scroll-hide pricing-content'>
+              <PricingContent
+                {...allProps}
+                isMobile={isMobile}
+                sidebarProps={allProps}
+              />
+            </Content>
+          </Layout>
         )}
 
-        <Content className='pricing-scroll-hide pricing-content'>
-          <PricingContent
-            {...allProps}
-            isMobile={isMobile}
-            sidebarProps={allProps}
-          />
-        </Content>
-      </Layout>
+        {activeTab === 'my_requests' && (
+          <div className='p-4'>
+            <MyRequestsView t={pricingData.t} />
+          </div>
+        )}
+
+        {activeTab === 'my_tokens' && (
+          <div className='p-4'>
+            <TokensPage />
+          </div>
+        )}
+      </div>
 
       <ImagePreview
         src={pricingData.modalImageUrl}
@@ -77,6 +99,17 @@ const PricingPage = () => {
         vendorsMap={pricingData.vendorsMap}
         endpointMap={pricingData.endpointMap}
         autoGroups={pricingData.autoGroups}
+        t={pricingData.t}
+      />
+
+      <RequestAccessModal
+        visible={pricingData.showRequestModal}
+        modelName={pricingData.requestModalModel}
+        onClose={pricingData.closeRequestAccess}
+        onSuccess={() => {
+          pricingData.closeRequestAccess();
+          pricingData.refresh();
+        }}
         t={pricingData.t}
       />
     </div>

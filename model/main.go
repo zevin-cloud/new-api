@@ -364,6 +364,14 @@ func migrateDB() error {
 		&SystemTaskLock{},
 		&CasbinRule{},
 		&AuthzRole{},
+		&Department{},
+		&UserGroup{},
+		&UserGroupMember{},
+		&ModelSet{},
+		&ModelSetItem{},
+		&ModelGrant{},
+		&ModelAccessRequest{},
+		&ModelAuthAudit{},
 	)
 	if err != nil {
 		return err

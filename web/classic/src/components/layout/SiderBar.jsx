@@ -37,6 +37,8 @@ const routerMap = {
   redemption: '/console/redemption',
   topup: '/console/topup',
   user: '/console/user',
+  user_group: '/console/user-groups',
+  model_set: '/console/model-sets',
   subscription: '/console/subscription',
   log: '/console/log',
   midjourney: '/console/midjourney',
@@ -83,6 +85,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('令牌管理'),
         itemKey: 'token',
         to: '/token',
+        className: isAdmin() ? '' : 'tableHiddle',
       },
       {
         text: t('使用日志'),
@@ -119,6 +122,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
     localStorage.getItem('enable_drawing'),
     localStorage.getItem('enable_task'),
     t,
+    isAdmin(),
     isModuleVisible,
   ]);
 
@@ -166,6 +170,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {
+        text: t('模型集管理'),
+        itemKey: 'model_set',
+        to: '/console/model-sets',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
         text: t('模型部署'),
         itemKey: 'deployment',
         to: '/deployment',
@@ -181,6 +191,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('用户管理'),
         itemKey: 'user',
         to: '/user',
+        className: isAdmin() ? '' : 'tableHiddle',
+      },
+      {
+        text: t('用户组管理'),
+        itemKey: 'user_group',
+        to: '/console/user-groups',
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {

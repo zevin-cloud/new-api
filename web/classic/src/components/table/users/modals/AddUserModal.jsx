@@ -147,11 +147,27 @@ const AddUserModal = (props) => {
                       showClear
                     />
                   </Col>
-                  <Col span={24}>
+                  <Col span={12}>
                     <Form.Input
                       field='display_name'
                       label={t('显示名称')}
                       placeholder={t('请输入显示名称')}
+                      showClear
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Form.Input
+                      field='employee_id'
+                      label={t('工号')}
+                      placeholder={t('请输入员工工号')}
+                      showClear
+                    />
+                  </Col>
+                  <Col span={24}>
+                    <Form.Input
+                      field='email'
+                      label={t('邮箱地址')}
+                      placeholder={t('请输入邮箱地址')}
                       showClear
                     />
                   </Col>

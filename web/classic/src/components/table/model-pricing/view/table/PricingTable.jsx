@@ -44,6 +44,8 @@ const PricingTable = ({
   showRatio,
   compactMode = false,
   openModelDetail,
+  getModelAuthStatus,
+  openRequestAccess,
   t,
 }) => {
   const columns = useMemo(() => {
@@ -59,6 +61,8 @@ const PricingTable = ({
       tokenUnit,
       displayPrice,
       showRatio,
+      getModelAuthStatus,
+      openRequestAccess,
     });
   }, [
     t,
@@ -72,6 +76,8 @@ const PricingTable = ({
     tokenUnit,
     displayPrice,
     showRatio,
+    getModelAuthStatus,
+    openRequestAccess,
   ]);
 
   // 更新列定义中的 searchValue

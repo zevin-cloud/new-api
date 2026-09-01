@@ -249,7 +249,34 @@ export const getPricingTableColumns = ({
     },
   };
 
+  const authColumn = {
+    title: t('授权状态'),
+    key: 'auth_status',
+    width: 120,
+    render: (_, record) => {
+      const status = getModelAuthStatus ? getModelAuthStatus(record.model_name) : 'granted';
+      if (status === 'granted') {
+        return <Tag color='green'>{t('已授权')}</Tag>;
+      }
+      if (status === 'pending') {
+        return <Tag color='orange'>{t('审批中')}</Tag>;
+      }
+      return (
+        <button
+          className='px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100'
+          onClick={(e) => {
+            e.stopPropagation();
+            if (openRequestAccess) openRequestAccess(record.model_name);
+          }}
+        >
+          {t('申请权限')}
+        </button>
+      );
+    },
+  };
+
   const columns = [...baseColumns];
+  columns.push(authColumn);
   columns.push(endpointColumn);
   if (showRatio) {
     columns.push(ratioColumn);

@@ -5,16 +5,6 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useRef } from 'react';
@@ -29,6 +19,7 @@ const UsersFilters = ({
   activePage,
   pageSize,
   groupOptions,
+  userGroupOptions = [],
   loading,
   searching,
   t,
@@ -42,6 +33,11 @@ const UsersFilters = ({
       loadUsers(1, pageSize);
     }, 100);
   };
+
+  const userGroupSelectOptions = userGroupOptions.map((g) => ({
+    label: g.name,
+    value: g.id,
+  }));
 
   return (
     <Form
@@ -65,19 +61,34 @@ const UsersFilters = ({
           <Form.Input
             field='searchKeyword'
             prefix={<IconSearch />}
-            placeholder={t('支持搜索用户的 ID、用户名、显示名称和邮箱地址')}
+            placeholder={t('搜索 ID、用户名、工号、姓名、邮箱')}
             showClear
             pure
             size='small'
           />
         </div>
-        <div className='w-full md:w-48'>
+        <div className='w-full md:w-40'>
+          <Form.Select
+            field='searchUserGroupId'
+            placeholder={t('用户组筛选')}
+            optionList={userGroupSelectOptions}
+            onChange={() => {
+              setTimeout(() => {
+                searchUsers(1, pageSize);
+              }, 100);
+            }}
+            className='w-full'
+            showClear
+            pure
+            size='small'
+          />
+        </div>
+        <div className='w-full md:w-36'>
           <Form.Select
             field='searchGroup'
-            placeholder={t('选择分组')}
+            placeholder={t('渠道分组')}
             optionList={groupOptions}
-            onChange={(value) => {
-              // Group change triggers automatic search
+            onChange={() => {
               setTimeout(() => {
                 searchUsers(1, pageSize);
               }, 100);
@@ -101,6 +112,7 @@ const UsersFilters = ({
           <Button
             type='tertiary'
             onClick={handleReset}
+            disabled={loading || searching}
             className='flex-1 md:flex-initial md:w-auto'
             size='small'
           >

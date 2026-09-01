@@ -59,6 +59,14 @@ func TestMain(m *testing.M) {
 		&SystemInstance{},
 		&SystemTask{},
 		&SystemTaskLock{},
+		&Department{},
+		&UserGroup{},
+		&UserGroupMember{},
+		&ModelSet{},
+		&ModelSetItem{},
+		&ModelGrant{},
+		&ModelAccessRequest{},
+		&ModelAuthAudit{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}

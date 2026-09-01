@@ -34,23 +34,49 @@ export const useUsersData = () => {
   const [pageSize, setPageSize] = useState(ITEMS_PER_PAGE);
   const [searching, setSearching] = useState(false);
   const [groupOptions, setGroupOptions] = useState([]);
+  const [userGroupOptions, setUserGroupOptions] = useState([]);
   const [userCount, setUserCount] = useState(0);
 
-  // Modal states
+  // Department and UserGroup filters
+  const [selectedDeptId, setSelectedDeptId] = useState(0);
+  const [selectedUserGroupId, setSelectedUserGroupId] = useState(0);
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+
+  // Modal & SideSheet states
   const [showAddUser, setShowAddUser] = useState(false);
   const [showEditUser, setShowEditUser] = useState(false);
   const [editingUser, setEditingUser] = useState({
     id: undefined,
   });
+  const [showDetail, setShowDetail] = useState(false);
+  const [detailUserId, setDetailUserId] = useState(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showBatchGroupModal, setShowBatchGroupModal] = useState(false);
 
   // Form initial values
   const formInitValues = {
     searchKeyword: '',
     searchGroup: '',
+    searchUserGroupId: '',
   };
 
   // Form API reference
   const [formApi, setFormApi] = useState(null);
+
+  // Load User Group options for filter dropdown
+  useEffect(() => {
+    const loadUG = async () => {
+      try {
+        const res = await API.get('/api/user-group?page=1&page_size=100');
+        if (res.data?.success) {
+          setUserGroupOptions(res.data.data.items || []);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    loadUG();
+  }, []);
 
   // Get form values helper function
   const getFormValues = () => {
@@ -58,6 +84,7 @@ export const useUsersData = () => {
     return {
       searchKeyword: formValues.searchKeyword || '',
       searchGroup: formValues.searchGroup || '',
+      searchUserGroupId: formValues.searchUserGroupId || 0,
     };
   };
 
@@ -70,9 +97,16 @@ export const useUsersData = () => {
   };
 
   // Load users data
-  const loadUsers = async (startIdx, pageSize) => {
+  const loadUsers = async (startIdx, pageSize, deptId = selectedDeptId, ugroupId = selectedUserGroupId) => {
     setLoading(true);
-    const res = await API.get(`/api/user/?p=${startIdx}&page_size=${pageSize}`);
+    let url = `/api/user/search?p=${startIdx}&page_size=${pageSize}`;
+    if (deptId > 0) {
+      url += `&department_id=${deptId}`;
+    }
+    if (ugroupId > 0) {
+      url += `&user_group_id=${ugroupId}`;
+    }
+    const res = await API.get(url);
     const { success, message, data } = res.data;
     if (success) {
       const newPageData = data.items;
@@ -85,29 +119,34 @@ export const useUsersData = () => {
     setLoading(false);
   };
 
-  // Search users with keyword and group
+  // Search users with keyword, group, dept and user_group
   const searchUsers = async (
     startIdx,
     pageSize,
     searchKeyword = null,
     searchGroup = null,
+    deptId = selectedDeptId,
+    ugroupId = selectedUserGroupId,
   ) => {
     // If no parameters passed, get values from form
     if (searchKeyword === null || searchGroup === null) {
       const formValues = getFormValues();
       searchKeyword = formValues.searchKeyword;
       searchGroup = formValues.searchGroup;
+      if (formValues.searchUserGroupId) {
+        ugroupId = Number(formValues.searchUserGroupId);
+      }
     }
 
-    if (searchKeyword === '' && searchGroup === '') {
-      // If keyword is blank, load files instead
-      await loadUsers(startIdx, pageSize);
-      return;
-    }
     setSearching(true);
-    const res = await API.get(
-      `/api/user/search?keyword=${searchKeyword}&group=${searchGroup}&p=${startIdx}&page_size=${pageSize}`,
-    );
+    let url = `/api/user/search?keyword=${searchKeyword || ''}&group=${searchGroup || ''}&p=${startIdx}&page_size=${pageSize}`;
+    if (deptId > 0) {
+      url += `&department_id=${deptId}`;
+    }
+    if (ugroupId > 0) {
+      url += `&user_group_id=${ugroupId}`;
+    }
+    const res = await API.get(url);
     const { success, message, data } = res.data;
     if (success) {
       const newPageData = data.items;
@@ -284,6 +323,15 @@ export const useUsersData = () => {
     searching,
     groupOptions,
 
+    // Enterprise filters & selection
+    selectedDeptId,
+    setSelectedDeptId,
+    selectedUserGroupId,
+    setSelectedUserGroupId,
+    selectedRowKeys,
+    setSelectedRowKeys,
+    userGroupOptions,
+
     // Modal state
     showAddUser,
     showEditUser,
@@ -291,6 +339,14 @@ export const useUsersData = () => {
     setShowAddUser,
     setShowEditUser,
     setEditingUser,
+    showDetail,
+    setShowDetail,
+    detailUserId,
+    setDetailUserId,
+    showImportModal,
+    setShowImportModal,
+    showBatchGroupModal,
+    setShowBatchGroupModal,
 
     // Form state
     formInitValues,
