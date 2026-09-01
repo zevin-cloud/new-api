@@ -48,9 +48,11 @@ export const DEFAULT_ADMIN_CONFIG = {
     enabled: true,
     channel: true,
     models: true,
+    model_set: true,
     deployment: true,
     redemption: true,
     user: true,
+    user_group: true,
     subscription: true,
     setting: true,
   },
@@ -261,10 +263,12 @@ export const useSidebar = () => {
 
   // 检查特定功能是否应该显示
   const isModuleVisible = (sectionKey, moduleKey = null) => {
+    const section = finalConfig[sectionKey];
+    if (section && section.enabled === false) return false;
     if (moduleKey) {
-      return finalConfig[sectionKey]?.[moduleKey] === true;
+      return section?.[moduleKey] !== false;
     } else {
-      return finalConfig[sectionKey]?.enabled === true;
+      return section?.enabled !== false;
     }
   };
 
