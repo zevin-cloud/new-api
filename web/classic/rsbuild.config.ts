@@ -1,4 +1,5 @@
 import path from 'path'
+import fs from 'fs'
 import { createRequire } from 'module'
 import { fileURLToPath } from 'url'
 import { defineConfig, loadEnv } from '@rsbuild/core'
@@ -6,17 +7,10 @@ import { pluginReact } from '@rsbuild/plugin-react'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
-const semiUiDir = path.resolve(
-  path.dirname(require.resolve('@douyinfe/semi-ui')),
-  '../..',
-)
-const vchartSemiThemeDir = path.dirname(
-  require.resolve('@visactor/vchart-semi-theme/package.json'),
-)
-const classicVChartDir = path.resolve(
-  __dirname,
-  'node_modules/@visactor/vchart',
-)
+
+function resolveIfExists(targetPath: string): string | undefined {
+  return fs.existsSync(targetPath) ? targetPath : undefined
+}
 
 export default defineConfig(({ envMode }) => {
   const env = loadEnv({ mode: envMode, prefixes: ['VITE_'] })
@@ -35,6 +29,13 @@ export default defineConfig(({ envMode }) => {
     ]),
   ) as Record<string, { target: string; changeOrigin: boolean }>
 
+  const dateFnsPath =
+    resolveIfExists(path.resolve(__dirname, 'node_modules/@douyinfe/semi-ui/node_modules/date-fns')) ||
+    resolveIfExists(path.resolve(__dirname, '../node_modules/@douyinfe/semi-ui/node_modules/date-fns'))
+  const semiCssPath =
+    resolveIfExists(path.resolve(__dirname, 'node_modules/@douyinfe/semi-ui/dist/css/semi.css')) ||
+    resolveIfExists(path.resolve(__dirname, '../node_modules/@douyinfe/semi-ui/dist/css/semi.css'))
+
   return {
     plugins: [pluginReact()],
     source: {
@@ -50,40 +51,8 @@ export default defineConfig(({ envMode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
-        // Semi UI still uses date-fns v2 APIs while the current frontend uses v4.
-        // Keep Classic on Semi UI's nested compatible copy during workspace installs.
-        'date-fns': path.resolve(semiUiDir, 'node_modules/date-fns'),
-        // Classic uses VChart 1.x. Isolate the renderer and theme from the
-        // official frontend's VChart 2.x dependency tree.
-        '@visactor/react-vchart': path.resolve(
-          __dirname,
-          'node_modules/@visactor/react-vchart',
-        ),
-        '@visactor/vchart': path.resolve(
-          __dirname,
-          'node_modules/@visactor/vchart',
-        ),
-        '@visactor/vchart-semi-theme': vchartSemiThemeDir,
-        '@visactor/vrender-core': path.resolve(
-          classicVChartDir,
-          'node_modules/@visactor/vrender-core',
-        ),
-        '@visactor/vrender-kits': path.resolve(
-          classicVChartDir,
-          'node_modules/@visactor/vrender-kits',
-        ),
-        '@visactor/vrender-components': path.resolve(
-          classicVChartDir,
-          'node_modules/@visactor/vrender-components',
-        ),
-        '@visactor/vutils': path.resolve(
-          classicVChartDir,
-          'node_modules/@visactor/vutils',
-        ),
-        '@douyinfe/semi-ui/dist/css/semi.css': path.resolve(
-          semiUiDir,
-          'dist/css/semi.css',
-        ),
+        ...(dateFnsPath ? { 'date-fns': dateFnsPath } : {}),
+        ...(semiCssPath ? { '@douyinfe/semi-ui/dist/css/semi.css': semiCssPath } : {}),
       },
     },
     html: {
