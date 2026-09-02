@@ -7,8 +7,18 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 
-import React, { useState, useEffect } from 'react';
-import { Modal, Table, Button, Select, Space, Tag, Typography, Popconfirm, Spin } from '@douyinfe/semi-ui';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Modal,
+  Table,
+  Button,
+  TreeSelect,
+  Space,
+  Tag,
+  Typography,
+  Popconfirm,
+  Spin,
+} from '@douyinfe/semi-ui';
 import { IconPlus, IconDelete } from '@douyinfe/semi-icons';
 import { API, showError, showSuccess, timestamp2string } from '../../../../helpers';
 
@@ -19,13 +29,19 @@ const GroupMembersModal = ({ visible, group, onClose, t }) => {
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [userOptions, setUserOptions] = useState([]);
-  const [selectedUserIdsToAdd, setSelectedUserIdsToAdd] = useState([]);
-  const [searchUserLoading, setSearchUserLoading] = useState(false);
+
+  // Department tree & users
+  const [deptTreeData, setDeptTreeData] = useState([]);
+  const [deptUserMap, setDeptUserMap] = useState({});
+  const [selectedOrgKeys, setSelectedOrgKeys] = useState([]);
+  const [fetchingTree, setFetchingTree] = useState(false);
+  const [submittingAdd, setSubmittingAdd] = useState(false);
 
   useEffect(() => {
     if (visible && group) {
       loadMembers(1);
+      loadTreeAndUsers();
+      setSelectedOrgKeys([]);
     }
   }, [visible, group]);
 
@@ -48,39 +64,143 @@ const GroupMembersModal = ({ visible, group, onClose, t }) => {
     }
   };
 
-  const handleSearchUsers = async (query) => {
-    if (!query) return;
-    setSearchUserLoading(true);
+  const loadTreeAndUsers = async () => {
+    setFetchingTree(true);
     try {
-      const res = await API.get(`/api/user/search?keyword=${query}&p=0&page_size=20`);
-      if (res.data?.success) {
-        setUserOptions(res.data.data.items || []);
+      let rawDepts = [];
+      let rawUsers = [];
+
+      try {
+        const [resDept, resUser] = await Promise.all([
+          API.get('/api/department/tree'),
+          API.get('/api/user/search?p=0&page_size=1000'),
+        ]);
+
+        if (resDept.data?.success) {
+          rawDepts = resDept.data.data || [];
+        }
+        if (resUser.data?.success) {
+          rawUsers = resUser.data.data?.items || resUser.data.data || [];
+        }
+      } catch (e) {
+        // ignore
       }
-    } catch (e) {
-      // ignore
+
+      // Group users by department_id
+      const usersByDept = {};
+      const unassignedUsers = [];
+      const deptAllUsers = {};
+
+      rawUsers.forEach((u) => {
+        const deptId = u.department_id || 0;
+        if (deptId > 0) {
+          if (!usersByDept[deptId]) usersByDept[deptId] = [];
+          usersByDept[deptId].push(u);
+        } else {
+          unassignedUsers.push(u);
+        }
+      });
+
+      // Recursive tree builder
+      const buildOrgTree = (deptList) => {
+        if (!deptList || deptList.length === 0) return { nodes: [], allUids: [] };
+        const nodes = [];
+        let collectedUids = [];
+
+        deptList.forEach((d) => {
+          const directDeptUsers = usersByDept[d.id] || [];
+          const directUids = directDeptUsers.map((u) => u.id);
+
+          const { nodes: subNodes, allUids: subUids } = buildOrgTree(d.children);
+          const totalDeptUids = [...directUids, ...subUids];
+          deptAllUsers[d.id] = totalDeptUids;
+          collectedUids = [...collectedUids, ...totalDeptUids];
+
+          const userChildren = directDeptUsers.map((u) => ({
+            label: `${u.display_name || u.username} (@${u.username})${u.employee_id ? ` [${u.employee_id}]` : ''}`,
+            value: `user_${u.id}`,
+            key: `user_${u.id}`,
+            isUser: true,
+            userId: u.id,
+          }));
+
+          const allChildren = [...subNodes, ...userChildren];
+
+          nodes.push({
+            label: `${d.name} (${directDeptUsers.length} 人)`,
+            value: `dept_${d.id}`,
+            key: `dept_${d.id}`,
+            isDept: true,
+            children: allChildren.length > 0 ? allChildren : undefined,
+          });
+        });
+
+        return { nodes, allUids: collectedUids };
+      };
+
+      const { nodes: tree } = buildOrgTree(rawDepts);
+
+      if (unassignedUsers.length > 0) {
+        tree.push({
+          label: `${t('未分配部门')} (${unassignedUsers.length} 人)`,
+          value: 'dept_unassigned',
+          key: 'dept_unassigned',
+          disabled: true,
+          children: unassignedUsers.map((u) => ({
+            label: `${u.display_name || u.username} (@${u.username})${u.employee_id ? ` [${u.employee_id}]` : ''}`,
+            value: `user_${u.id}`,
+            key: `user_${u.id}`,
+            isUser: true,
+            userId: u.id,
+          })),
+        });
+      }
+
+      setDeptTreeData(tree);
+      setDeptUserMap(deptAllUsers);
     } finally {
-      setSearchUserLoading(false);
+      setFetchingTree(false);
     }
   };
 
+  const finalUserIdsToAdd = useMemo(() => {
+    const uidSet = new Set();
+    (selectedOrgKeys || []).forEach((key) => {
+      if (typeof key === 'string') {
+        if (key.startsWith('user_')) {
+          const uid = parseInt(key.replace('user_', ''), 10);
+          if (uid > 0) uidSet.add(uid);
+        } else if (key.startsWith('dept_') && key !== 'dept_unassigned') {
+          const deptId = parseInt(key.replace('dept_', ''), 10);
+          const uids = deptUserMap[deptId] || [];
+          uids.forEach((id) => uidSet.add(id));
+        }
+      }
+    });
+    return Array.from(uidSet);
+  }, [selectedOrgKeys, deptUserMap]);
+
   const handleAddMembers = async () => {
-    if (selectedUserIdsToAdd.length === 0) {
-      showError(t('请选择要添加的用户'));
+    if (finalUserIdsToAdd.length === 0) {
+      showError(t('请先勾选要添加的用户或部门'));
       return;
     }
+    setSubmittingAdd(true);
     try {
       const res = await API.post(`/api/user-group/${group.id}/members`, {
-        user_ids: selectedUserIdsToAdd,
+        user_ids: finalUserIdsToAdd,
       });
       if (res.data?.success) {
         showSuccess(t('添加成员成功'));
-        setSelectedUserIdsToAdd([]);
+        setSelectedOrgKeys([]);
         loadMembers(1);
       } else {
         showError(res.data?.message || '添加失败');
       }
     } catch (e) {
       showError('添加失败: ' + e.message);
+    } finally {
+      setSubmittingAdd(false);
     }
   };
 
@@ -139,33 +259,33 @@ const GroupMembersModal = ({ visible, group, onClose, t }) => {
     >
       <div className='flex flex-col gap-4'>
         <div className='flex gap-2 items-center p-3 bg-[var(--semi-color-fill-0)] !rounded-xl border border-[var(--semi-color-border)]'>
-          <Select
-            placeholder={t('输入用户名、姓名或工号搜索待添加的用户')}
-            filter
-            remote
-            multiple
-            loading={searchUserLoading}
-            onSearch={handleSearchUsers}
-            value={selectedUserIdsToAdd}
-            onChange={(val) => setSelectedUserIdsToAdd(val)}
-            className='!rounded-lg'
-            style={{ width: '100%' }}
-          >
-            {userOptions.map((u) => (
-              <Select.Option key={u.id} value={u.id}>
-                {u.display_name ? `${u.display_name} (@${u.username})` : u.username} {u.employee_id ? `[${u.employee_id}]` : ''}
-              </Select.Option>
-            ))}
-          </Select>
+          <div className='flex-1'>
+            <TreeSelect
+              multiple
+              maxTagCount={3}
+              filterTreeNode
+              loading={fetchingTree}
+              placeholder={t('按部门展开选择用户，或搜索姓名/工号/用户名...')}
+              treeData={deptTreeData}
+              value={selectedOrgKeys}
+              onChange={(v) => setSelectedOrgKeys(v)}
+              className='!rounded-lg'
+              style={{ width: '100%' }}
+              dropdownStyle={{ maxHeight: 360 }}
+            />
+          </div>
           <Button
             theme='solid'
             type='primary'
             className='!rounded-lg whitespace-nowrap'
             icon={<IconPlus />}
             onClick={handleAddMembers}
-            disabled={selectedUserIdsToAdd.length === 0}
+            loading={submittingAdd}
+            disabled={finalUserIdsToAdd.length === 0}
           >
-            {t('添加成员')}
+            {finalUserIdsToAdd.length > 0
+              ? t('添加 ({{count}} 人)', { count: finalUserIdsToAdd.length })
+              : t('添加成员')}
           </Button>
         </div>
 
