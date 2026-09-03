@@ -41,7 +41,14 @@ const PricingPage = () => {
           activeKey={activeTab}
           onChange={(key) => setActiveTab(key)}
         >
-          <TabPane tab={pricingData.t('全部模型')} itemKey='models' />
+          <TabPane
+            tab={
+              pricingData.isAdminUser
+                ? pricingData.t('全部模型')
+                : pricingData.t('已授权模型')
+            }
+            itemKey='models'
+          />
           <TabPane tab={pricingData.t('我的申请')} itemKey='my_requests' />
           <TabPane tab={pricingData.t('我的 API Key')} itemKey='my_tokens' />
         </Tabs>

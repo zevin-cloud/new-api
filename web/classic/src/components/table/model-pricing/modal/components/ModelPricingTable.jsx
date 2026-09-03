@@ -128,7 +128,7 @@ const ModelPricingTable = ({
     });
 
     columns.push({
-      title: siteDisplayType === 'TOKENS' ? t('计费摘要') : t('价格摘要'),
+      title: siteDisplayType === 'TOKENS' ? t('计费摘要') : t('额度消耗标准'),
       dataIndex: 'priceItems',
       render: (items) => {
         if (items.length === 1 && items[0].isDynamic) {
@@ -172,9 +172,9 @@ const ModelPricingTable = ({
           <IconCoinMoneyStroked size={16} />
         </Avatar>
         <div>
-          <Text className='text-lg font-medium'>{t('分组价格')}</Text>
+          <Text className='text-lg font-medium'>{t('额度扣减标准')}</Text>
           <div className='text-xs text-gray-600'>
-            {t('不同用户分组的价格信息')}
+            {t('不同分组的配额扣减规则，由企业统一配额结算')}
           </div>
         </div>
       </div>

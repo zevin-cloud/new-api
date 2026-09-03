@@ -27,7 +27,7 @@ import {
   IconCreditCard,
   IconKey,
 } from '@douyinfe/semi-icons';
-import { stringToColor, isAdmin } from '../../../helpers';
+import { stringToColor, isAdmin, renderQuota } from '../../../helpers';
 import SkeletonWrapper from '../components/SkeletonWrapper';
 import PersonalApiKeyModal from '../../common/PersonalApiKeyModal';
 
@@ -67,7 +67,20 @@ const UserArea = ({
           position='bottomRight'
           getPopupContainer={() => dropdownRef.current}
           render={
-            <Dropdown.Menu className='!bg-semi-color-bg-overlay !border-semi-color-border !shadow-lg !rounded-lg dark:!bg-gray-700 dark:!border-gray-600'>
+            <Dropdown.Menu className='!bg-semi-color-bg-overlay !border-semi-color-border !shadow-lg !rounded-lg dark:!bg-gray-700 dark:!border-gray-600 min-w-[200px]'>
+              <div className='px-3 py-2 border-b border-semi-color-border dark:border-gray-600 mb-1'>
+                <div className='flex items-center justify-between text-xs text-semi-color-text-2 mb-1'>
+                  <span>{t('可用配额')}</span>
+                  <span className='font-semibold text-semi-color-primary'>
+                    {renderQuota(userState?.user?.quota || 0)}
+                  </span>
+                </div>
+                <div className='flex items-center justify-between text-xs text-semi-color-text-2'>
+                  <span>{t('已用配额')}</span>
+                  <span>{renderQuota(userState?.user?.used_quota || 0)}</span>
+                </div>
+              </div>
+
               <Dropdown.Item
                 onClick={() => setKeyModalVisible(true)}
                 className='!px-3 !py-1.5 !text-sm !text-semi-color-text-0 hover:!bg-semi-color-fill-1 dark:!text-gray-200 dark:hover:!bg-blue-500 dark:hover:!text-white'

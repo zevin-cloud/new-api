@@ -51,6 +51,7 @@ export const useModelPricingData = () => {
   const [usableGroup, setUsableGroup] = useState({});
   const [endpointMap, setEndpointMap] = useState({});
   const [autoGroups, setAutoGroups] = useState([]);
+  const [isAdminUser, setIsAdminUser] = useState(false);
 
   const [statusState] = useContext(StatusContext);
   const [userState] = useContext(UserContext);
@@ -240,6 +241,7 @@ export const useModelPricingData = () => {
       auto_groups,
     } = res.data;
     if (success) {
+      setIsAdminUser(!!res.data.is_admin);
       setGroupRatio(group_ratio);
       setUsableGroup(usable_group);
       setSelectedGroup('all');
@@ -428,6 +430,7 @@ export const useModelPricingData = () => {
     // 用户和状态
     userState,
     statusState,
+    isAdminUser,
 
     // 方法
     displayPrice,
