@@ -67,6 +67,7 @@ func (d *Department) Update() error {
 		}
 
 		// Calculate new path if parent changed
+		d.Path = old.Path
 		if d.ParentId != old.ParentId {
 			if d.ParentId == d.Id {
 				return errors.New("不能将父部门设置为自己")

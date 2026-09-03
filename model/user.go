@@ -861,10 +861,12 @@ func (user *User) EditWithTx(tx *gorm.DB, updatePassword bool) error {
 
 	newUser := *user
 	updates := map[string]interface{}{
-		"username":     newUser.Username,
-		"display_name": newUser.DisplayName,
-		"group":        newUser.Group,
-		"remark":       newUser.Remark,
+		"username":      newUser.Username,
+		"display_name":  newUser.DisplayName,
+		"group":         newUser.Group,
+		"remark":        newUser.Remark,
+		"department_id": newUser.DepartmentId,
+		"employee_id":   newUser.EmployeeId,
 	}
 	if updatePassword {
 		updates["password"] = newUser.Password

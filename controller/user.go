@@ -706,7 +706,12 @@ func GetUserModels(c *gin.Context) {
 
 func UpdateUser(c *gin.Context) {
 	var updatedUser model.User
-	err := common.DecodeJson(c.Request.Body, &updatedUser)
+	request := struct {
+		*model.User
+		DepartmentId *int    `json:"department_id"`
+		EmployeeId   *string `json:"employee_id"`
+	}{User: &updatedUser}
+	err := common.DecodeJson(c.Request.Body, &request)
 	if err != nil || updatedUser.Id == 0 {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
@@ -733,6 +738,29 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 	updatedUser.Role = originUser.Role
+	updatedUser.DepartmentId = originUser.DepartmentId
+	updatedUser.EmployeeId = originUser.EmployeeId
+	if request.DepartmentId != nil {
+		updatedUser.DepartmentId = *request.DepartmentId
+		if updatedUser.DepartmentId < 0 {
+			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			return
+		}
+		if updatedUser.DepartmentId > 0 && updatedUser.DepartmentId != originUser.DepartmentId {
+			dept, deptErr := model.GetDepartmentById(updatedUser.DepartmentId)
+			if deptErr != nil || dept.Status != model.DepartmentStatusEnabled {
+				common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+				return
+			}
+		}
+	}
+	if request.EmployeeId != nil {
+		updatedUser.EmployeeId = strings.TrimSpace(*request.EmployeeId)
+		if len([]rune(updatedUser.EmployeeId)) > 64 {
+			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			return
+		}
+	}
 	myRole := c.GetInt("role")
 	if !canManageTargetRole(myRole, originUser.Role) {
 		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionHigherLevel)
@@ -753,6 +781,9 @@ func UpdateUser(c *gin.Context) {
 	}); err != nil {
 		common.ApiError(c, err)
 		return
+	}
+	if updatedUser.DepartmentId != originUser.DepartmentId {
+		service.InvalidateUserModelAuthCache(updatedUser.Id)
 	}
 	if authzTouched {
 		if err := authz.ReloadPolicy(); err != nil {
@@ -1062,12 +1093,27 @@ func CreateUser(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUserCannotCreateHigherLevel)
 		return
 	}
+	if user.DepartmentId < 0 {
+		common.ApiError(c, errors.New("无效的部门ID"))
+		return
+	}
+	if user.DepartmentId > 0 {
+		dept, deptErr := model.GetDepartmentById(user.DepartmentId)
+		if deptErr != nil || dept == nil {
+			common.ApiError(c, errors.New("所选部门不存在"))
+			return
+		}
+	}
 	// Even for admin users, we cannot fully trust them!
 	cleanUser := model.User{
-		Username:    user.Username,
-		Password:    user.Password,
-		DisplayName: user.DisplayName,
-		Role:        user.Role, // 保持管理员设置的角色
+		Username:     user.Username,
+		Password:     user.Password,
+		DisplayName:  user.DisplayName,
+		Role:         user.Role, // 保持管理员设置的角色
+		DepartmentId: user.DepartmentId,
+		EmployeeId:   user.EmployeeId,
+		Email:        user.Email,
+		Remark:       user.Remark,
 	}
 	authzTouched := false
 	if err := model.DB.Transaction(func(tx *gorm.DB) error {

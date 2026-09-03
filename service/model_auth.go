@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,12 +11,19 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+	"github.com/google/uuid"
 )
 
 const (
-	userModelAuthCachePrefix = "user_model_auth:"
+	userModelAuthCachePrefix = "user_model_auth:v2:"
 	userModelAuthCacheTTL    = 5 * time.Minute
 )
+
+type cachedModelAccess struct {
+	Models    []string `json:"models"`
+	ExpiresAt int64    `json:"expires_at"`
+}
 
 // GetUserGrantedModelMap returns the map of granted models for a user and whether the user has all-access.
 // Root and Admin users have full access (allAccess = true).
@@ -34,13 +43,20 @@ func GetUserGrantedModelMap(userId int) (grantedMap map[string]bool, allAccess b
 	}
 
 	cacheKey := fmt.Sprintf("%s%d", userModelAuthCachePrefix, userId)
+	versionKey := cacheKey + ":version"
+	version := ""
+	canCache := false
 	if common.RedisEnabled {
+		// Read the generation before querying the DB so an invalidation cannot
+		// be overwritten by an in-flight cache fill.
+		version, err = common.RedisGet(versionKey)
+		canCache = err == nil || errors.Is(err, redis.Nil)
 		val, rErr := common.RedisGet(cacheKey)
 		if rErr == nil && val != "" {
-			var cachedModels []string
-			if err = common.UnmarshalJsonStr(val, &cachedModels); err == nil {
-				res := make(map[string]bool, len(cachedModels))
-				for _, m := range cachedModels {
+			var cached cachedModelAccess
+			if common.UnmarshalJsonStr(val, &cached) == nil && cached.ExpiresAt > common.GetTimestamp() {
+				res := make(map[string]bool, len(cached.Models))
+				for _, m := range cached.Models {
 					res[m] = true
 				}
 				return res, false, nil
@@ -48,7 +64,7 @@ func GetUserGrantedModelMap(userId int) (grantedMap map[string]bool, allAccess b
 		}
 	}
 
-	models, err := model.GetEffectiveModelNamesForUser(userId)
+	models, expiresAt, err := model.GetEffectiveModelAccessForUser(userId)
 	if err != nil {
 		return nil, false, err
 	}
@@ -58,10 +74,19 @@ func GetUserGrantedModelMap(userId int) (grantedMap map[string]bool, allAccess b
 		grantedMap[m] = true
 	}
 
-	if common.RedisEnabled {
-		data, mErr := common.Marshal(models)
-		if mErr == nil {
-			_ = common.RedisSet(cacheKey, string(data), userModelAuthCacheTTL)
+	if common.RedisEnabled && canCache {
+		cacheExpiresAt := time.Now().Add(userModelAuthCacheTTL).Unix()
+		if expiresAt > 0 && expiresAt < cacheExpiresAt {
+			cacheExpiresAt = expiresAt
+		}
+		ttl := time.Until(time.Unix(cacheExpiresAt, 0))
+		data, mErr := common.Marshal(cachedModelAccess{Models: models, ExpiresAt: cacheExpiresAt})
+		if mErr == nil && ttl > 0 {
+			_ = common.RDB.Eval(context.Background(), `
+if (redis.call('GET', KEYS[2]) or '') == ARGV[1] then
+  return redis.call('SET', KEYS[1], ARGV[2], 'PX', ARGV[3])
+end
+return 0`, []string{cacheKey, versionKey}, version, string(data), ttl.Milliseconds()).Err()
 		}
 	}
 
@@ -74,7 +99,11 @@ func InvalidateUserModelAuthCache(userId int) {
 		return
 	}
 	cacheKey := fmt.Sprintf("%s%d", userModelAuthCachePrefix, userId)
-	_ = common.RedisDel(cacheKey)
+	if err := common.RDB.Eval(context.Background(), `
+redis.call('SET', KEYS[2], ARGV[1], 'PX', ARGV[2])
+return redis.call('DEL', KEYS[1])`, []string{cacheKey, cacheKey + ":version"}, uuid.NewString(), (2 * userModelAuthCacheTTL).Milliseconds()).Err(); err != nil {
+		common.SysError(fmt.Sprintf("invalidate user model authorization cache %d: %v", userId, err))
+	}
 }
 
 // InvalidateGroupModelAuthCache clears the cached granted models for all members in a user group.

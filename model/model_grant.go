@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -17,6 +18,7 @@ const (
 
 type ModelGrant struct {
 	Id          int   `json:"id"`
+	BatchId     int   `json:"batch_id" gorm:"not null;default:0;index"`
 	SubjectType int   `json:"subject_type" gorm:"type:int;not null;index;uniqueIndex:uk_grant_subject_set"` // 1: dept, 2: group, 3: user
 	SubjectId   int   `json:"subject_id" gorm:"type:int;not null;index;uniqueIndex:uk_grant_subject_set"`
 	ModelSetId  int   `json:"model_set_id" gorm:"type:int;not null;index;uniqueIndex:uk_grant_subject_set"`
@@ -30,6 +32,7 @@ type ModelGrant struct {
 	ModelSetName string   `json:"model_set_name,omitempty" gorm:"-"`
 	Models       []string `json:"models,omitempty" gorm:"-"`
 	ModelCount   int      `json:"model_count,omitempty" gorm:"-"`
+	DirectModels bool     `json:"direct_models" gorm:"-"`
 }
 
 type UserGrantDetail struct {
@@ -133,10 +136,7 @@ func populateGrantDetails(grants []*ModelGrant) {
 	}
 }
 
-func GetModelGrants(page int, pageSize int, subjectType int, subjectId int, modelSetId int, status int, keyword string) ([]*ModelGrant, int64, error) {
-	var grants []*ModelGrant
-	var total int64
-
+func filteredModelGrants(subjectType int, subjectId int, modelSetId int, status int, keyword string) *gorm.DB {
 	tx := DB.Model(&ModelGrant{})
 
 	if subjectType > 0 {
@@ -155,6 +155,21 @@ func GetModelGrants(page int, pageSize int, subjectType int, subjectId int, mode
 	} else if status == 2 { // Expired
 		tx = tx.Where("expired_at > 0 AND expired_at <= ?", now)
 	}
+	if keyword = strings.TrimSpace(keyword); keyword != "" {
+		pattern := "%" + keyword + "%"
+		matching := DB.Where("model_set_id IN (?)", DB.Model(&ModelSet{}).Select("id").Where("name LIKE ?", pattern)).
+			Or("subject_type = ? AND subject_id IN (?)", SubjectTypeUser, DB.Model(&User{}).Select("id").Where("username LIKE ? OR display_name LIKE ?", pattern, pattern)).
+			Or("subject_type = ? AND subject_id IN (?)", SubjectTypeDepartment, DB.Model(&Department{}).Select("id").Where("name LIKE ?", pattern)).
+			Or("subject_type = ? AND subject_id IN (?)", SubjectTypeUserGroup, DB.Model(&UserGroup{}).Select("id").Where("name LIKE ?", pattern))
+		tx = tx.Where(matching)
+	}
+	return tx
+}
+
+func GetModelGrants(page int, pageSize int, subjectType int, subjectId int, modelSetId int, status int, keyword string) ([]*ModelGrant, int64, error) {
+	var grants []*ModelGrant
+	var total int64
+	tx := filteredModelGrants(subjectType, subjectId, modelSetId, status, keyword)
 
 	if err := tx.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -217,7 +232,29 @@ func RevokeModelGrant(grantId int) error {
 	if grantId <= 0 {
 		return errors.New("授权 ID 无效")
 	}
-	return DB.Delete(&ModelGrant{}, grantId).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var grant ModelGrant
+		if err := tx.First(&grant, grantId).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&grant).Error; err != nil {
+			return err
+		}
+		if grant.ModelSetId > 0 {
+			var remainingCount int64
+			_ = tx.Model(&ModelGrant{}).Where("model_set_id = ?", grant.ModelSetId).Count(&remainingCount)
+			if remainingCount == 0 {
+				var set ModelSet
+				if err := tx.First(&set, grant.ModelSetId).Error; err == nil {
+					if strings.HasPrefix(set.Name, "直接授权模型集-") || set.Description == "由直接模型授权生成的模型集" {
+						_ = tx.Where("model_set_id = ?", set.Id).Delete(&ModelSetItem{}).Error
+						_ = tx.Delete(&set).Error
+					}
+				}
+			}
+		}
+		return nil
+	})
 }
 
 func RevokeModelGrantBySubjectAndSet(subjectType int, subjectId int, modelSetId int) error {
@@ -287,6 +324,23 @@ func GetGrantsByModelSetId(modelSetId int) ([]*ModelGrant, error) {
 // 2. User's user groups
 // 3. User direct grants
 func GetEffectiveModelSetIdsForUser(userId int, deptId int, groupIds []int) ([]int, error) {
+	grants, err := GetEffectiveModelGrantsForUser(userId, deptId, groupIds)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int, 0, len(grants))
+	seen := make(map[int]bool)
+	for _, grant := range grants {
+		if !seen[grant.ModelSetId] {
+			ids = append(ids, grant.ModelSetId)
+			seen[grant.ModelSetId] = true
+		}
+	}
+	return ids, nil
+}
+
+// GetEffectiveModelGrantsForUser preserves expiry information for permission caches.
+func GetEffectiveModelGrantsForUser(userId int, deptId int, groupIds []int) ([]ModelGrant, error) {
 	if userId <= 0 {
 		return nil, nil
 	}
@@ -307,8 +361,8 @@ func GetEffectiveModelSetIdsForUser(userId int, deptId int, groupIds []int) ([]i
 
 	// User groups grant
 	if len(groupIds) > 0 {
-		orConditions = append(orConditions, "(subject_type = ? AND subject_id IN ?)")
-		args = append(args, SubjectTypeUserGroup, groupIds)
+		orConditions = append(orConditions, "(subject_type = ? AND subject_id IN ? AND subject_id IN (SELECT id FROM user_groups WHERE status = ? AND deleted_at IS NULL))")
+		args = append(args, SubjectTypeUserGroup, groupIds, UserGroupStatusEnabled)
 	}
 
 	// Department grants (including ancestors if any)
@@ -325,8 +379,8 @@ func GetEffectiveModelSetIdsForUser(userId int, deptId int, groupIds []int) ([]i
 				}
 			}
 		}
-		orConditions = append(orConditions, "(subject_type = ? AND subject_id IN ?)")
-		args = append(args, SubjectTypeDepartment, deptIds)
+		orConditions = append(orConditions, "(subject_type = ? AND subject_id IN ? AND subject_id IN (SELECT id FROM departments WHERE status = ? AND deleted_at IS NULL))")
+		args = append(args, SubjectTypeDepartment, deptIds, DepartmentStatusEnabled)
 	}
 
 	whereClause := ""
@@ -338,44 +392,60 @@ func GetEffectiveModelSetIdsForUser(userId int, deptId int, groupIds []int) ([]i
 		}
 	}
 
-	var modelSetIds []int
-	err := query.Where(whereClause, args...).Distinct("model_set_id").Pluck("model_set_id", &modelSetIds).Error
-	return modelSetIds, err
+	var grants []ModelGrant
+	err := query.Where(whereClause, args...).Find(&grants).Error
+	return grants, err
 }
 
 // GetEffectiveModelNamesForUser resolves all model names a user is currently allowed to invoke.
 func GetEffectiveModelNamesForUser(userId int) ([]string, error) {
+	models, _, err := GetEffectiveModelAccessForUser(userId)
+	return models, err
+}
+
+// GetEffectiveModelAccessForUser also returns the first expiry among effective grants.
+// A cache must not survive that expiry, even if other grants last longer.
+func GetEffectiveModelAccessForUser(userId int) ([]string, int64, error) {
 	if userId <= 0 {
-		return nil, nil
+		return nil, 0, nil
 	}
 
 	// Get user's department
 	var user User
 	if err := DB.Select("id", "department_id", "role").First(&user, userId).Error; err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	// Root/Admin have access to all enabled models
 	if user.Role >= common.RoleAdminUser {
 		var allModels []string
 		err := DB.Model(&Model{}).Where("status = 1").Pluck("model_name", &allModels).Error
-		return allModels, err
+		return allModels, 0, err
 	}
 
 	// Get user's user groups
 	groupIds, err := GetUserGroupIdsByUserId(userId)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	// Get effective model set IDs
-	setIds, err := GetEffectiveModelSetIdsForUser(userId, user.DepartmentId, groupIds)
-	if err != nil || len(setIds) == 0 {
-		return nil, err
+	grants, err := GetEffectiveModelGrantsForUser(userId, user.DepartmentId, groupIds)
+	if err != nil || len(grants) == 0 {
+		return nil, 0, err
+	}
+	setIds := make([]int, 0, len(grants))
+	var expiresAt int64
+	for _, grant := range grants {
+		setIds = append(setIds, grant.ModelSetId)
+		if grant.ExpiredAt > 0 && (expiresAt == 0 || grant.ExpiredAt < expiresAt) {
+			expiresAt = grant.ExpiredAt
+		}
 	}
 
 	// Get distinct model names from those model sets
-	return GetModelNamesByModelSetIds(setIds)
+	models, err := GetModelNamesByModelSetIds(setIds)
+	return models, expiresAt, err
 }
 
 func GetUserGrantDetail(userId int) (*UserGrantDetail, error) {
@@ -442,4 +512,3 @@ func GetUserGrantDetail(userId int) (*UserGrantDetail, error) {
 
 	return detail, nil
 }
-

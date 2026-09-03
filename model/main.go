@@ -369,7 +369,7 @@ func migrateDB() error {
 		&UserGroupMember{},
 		&ModelSet{},
 		&ModelSetItem{},
-		&ModelGrant{},
+		&ModelGrant{}, &ModelGrantBatch{},
 		&ModelAccessRequest{},
 		&ModelAuthAudit{},
 	)

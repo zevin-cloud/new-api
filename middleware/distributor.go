@@ -44,6 +44,14 @@ func Distribute() func(c *gin.Context) {
 			abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorInvalidRequest, map[string]any{"Error": err.Error()}))
 			return
 		}
+		// Submissions require model access regardless of how their channel is
+		// selected. Result queries are authorized by task ownership downstream.
+		if shouldSelectChannel || c.GetInt("relay_mode") == relayconstant.RelayModeVideoSubmit {
+			if allowed, errMsg := service.ValidateUserAndTokenModelAccess(c, c.GetInt("id"), modelRequest.Model); !allowed {
+				abortWithOpenAiMessage(c, http.StatusForbidden, errMsg)
+				return
+			}
+		}
 		if pin, found, overridden := constraints.ResolvedPin(); found {
 			for _, lost := range overridden {
 				logger.LogWarn(c, fmt.Sprintf(
@@ -77,13 +85,6 @@ func Distribute() func(c *gin.Context) {
 			}
 		} else {
 			// Select a channel for the user
-			// Enforce user model grants and token model limits
-			userId := c.GetInt("id")
-			if allowed, errMsg := service.ValidateUserAndTokenModelAccess(c, userId, modelRequest.Model); !allowed {
-				abortWithOpenAiMessage(c, http.StatusForbidden, errMsg)
-				return
-			}
-
 			if shouldSelectChannel {
 				if modelRequest.Model == "" {
 					abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorModelNameRequired))
@@ -424,6 +425,7 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 		relayMode := relayconstant.RelayModeVideoSubmit
 		c.Set("relay_mode", relayMode)
 		shouldSelectChannel = false
+		modelRequest.Model = getTaskOriginModelName(c)
 	} else if strings.Contains(c.Request.URL.Path, "/v1/videos") {
 		//curl https://api.openai.com/v1/videos \
 		//  -H "Authorization: Bearer $OPENAI_API_KEY" \
@@ -545,10 +547,6 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 // modelRequest.Model 为空而误报 "This token has no access to model"。
 // 从已存储的任务记录中回填 OriginModelName 即可让校验走在正确的模型上。
 func getTaskOriginModelName(c *gin.Context) string {
-	if !common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled) {
-		return ""
-	}
-
 	taskId := c.Param("task_id")
 	if taskId == "" {
 		return ""

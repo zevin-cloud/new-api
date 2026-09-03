@@ -389,6 +389,7 @@ func TestDistributeHonorsOriginTaskChannelPin(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/vendor/jobs", strings.NewReader(`{}`))
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set("resolved_task_model", "resolved-model")
+	setupAuthorizedOriginTaskUser(t, c)
 	service.GetChannelConstraints(c).AddPin(dto.ChannelPin{
 		ChannelId: channel.Id,
 		Source:    dto.PinSourceOriginTask,
@@ -422,6 +423,7 @@ func TestDistributeTokenPinBeatsOriginPin(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/vendor/jobs", strings.NewReader(`{}`))
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set("resolved_task_model", "resolved-model")
+	setupAuthorizedOriginTaskUser(t, c)
 	constraints := service.GetChannelConstraints(c)
 	constraints.AddPin(dto.ChannelPin{
 		ChannelId: tokenChannel.Id,
@@ -459,6 +461,7 @@ func TestDistributePinViolatingIdentityFilterErrors(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/vendor/jobs", strings.NewReader(`{}`))
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set("resolved_task_model", "resolved-model")
+	setupAuthorizedOriginTaskUser(t, c)
 	c.Set("expected_task_plugin_key", "alpha")
 	service.GetChannelConstraints(c).AddPin(dto.ChannelPin{
 		ChannelId: channel.Id,

@@ -5,19 +5,49 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useState, useEffect } from 'react';
-import { Modal, Table, Button, Select, Space, Tag, Typography, Popconfirm, InputNumber } from '@douyinfe/semi-ui';
+import { useTranslation } from 'react-i18next';
+import {
+  Modal,
+  Table,
+  Button,
+  Select,
+  Space,
+  Tag,
+  Typography,
+  Popconfirm,
+  InputNumber,
+} from '@douyinfe/semi-ui';
 import { IconPlus } from '@douyinfe/semi-icons';
-import { API, showError, showSuccess, timestamp2string } from '../../../../helpers';
+import {
+  API,
+  showError,
+  showSuccess,
+  timestamp2string,
+} from '../../../../helpers';
+
+import { loadGrantSubjects } from '../../../../services/modelGrants';
 
 const { Text } = Typography;
 
-const ModelSetSubjectsModal = ({ visible, modelSet, onClose, t }) => {
+const ModelSetSubjectsModal = ({ visible, modelSet, onClose }) => {
+  const { t } = useTranslation();
   const [grants, setGrants] = useState([]);
   const [loading, setLoading] = useState(false);
   const [subjectType, setSubjectType] = useState(2); // 1: dept, 2: group, 3: user
+  const [loadingSubjects, setLoadingSubjects] = useState(false);
   const [targetOptions, setTargetOptions] = useState([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState(null);
   const [durationDays, setDurationDays] = useState(0);
@@ -30,7 +60,9 @@ const ModelSetSubjectsModal = ({ visible, modelSet, onClose, t }) => {
 
   useEffect(() => {
     if (visible) {
-      loadSubjectOptions(subjectType);
+      const controller = new AbortController();
+      loadSubjectOptions(subjectType, controller.signal);
+      return () => controller.abort();
     }
   }, [visible, subjectType]);
 
@@ -51,33 +83,32 @@ const ModelSetSubjectsModal = ({ visible, modelSet, onClose, t }) => {
     }
   };
 
-  const loadSubjectOptions = async (stype) => {
+  const loadSubjectOptions = async (type, signal) => {
     setSelectedSubjectId(null);
+    setTargetOptions([]);
+    setLoadingSubjects(true);
     try {
-      if (stype === 1) {
-        // Departments
-        const res = await API.get('/api/department');
-        if (res.data?.success) {
-          setTargetOptions(res.data.data.map((d) => ({ label: d.name, value: d.id })));
-        }
-      } else if (stype === 2) {
-        // UserGroups
-        const res = await API.get('/api/user-group?page=1&page_size=100');
-        if (res.data?.success) {
-          setTargetOptions((res.data.data.items || []).map((g) => ({ label: g.name, value: g.id })));
-        }
-      } else if (stype === 3) {
-        // Users
-        const res = await API.get('/api/user/search?p=0&page_size=100');
-        if (res.data?.success) {
-          setTargetOptions((res.data.data.items || []).map((u) => ({
-            label: `${u.display_name || u.username} (@${u.username})`,
-            value: u.id,
-          })));
-        }
-      }
-    } catch (e) {
-      // ignore
+      const subjects = await loadGrantSubjects(type, signal);
+      if (signal.aborted) return;
+      setTargetOptions(
+        subjects
+          .filter((subject) => subject.status === 1)
+          .map((subject) => ({
+            label:
+              type === 3
+                ? (subject.display_name || subject.username) +
+                  ' (@' +
+                  subject.username +
+                  ')'
+                : subject.name,
+            value: subject.id,
+          }))
+      );
+    } catch (error) {
+      if (!signal.aborted)
+        showError(error.message || t('Unable to load authorization data'));
+    } finally {
+      if (!signal.aborted) setLoadingSubjects(false);
     }
   };
 
@@ -163,7 +194,9 @@ const ModelSetSubjectsModal = ({ visible, modelSet, onClose, t }) => {
       render: (_, record) => (
         <Popconfirm
           title={t('确认撤销')}
-          content={t('确定要撤销对 {{name}} 的授权吗？', { name: record.subject_name })}
+          content={t('确定要撤销对 {{name}} 的授权吗？', {
+            name: record.subject_name,
+          })}
           onConfirm={() => handleRevoke(record.id)}
         >
           <Button size='small' type='danger' theme='borderless'>
@@ -203,6 +236,7 @@ const ModelSetSubjectsModal = ({ visible, modelSet, onClose, t }) => {
             value={selectedSubjectId}
             onChange={(v) => setSelectedSubjectId(v)}
             optionList={targetOptions}
+            loading={loadingSubjects}
             filter
             style={{ width: 220 }}
           />
@@ -220,7 +254,7 @@ const ModelSetSubjectsModal = ({ visible, modelSet, onClose, t }) => {
             type='primary'
             icon={<IconPlus />}
             onClick={handleGrant}
-            disabled={!selectedSubjectId}
+            disabled={loadingSubjects || !selectedSubjectId}
           >
             {t('授权此主体')}
           </Button>

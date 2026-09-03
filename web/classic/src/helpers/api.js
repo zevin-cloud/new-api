@@ -92,6 +92,15 @@ export function updateAPI() {
 API.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // 忽略主动取消/中断的请求，不触发全局错误提示
+    if (
+      axios.isCancel(error) ||
+      error?.code === 'ERR_CANCELED' ||
+      error?.name === 'CanceledError' ||
+      error?.message === 'canceled'
+    ) {
+      return Promise.reject(error);
+    }
     const config = error.config;
     if (error.response?.status === 401 && config) {
       if (!config.authRetry) {

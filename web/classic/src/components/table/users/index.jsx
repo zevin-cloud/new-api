@@ -5,6 +5,16 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
@@ -14,7 +24,6 @@ import UsersActions from './UsersActions';
 import UsersFilters from './UsersFilters';
 import UsersDescription from './UsersDescription';
 import DepartmentTree from './DepartmentTree';
-import AddUserModal from './modals/AddUserModal';
 import EditUserModal from './modals/EditUserModal';
 import UserDetailSideSheet from './modals/UserDetailSideSheet';
 import UserImportModal from './modals/UserImportModal';
@@ -29,11 +38,10 @@ const UsersPage = () => {
 
   const {
     // Modal state
-    showAddUser,
     showEditUser,
     editingUser,
-    setShowAddUser,
-    closeAddUser,
+    setEditingUser,
+    setShowEditUser,
     closeEditUser,
     showDetail,
     setShowDetail,
@@ -76,19 +84,19 @@ const UsersPage = () => {
     searchUsers(1, pageSize, null, null, deptId, selectedUserGroupId);
   };
 
+  const handleAddUser = () => {
+    setEditingUser(null);
+    setShowEditUser(true);
+  };
+
   return (
     <>
-      <AddUserModal
-        refresh={refresh}
-        visible={showAddUser}
-        handleClose={closeAddUser}
-      />
-
       <EditUserModal
         refresh={refresh}
         visible={showEditUser}
         handleClose={closeEditUser}
         editingUser={editingUser}
+        defaultDeptId={selectedDeptId}
       />
 
       <UserDetailSideSheet
@@ -140,7 +148,7 @@ const UsersPage = () => {
             actionsArea={
               <div className='flex flex-col md:flex-row justify-between items-center gap-2 w-full'>
                 <UsersActions
-                  setShowAddUser={setShowAddUser}
+                  onAddUser={handleAddUser}
                   setShowImportModal={setShowImportModal}
                   setShowBatchGroupModal={setShowBatchGroupModal}
                   selectedRowKeys={selectedRowKeys}

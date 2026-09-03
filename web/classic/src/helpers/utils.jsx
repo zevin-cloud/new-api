@@ -120,6 +120,15 @@ if (isMobileScreen) {
 }
 
 export function showError(error) {
+  if (
+    !error ||
+    error === 'canceled' ||
+    error?.code === 'ERR_CANCELED' ||
+    error?.name === 'CanceledError' ||
+    error?.message === 'canceled'
+  ) {
+    return;
+  }
   console.error(error);
   if (error.message) {
     if (error.name === 'AxiosError') {

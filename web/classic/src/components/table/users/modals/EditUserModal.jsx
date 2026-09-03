@@ -62,7 +62,8 @@ const { Text, Title } = Typography;
 
 const EditUserModal = (props) => {
   const { t } = useTranslation();
-  const userId = props.editingUser.id;
+  const userId = props.editingUser?.id;
+  const isEdit = Boolean(userId);
   const [loading, setLoading] = useState(true);
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
   const [adjustQuotaLocal, setAdjustQuotaLocal] = useState('');
@@ -71,13 +72,32 @@ const EditUserModal = (props) => {
   const [adjustLoading, setAdjustLoading] = useState(false);
   const isMobile = useIsMobile();
   const [groupOptions, setGroupOptions] = useState([]);
+  const [deptTreeData, setDeptTreeData] = useState([]);
   const [bindingModalVisible, setBindingModalVisible] = useState(false);
   const formApiRef = useRef(null);
   const [showAdjustQuotaRaw, setShowAdjustQuotaRaw] = useState(false);
   const [showQuotaInput, setShowQuotaInput] = useState(false);
   const [inputs, setInputs] = useState(null);
 
-  const isEdit = Boolean(userId);
+  const loadDeptTree = async () => {
+    try {
+      const res = await API.get('/api/department/tree');
+      if (res.data?.success) {
+        const formatNodes = (nodes) => {
+          if (!nodes || nodes.length === 0) return [];
+          return nodes.map((n) => ({
+            label: n.name,
+            value: n.id,
+            key: String(n.id),
+            children: formatNodes(n.children),
+          }));
+        };
+        setDeptTreeData(formatNodes(res.data.data));
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   const getInitValues = () => ({
     username: '',
@@ -93,6 +113,11 @@ const EditUserModal = (props) => {
     quota: 0,
     quota_amount: 0,
     group: 'default',
+    department_id:
+      props.defaultDeptId && Number(props.defaultDeptId) > 0
+        ? Number(props.defaultDeptId)
+        : undefined,
+    employee_id: '',
     remark: '',
   });
 
@@ -108,8 +133,13 @@ const EditUserModal = (props) => {
   const handleCancel = () => props.handleClose();
 
   const loadUser = async () => {
+    if (!userId) {
+      setInputs(getInitValues());
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    const url = userId ? `/api/user/${userId}` : `/api/user/self`;
+    const url = `/api/user/${userId}`;
     const res = await API.get(url);
     const { success, message, data } = res.data;
     if (success) {
@@ -117,6 +147,9 @@ const EditUserModal = (props) => {
       data.quota_amount = Number(
         quotaToDisplayAmount(data.quota || 0).toFixed(6),
       );
+      if (data.department_id === 0) {
+        data.department_id = undefined;
+      }
       setInputs({ ...getInitValues(), ...data });
     } else {
       showError(message);
@@ -131,10 +164,11 @@ const EditUserModal = (props) => {
   }, [inputs]);
 
   useEffect(() => {
+    loadDeptTree();
+    fetchGroups();
     loadUser();
-    if (userId) fetchGroups();
     setBindingModalVisible(false);
-  }, [props.editingUser.id]);
+  }, [props.editingUser?.id, props.visible]);
 
   const openBindingModal = () => {
     setBindingModalVisible(true);
@@ -150,20 +184,35 @@ const EditUserModal = (props) => {
     let payload = { ...values };
     delete payload.quota;
     delete payload.quota_amount;
-    if (userId) {
-      payload.id = parseInt(userId);
+    payload.department_id = payload.department_id ? Number(payload.department_id) : 0;
+    try {
+      if (isEdit) {
+        payload.id = parseInt(userId);
+        const res = await API.put('/api/user/', payload);
+        const { success, message } = res.data;
+        if (success) {
+          showSuccess(t('用户信息更新成功！'));
+          props.refresh();
+          props.handleClose();
+        } else {
+          showError(message);
+        }
+      } else {
+        const res = await API.post('/api/user/', payload);
+        const { success, message } = res.data;
+        if (success) {
+          showSuccess(t('用户账户创建成功！'));
+          props.refresh();
+          props.handleClose();
+        } else {
+          showError(message);
+        }
+      }
+    } catch (e) {
+      showError(e.message || t('操作失败'));
+    } finally {
+      setLoading(false);
     }
-    const url = userId ? `/api/user/` : `/api/user/self`;
-    const res = await API.put(url, payload);
-    const { success, message } = res.data;
-    if (success) {
-      showSuccess(t('用户信息更新成功！'));
-      props.refresh();
-      props.handleClose();
-    } else {
-      showError(message);
-    }
-    setLoading(false);
   };
 
   /* --------------------- atomic quota adjust -------------------- */
@@ -229,11 +278,11 @@ const EditUserModal = (props) => {
         placement='right'
         title={
           <Space>
-            <Tag color='blue' shape='circle'>
+            <Tag color={isEdit ? 'blue' : 'green'} shape='circle'>
               {t(isEdit ? '编辑' : '新建')}
             </Tag>
             <Title heading={4} className='m-0'>
-              {isEdit ? t('编辑用户') : t('创建用户')}
+              {isEdit ? t('编辑用户') : t('添加用户')}
             </Title>
           </Space>
         }
@@ -241,7 +290,7 @@ const EditUserModal = (props) => {
         visible={props.visible}
         width={isMobile ? '100%' : 600}
         footer={
-          <div className='flex justify-end bg-white'>
+          <div className='flex justify-end bg-white dark:bg-gray-900 p-3'>
             <Space>
               <Button
                 theme='solid'
@@ -287,8 +336,8 @@ const EditUserModal = (props) => {
                       <Text className='text-lg font-medium'>
                         {t('基本信息')}
                       </Text>
-                      <div className='text-xs text-gray-600'>
-                        {t('用户的基本账户信息')}
+                      <div className='text-xs text-gray-600 dark:text-gray-400'>
+                        {isEdit ? t('编辑用户的基本账户信息') : t('创建新用户账户并分配归属组织')}
                       </div>
                     </div>
                   </div>
@@ -298,7 +347,7 @@ const EditUserModal = (props) => {
                       <Form.Input
                         field='username'
                         label={t('用户名')}
-                        placeholder={t('请输入新的用户名')}
+                        placeholder={t('请输入用户名')}
                         rules={[{ required: true, message: t('请输入用户名') }]}
                         showClear
                       />
@@ -308,8 +357,17 @@ const EditUserModal = (props) => {
                       <Form.Input
                         field='password'
                         label={t('密码')}
-                        placeholder={t('请输入新的密码，最短 8 位')}
+                        placeholder={
+                          isEdit
+                            ? t('留空表示不修改密码')
+                            : t('请输入密码')
+                        }
                         mode='password'
+                        rules={
+                          isEdit
+                            ? []
+                            : [{ required: true, message: t('请输入密码') }]
+                        }
                         showClear
                       />
                     </Col>
@@ -318,7 +376,7 @@ const EditUserModal = (props) => {
                       <Form.Input
                         field='display_name'
                         label={t('显示名称')}
-                        placeholder={t('请输入新的显示名称')}
+                        placeholder={t('请输入显示名称')}
                         showClear
                       />
                     </Col>
@@ -329,6 +387,17 @@ const EditUserModal = (props) => {
                         label={t('工号')}
                         placeholder={t('请输入员工工号')}
                         showClear
+                      />
+                    </Col>
+
+                    <Col span={24}>
+                      <Form.TreeSelect
+                        field='department_id'
+                        label={t('所属组织架构 (部门)')}
+                        placeholder={t('请选择所属组织部门（不选则属于全组织）')}
+                        treeData={deptTreeData}
+                        showClear
+                        filterTreeNode
                       />
                     </Col>
 
@@ -352,8 +421,8 @@ const EditUserModal = (props) => {
                   </Row>
                 </Card>
 
-                {/* 权限设置 */}
-                {userId && (
+                {/* 权限设置 - 仅编辑用户时展示 */}
+                {isEdit && userId && (
                   <Card className='!rounded-2xl shadow-sm border-0'>
                     <div className='flex items-center mb-2'>
                       <Avatar

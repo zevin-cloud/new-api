@@ -45,21 +45,74 @@ func (g *UserGroup) Insert() error {
 }
 
 func (g *UserGroup) Update() error {
-	var count int64
-	if err := DB.Model(&UserGroup{}).Where("name = ? AND id != ?", g.Name, g.Id).Count(&count).Error; err != nil {
-		return err
-	}
-	if count > 0 {
-		return errors.New("用户组名称已存在")
-	}
+	_, err := g.UpdateWithMembers(nil)
+	return err
+}
 
-	g.UpdatedAt = common.GetTimestamp()
-	return DB.Model(g).Where("id = ?", g.Id).Updates(map[string]any{
-		"name":        g.Name,
-		"description": g.Description,
-		"status":      g.Status,
-		"updated_at":  g.UpdatedAt,
-	}).Error
+// UpdateWithMembers commits group settings and membership together and returns
+// every user whose cached permissions may have changed, including former members.
+func (g *UserGroup) UpdateWithMembers(userIds *[]int) ([]int, error) {
+	var affected []int
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var current UserGroup
+		if err := lockForUpdate(tx).First(&current, g.Id).Error; err != nil {
+			return err
+		}
+		var count int64
+		if err := tx.Model(&UserGroup{}).Where("name = ? AND id != ?", g.Name, g.Id).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return errors.New("用户组名称已存在")
+		}
+		if err := tx.Model(&UserGroupMember{}).Where("group_id = ?", g.Id).Pluck("user_id", &affected).Error; err != nil {
+			return err
+		}
+		if g.Status == 0 {
+			g.Status = current.Status
+		}
+		if g.Status != UserGroupStatusEnabled && g.Status != UserGroupStatusDisabled {
+			return errors.New("用户组状态无效")
+		}
+		g.UpdatedAt = common.GetTimestamp()
+		if err := tx.Model(g).Updates(map[string]any{
+			"name": g.Name, "description": g.Description, "status": g.Status, "updated_at": g.UpdatedAt,
+		}).Error; err != nil {
+			return err
+		}
+		if userIds == nil {
+			return nil
+		}
+		seen := make(map[int]bool)
+		members := make([]UserGroupMember, 0, len(*userIds))
+		for _, id := range *userIds {
+			if id <= 0 {
+				return errors.New("用户 ID 无效")
+			}
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			members = append(members, UserGroupMember{GroupId: g.Id, UserId: id, CreatedAt: g.UpdatedAt})
+			affected = append(affected, id)
+		}
+		if len(members) > 0 {
+			if err := tx.Model(&User{}).Where("id IN ?", *userIds).Count(&count).Error; err != nil {
+				return err
+			}
+			if count != int64(len(members)) {
+				return errors.New("部分用户不存在")
+			}
+		}
+		if err := tx.Where("group_id = ?", g.Id).Delete(&UserGroupMember{}).Error; err != nil {
+			return err
+		}
+		if len(members) > 0 {
+			return tx.Create(&members).Error
+		}
+		return nil
+	})
+	return affected, err
 }
 
 func DeleteUserGroup(id int) error {

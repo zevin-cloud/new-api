@@ -162,22 +162,14 @@ func UpdateAdminUserGroup(c *gin.Context) {
 		Status:      req.Status,
 	}
 
-	if err := group.Update(); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+	affected, err := group.UpdateWithMembers(req.UserIds)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-
-	if req.UserIds != nil {
-		_ = model.SetGroupMembers(id, *req.UserIds)
-		for _, uid := range *req.UserIds {
-			service.InvalidateUserModelAuthCache(uid)
-		}
+	for _, uid := range affected {
+		service.InvalidateUserModelAuthCache(uid)
 	}
-
-	service.InvalidateGroupModelAuthCache(group.Id)
 	actorId := c.GetInt("id")
 	_ = model.RecordAuthAudit(actorId, "user_group_updated", "user_group", group.Id, group.Name)
 

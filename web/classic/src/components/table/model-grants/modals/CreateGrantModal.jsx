@@ -5,9 +5,20 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   SideSheet,
   Select,
@@ -31,13 +42,21 @@ import {
   IconLayers,
   IconClock,
 } from '@douyinfe/semi-icons';
-import { API, showError, showSuccess, timestamp2string } from '../../../../helpers';
+import { showError, showSuccess, timestamp2string } from '../../../../helpers';
+import {
+  loadGrantOptions,
+  createGrantBatch,
+  getGrantBatchDetail,
+  updateGrantBatch,
+} from '../../../../services/modelGrants';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 
 const { Text, Title } = Typography;
 
-const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
+const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
+  const { t } = useTranslation();
   const isMobile = useIsMobile();
+  const isEdit = Boolean(batchItem);
 
   // 1. Organization tree selection (Depts and Dept Users)
   const [deptTreeData, setDeptTreeData] = useState([]);
@@ -61,13 +80,64 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
   // Status
   const [loading, setLoading] = useState(false);
   const [fetchingData, setFetchingData] = useState(false);
+  const [optionsReady, setOptionsReady] = useState(false);
 
   useEffect(() => {
-    if (visible) {
-      loadAllOptions();
+    if (!visible) return;
+    const controller = new AbortController();
+    const init = async () => {
       resetForm();
-    }
-  }, [visible]);
+      const options = await loadAllOptions(controller.signal);
+      if (isEdit && batchItem) {
+        try {
+          const targetId =
+            batchItem.batch_id ||
+            batchItem.batchId ||
+            batchItem.legacy_id ||
+            batchItem.id;
+          const isLegacy = !batchItem.batch_id || batchItem.batch_id === 0;
+          const queryId = isLegacy ? `grant_${targetId}?type=legacy` : targetId;
+          const detail = await getGrantBatchDetail(queryId, controller.signal);
+          if (controller.signal.aborted || !detail) return;
+
+          const orgKeys = [];
+          const groupIds = [];
+          (detail.subjects || []).forEach((s) => {
+            if (s.type === 1) orgKeys.push(`dept_${s.id}`);
+            else if (s.type === 3) orgKeys.push(`user_${s.id}`);
+            else if (s.type === 2) groupIds.push(s.id);
+          });
+          setSelectedOrgKeys(orgKeys);
+          setSelectedGroupIds(groupIds);
+
+          const setIds = (detail.model_sets || [])
+            .filter((ms) => !ms.direct_models)
+            .map((ms) => ms.id);
+          setSelectedModelSetIds(setIds);
+
+          const businessModels = new Set(
+            (options?.sets || [])
+              .filter((s) => setIds.includes(s.id))
+              .flatMap((s) => s.models || [])
+          );
+          const directModels = (detail.models || []).filter(
+            (m) => !businessModels.has(m)
+          );
+          setSelectedModelNames(directModels.length > 0 ? directModels : detail.models || []);
+
+          if (detail.expired_at && detail.expired_at > 0) {
+            setExpiredTime(timestamp2string(detail.expired_at));
+          } else {
+            setExpiredTime(-1);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+    init();
+    return () => controller.abort();
+  }, [visible, batchItem]);
 
   const resetForm = () => {
     setSelectedOrgKeys([]);
@@ -94,28 +164,18 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
     setExpiredTime(timestamp2string(Math.ceil(now.getTime() / 1000)));
   };
 
-  const loadAllOptions = async () => {
+  const loadAllOptions = async (signal) => {
     setFetchingData(true);
+    setOptionsReady(false);
     try {
-      let rawDepts = [];
-      let rawUsers = [];
-
-      try {
-        const [resDept, resUser] = await Promise.all([
-          API.get('/api/department/tree'),
-          API.get('/api/user/search?p=0&page_size=1000'),
-        ]);
-
-        if (resDept.data?.success) {
-          rawDepts = resDept.data.data || [];
-        }
-        if (resUser.data?.success) {
-          rawUsers = resUser.data.data?.items || resUser.data.data || [];
-        }
-      } catch (e) {
-        // ignore
-      }
-
+      const {
+        depts: rawDepts,
+        users: rawUsers,
+        groups,
+        sets,
+        models,
+      } = await loadGrantOptions(signal);
+      if (signal.aborted) return;
       // Group users by department_id
       const usersByDept = {};
       const unassignedUsers = [];
@@ -132,8 +192,9 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
 
       // Build recursive tree with depts as branch nodes and users as leaf nodes
       const buildOrgTree = (deptList) => {
-        if (!deptList || deptList.length === 0) return [];
-        return deptList.map((d) => {
+        if (!deptList || deptList.length === 0) return { nodes: [], count: 0 };
+        let totalCount = 0;
+        const nodes = deptList.map((d) => {
           const deptUsers = usersByDept[d.id] || [];
           const userChildren = deptUsers.map((u) => ({
             label: `${u.display_name || u.username} (@${u.username})`,
@@ -143,11 +204,13 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
             raw: u,
           }));
 
-          const subDeptChildren = buildOrgTree(d.children);
+          const { nodes: subDeptChildren, count: subCount } = buildOrgTree(d.children);
           const allChildren = [...subDeptChildren, ...userChildren];
+          const deptTotalCount = deptUsers.length + subCount;
+          totalCount += deptTotalCount;
 
           return {
-            label: `${d.name} (${deptUsers.length} 人)`,
+            label: `${d.name} (${t('{{count}} members', { count: deptTotalCount })})`,
             value: `dept_${d.id}`,
             key: `dept_${d.id}`,
             isDept: true,
@@ -155,13 +218,18 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
             children: allChildren.length > 0 ? allChildren : undefined,
           };
         });
+        return { nodes, count: totalCount };
       };
 
-      const tree = buildOrgTree(rawDepts);
+      const { nodes: tree } = buildOrgTree(rawDepts);
 
       if (unassignedUsers.length > 0) {
         tree.push({
-          label: `${t('未分配部门')} (${unassignedUsers.length} 人)`,
+          label:
+            t('No department') +
+            ' (' +
+            t('{{count}} members', { count: unassignedUsers.length }) +
+            ')',
           value: 'dept_unassigned',
           key: 'dept_unassigned',
           disabled: true,
@@ -177,52 +245,15 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
 
       setDeptTreeData(tree);
 
-      // 2. Load UserGroups
-      try {
-        const resGroup = await API.get('/api/user-group?page=1&page_size=300');
-        if (resGroup.data?.success) {
-          setGroupOptions(
-            (resGroup.data.data.items || []).map((g) => ({
-              label: `${g.name} (${g.member_count || 0} 成员)`,
-              value: g.id,
-            }))
-          );
-        }
-      } catch (e) {}
-
-      // 3. Load ModelSets
-      try {
-        const resSets = await API.get('/api/model-set?page=1&page_size=300');
-        if (resSets.data?.success) {
-          setModelSets(resSets.data.data.items || []);
-        }
-      } catch (e) {}
-
-      // 4. Load Available Models
-      try {
-        const modelNameSet = new Set();
-        const resEnabled = await API.get('/api/channel/models_enabled');
-        if (resEnabled.data?.success && Array.isArray(resEnabled.data.data)) {
-          resEnabled.data.data.forEach((m) => {
-            if (typeof m === 'string' && m) modelNameSet.add(m);
-          });
-        }
-        const resPricing = await API.get('/api/pricing');
-        if (resPricing.data?.success && Array.isArray(resPricing.data?.data)) {
-          resPricing.data.data.forEach((m) => {
-            const name = typeof m === 'string' ? m : m.model_name || m.id || m.name;
-            if (name) modelNameSet.add(name);
-          });
-        }
-        setAvailableModels(
-          Array.from(modelNameSet).map((m) => ({
-            label: m,
-            value: m,
-          }))
-        );
-      } catch (e) {}
+      setGroupOptions(groups.map((g) => ({ label: g.name, value: g.id })));
+      setModelSets(sets);
+      setAvailableModels(models.map((name) => ({ label: name, value: name })));
+      setOptionsReady(true);
+    } catch (error) {
+      if (!signal.aborted)
+        showError(error.message || t('Unable to load authorization data'));
     } finally {
-      setFetchingData(false);
+      if (!signal.aborted) setFetchingData(false);
     }
   };
 
@@ -249,12 +280,13 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
     selectedModelSetIds.length + selectedModelNames.length;
 
   const handleSubmit = async () => {
+    if (!optionsReady || loading) return;
     if (totalSubjectCount === 0) {
-      showError(t('请选择至少一个授权主体（从组织架构树选择部门/用户，或选择用户组）'));
+      showError(t('Select at least one department, group or user.'));
       return;
     }
     if (totalResourceCount === 0) {
-      showError(t('请选择至少一个模型集或具体模型'));
+      showError(t('Select at least one model set or model.'));
       return;
     }
 
@@ -262,37 +294,39 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
     if (expiredTime !== -1 && expiredTime) {
       const parsed = Date.parse(expiredTime);
       if (isNaN(parsed)) {
-        showError(t('过期时间格式错误'));
+        showError(t('Invalid expiration time'));
         return;
       }
       if (parsed <= Date.now()) {
-        showError(t('过期时间不能早于当前时间'));
+        showError(t('Expiration must be in the future'));
         return;
       }
       expiredAt = Math.ceil(parsed / 1000);
     }
 
     setLoading(true);
-    try {
-      const res = await API.post('/api/model-grant', {
-        department_ids: parsedDeptIds,
-        group_ids: selectedGroupIds,
-        user_ids: parsedUserIds,
-        model_set_ids: selectedModelSetIds,
-        model_names: selectedModelNames,
-        custom_set_name: customSetName,
-        expired_at: expiredAt,
-      });
+    const request = {
+      department_ids: parsedDeptIds,
+      group_ids: selectedGroupIds,
+      user_ids: parsedUserIds,
+      model_set_ids: selectedModelSetIds,
+      model_names: selectedModelNames,
+      custom_set_name: customSetName,
+      expired_at: expiredAt,
+    };
 
-      if (res.data?.success) {
-        showSuccess(t('模型授权创建成功'));
-        onSuccess && onSuccess();
-        onClose();
+    try {
+      if (isEdit) {
+        await updateGrantBatch(batchItem, request);
+        showSuccess(t('授权配置更新成功！'));
       } else {
-        showError(res.data?.message || '授权失败');
+        await createGrantBatch(request);
+        showSuccess(t('授权创建成功！'));
       }
-    } catch (e) {
-      showError('授权失败: ' + e.message);
+      onSuccess?.();
+      onClose();
+    } catch (error) {
+      showError(error.message || t(isEdit ? '更新授权失败' : '授权创建失败'));
     } finally {
       setLoading(false);
     }
@@ -303,11 +337,11 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
       placement='right'
       title={
         <Space>
-          <Tag color='green' shape='circle'>
-            {t('新建')}
+          <Tag color={isEdit ? 'blue' : 'green'} shape='circle'>
+            {t(isEdit ? 'Edit' : 'New')}
           </Tag>
           <Title heading={4} className='m-0'>
-            {t('新建模型权限授权')}
+            {isEdit ? t('Edit model authorization') : t('Create model authorization')}
           </Title>
         </Space>
       }
@@ -315,14 +349,14 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
       visible={visible}
       width={isMobile ? '100%' : 640}
       footer={
-        <div className='flex justify-between items-center bg-white p-3'>
+        <div className='flex justify-between items-center bg-white dark:bg-gray-900 p-3 border-t border-gray-100 dark:border-gray-800'>
           <Text type='secondary' className='text-xs'>
             {totalSubjectCount > 0
-              ? t('已选 {{count}} 个主体 · {{res}} 项资源', {
+              ? t('{{count}} subjects · {{res}} resources selected', {
                   count: totalSubjectCount,
                   res: totalResourceCount,
                 })
-              : t('请选择主体与模型资源')}
+              : t('Select subjects and model resources')}
           </Text>
           <Space>
             <Button
@@ -331,8 +365,9 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
               onClick={handleSubmit}
               icon={<IconSave />}
               loading={loading}
+              disabled={!optionsReady}
             >
-              {t('确认授权')}
+              {isEdit ? t('Save changes') : t('Grant access')}
             </Button>
             <Button
               theme='light'
@@ -358,9 +393,11 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
                 <IconUserGroup size={16} />
               </Avatar>
               <div>
-                <Text className='text-lg font-medium'>{t('授权主体')}</Text>
+                <Text className='text-lg font-medium'>{t('Subjects')}</Text>
                 <div className='text-xs text-gray-600'>
-                  {t('从组织架构树选择部门或成员，并可组合用户组并集授权')}
+                  {t(
+                    'Select departments or users from the organization tree and optionally add user groups.'
+                  )}
                 </div>
               </div>
             </div>
@@ -368,12 +405,14 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
             <Row gutter={12}>
               <Col span={24}>
                 <div className='flex flex-col gap-1.5 mb-3'>
-                  <Text strong>{t('组织架构树')}</Text>
+                  <Text strong>{t('Organization tree')}</Text>
                   <TreeSelect
                     multiple
+                    checkRelation='unRelated'
+                    autoMergeValue={false}
                     maxTagCount={4}
                     filterTreeNode
-                    placeholder={t('搜索并勾选部门或部门成员...')}
+                    placeholder={t('Search departments or members...')}
                     treeData={deptTreeData}
                     value={selectedOrgKeys}
                     onChange={(v) => setSelectedOrgKeys(v)}
@@ -382,7 +421,9 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
                     dropdownStyle={{ maxHeight: 360 }}
                   />
                   <Text type='secondary' className='text-xs'>
-                    {t('直接勾选部门可自动继承全部门，展开部门可单选个人成员')}
+                    {t(
+                      'Departments and users are selected independently. Department grants include current and future members of that department and its subdepartments.'
+                    )}
                   </Text>
                 </div>
               </Col>
@@ -394,7 +435,7 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
                     multiple
                     maxTagCount={4}
                     filter
-                    placeholder={t('选择用户组 (可选)...')}
+                    placeholder={t('Select user groups (optional)...')}
                     value={selectedGroupIds}
                     onChange={(v) => setSelectedGroupIds(v)}
                     optionList={groupOptions}
@@ -403,7 +444,7 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
                     showClear
                   />
                   <Text type='secondary' className='text-xs'>
-                    {t('适用于跨部门的项目组或业务角色组')}
+                    {t('For project teams or roles spanning departments')}
                   </Text>
                 </div>
               </Col>
@@ -417,9 +458,11 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
                 <IconLayers size={16} />
               </Avatar>
               <div>
-                <Text className='text-lg font-medium'>{t('授权模型资源')}</Text>
+                <Text className='text-lg font-medium'>
+                  {t('Model resources')}
+                </Text>
                 <div className='text-xs text-gray-600'>
-                  {t('选择已有模型集或勾选具体模型')}
+                  {t('Choose existing model sets or individual models')}
                 </div>
               </div>
             </div>
@@ -427,12 +470,12 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
             <Row gutter={12}>
               <Col span={24}>
                 <div className='flex flex-col gap-1.5 mb-3'>
-                  <Text strong>{t('选择已有模型集')}</Text>
+                  <Text strong>{t('Existing model sets')}</Text>
                   <Select
                     multiple
                     maxTagCount={4}
                     filter
-                    placeholder={t('选择模型集 (支持多选)...')}
+                    placeholder={t('Select model sets...')}
                     value={selectedModelSetIds}
                     onChange={(v) => setSelectedModelSetIds(v)}
                     className='!rounded-lg'
@@ -455,12 +498,12 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
 
               <Col span={24}>
                 <div className='flex flex-col gap-1.5 mb-3'>
-                  <Text strong>{t('直接勾选具体模型')}</Text>
+                  <Text strong>{t('Individual models')}</Text>
                   <Select
                     multiple
                     maxTagCount={4}
                     filter
-                    placeholder={t('搜索并勾选具体模型 (如 gpt-4o, claude-3-5-sonnet)...')}
+                    placeholder={t('Search and select models...')}
                     value={selectedModelNames}
                     onChange={(v) => setSelectedModelNames(v)}
                     optionList={availableModels}
@@ -474,9 +517,13 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
               {selectedModelNames.length > 0 && (
                 <Col span={24}>
                   <div className='flex flex-col gap-1.5'>
-                    <Text strong>{t('直接勾选模型的归集名称 (选填)')}</Text>
+                    <Text strong>
+                      {t('Name for selected models (optional)')}
+                    </Text>
                     <Input
-                      placeholder={t('例如：临时高阶模型授权 (留空则系统自动命名)')}
+                      placeholder={t(
+                        'For example: temporary access (leave empty for an automatic name)'
+                      )}
                       value={customSetName}
                       onChange={(v) => setCustomSetName(v)}
                       className='!rounded-lg'
@@ -497,7 +544,7 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
               <div>
                 <Text className='text-lg font-medium'>{t('有效期设置')}</Text>
                 <div className='text-xs text-gray-600'>
-                  {t('设定授权的过期时间，到期自动失效')}
+                  {t('Access expires automatically at the selected time')}
                 </div>
               </div>
             </div>
@@ -510,8 +557,8 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
                     type='dateTime'
                     placeholder={t('请选择过期时间')}
                     value={expiredTime === -1 ? '' : expiredTime}
-                    onChange={(date, dateString) => {
-                      setExpiredTime(dateString || -1);
+                    onChange={(value) => {
+                      setExpiredTime(value || -1);
                     }}
                     className='!rounded-lg'
                     style={{ width: '100%' }}
@@ -521,7 +568,7 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
 
               <Col xs={24} sm={24} md={14} lg={14}>
                 <div className='flex flex-col gap-1.5'>
-                  <Text strong>{t('快捷时效设置')}</Text>
+                  <Text strong>{t('Quick expiration')}</Text>
                   <Space wrap>
                     <Button
                       theme={expiredTime === -1 ? 'solid' : 'light'}
@@ -548,7 +595,7 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
                       className='!rounded-lg'
                       onClick={() => handleQuickExpire(7, 0, 0)}
                     >
-                      {t('一周')}
+                      {t('One week')}
                     </Button>
                     <Button
                       theme='light'
@@ -566,7 +613,7 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
                       className='!rounded-lg'
                       onClick={() => handleQuickExpire(0, 0, 1)}
                     >
-                      {t('一年')}
+                      {t('One year')}
                     </Button>
                   </Space>
                 </div>
@@ -575,8 +622,12 @@ const CreateGrantModal = ({ visible, onClose, onSuccess, t }) => {
               <Col span={24} className='mt-2'>
                 <Text type='secondary' className='text-xs'>
                   {expiredTime === -1 || !expiredTime
-                    ? t('此授权将永久有效，直到管理员手动撤销')
-                    : t('此授权将于 {{time}} 到期并自动失效', { time: expiredTime })}
+                    ? t(
+                        'This authorization remains valid until an administrator revokes it'
+                      )
+                    : t('This authorization expires at {{time}}', {
+                        time: expiredTime,
+                      })}
                 </Text>
               </Col>
             </Row>

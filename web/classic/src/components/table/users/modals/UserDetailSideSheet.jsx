@@ -5,6 +5,16 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState } from 'react';
@@ -53,10 +63,11 @@ const UserDetailSideSheet = ({ visible, userId, onClose, t }) => {
       title={t('用户详情')}
       visible={visible}
       onCancel={onClose}
+      placement='right'
       width={560}
     >
       <Spin spinning={loading}>
-        {user && (
+        {user ? (
           <div className='flex flex-col gap-4'>
             <div>
               <Title heading={4}>{user.display_name || user.username}</Title>
@@ -159,6 +170,12 @@ const UserDetailSideSheet = ({ visible, userId, onClose, t }) => {
               </Space>
             </div>
           </div>
+        ) : (
+          !loading && (
+            <div className='py-16 flex justify-center'>
+              <Text type='secondary'>{t('暂无用户详情')}</Text>
+            </div>
+          )
         )}
       </Spin>
     </SideSheet>

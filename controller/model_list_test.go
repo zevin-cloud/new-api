@@ -291,6 +291,7 @@ func TestListModelsIncludesTieredBillingModel(t *testing.T) {
 		{Group: "default", Model: "zz-unpriced-model", ChannelId: 1, Enabled: true},
 	}).Error)
 
+	grantModelListAccess(t, 1001, []string{"zz-tiered-visible-model", "zz-tiered-empty-expr-model", "zz-tiered-missing-expr-model", "zz-unpriced-model"})
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
@@ -376,6 +377,7 @@ func TestListModelsUsesAdvancedCustomEndpointTypesFromPricingCache(t *testing.T)
 	model.InitChannelCache()
 	model.GetPricing()
 
+	grantModelListAccess(t, 1003, []string{"gemini-3.5-flash"})
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
@@ -410,8 +412,10 @@ func TestListModelsTokenLimitIncludesTieredBillingModel(t *testing.T) {
 		{Group: "default", Model: "zz-token-unpriced-model", ChannelId: 1, Enabled: true},
 	}).Error)
 
+	grantModelListAccess(t, 1002, []string{"zz-token-tiered-visible-model", "zz-token-tiered-empty-expr-model", "zz-token-tiered-missing-expr-model", "zz-token-unpriced-model"})
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Set("id", 1002)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	common.SetContextKey(ctx, constant.ContextKeyUserGroup, "default")
 	common.SetContextKey(ctx, constant.ContextKeyTokenModelLimitEnabled, true)
@@ -452,8 +456,10 @@ func TestListModelsTokenLimitUsesResolvedCustomAutoGroups(t *testing.T) {
 		{Group: "default", Model: "zz-default-outside-snapshot", ChannelId: 1, Enabled: true},
 	}).Error)
 
+	grantModelListAccess(t, 1002, []string{"zz-vip-allowed", "zz-vip-denied", "zz-default-outside-snapshot", "zz-not-enabled"})
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Set("id", 1002)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	common.SetContextKey(ctx, constant.ContextKeyUserGroup, "default")
 	common.SetContextKey(ctx, constant.ContextKeyTokenGroup, "auto")
@@ -472,6 +478,7 @@ func TestListModelsTokenLimitUsesResolvedCustomAutoGroups(t *testing.T) {
 	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"Default"}`))
 	emptyRecorder := httptest.NewRecorder()
 	emptyCtx, _ := gin.CreateTestContext(emptyRecorder)
+	emptyCtx.Set("id", 1002)
 	emptyCtx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	common.SetContextKey(emptyCtx, constant.ContextKeyUserGroup, "default")
 	common.SetContextKey(emptyCtx, constant.ContextKeyTokenGroup, "auto")
@@ -567,4 +574,15 @@ func TestSetupLoginDoesNotTouchPasswordWhenPasswordFieldOmitted(t *testing.T) {
 	var stored model.User
 	require.NoError(t, db.First(&stored, user.Id).Error)
 	assert.Equal(t, hashedPassword, stored.Password)
+}
+
+func grantModelListAccess(t *testing.T, userID int, names []string) {
+	t.Helper()
+	require.NoError(t, model.DB.AutoMigrate(&model.ModelSet{}, &model.ModelSetItem{}, &model.ModelGrant{}, &model.UserGroupMember{}, &model.UserGroup{}, &model.Department{}))
+	user := model.User{Id: userID, Username: fmt.Sprintf("list-user-%d", userID), AffCode: fmt.Sprintf("list-%d", userID), Role: common.RoleCommonUser, Status: common.UserStatusEnabled, Group: "default"}
+	require.NoError(t, model.DB.FirstOrCreate(&user, model.User{Id: userID}).Error)
+	set := model.ModelSet{Name: "model list permissions"}
+	require.NoError(t, set.Insert())
+	require.NoError(t, model.AddModelsToModelSet(set.Id, names))
+	require.NoError(t, model.GrantModelSet(model.SubjectTypeUser, userID, set.Id, 0, 1))
 }

@@ -129,7 +129,7 @@ func GetModelSets(page int, pageSize int, keyword string, status int) ([]*ModelS
 	var sets []*ModelSet
 	var total int64
 
-	tx := DB.Model(&ModelSet{})
+	tx := DB.Model(&ModelSet{}).Where("name NOT LIKE ? AND description != ?", "直接授权模型集-%", "由直接模型授权生成的模型集")
 	if keyword != "" {
 		tx = tx.Where("name LIKE ? OR description LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
 	}

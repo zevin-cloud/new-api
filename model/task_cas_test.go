@@ -64,7 +64,7 @@ func TestMain(m *testing.M) {
 		&UserGroupMember{},
 		&ModelSet{},
 		&ModelSetItem{},
-		&ModelGrant{},
+		&ModelGrant{}, &ModelGrantBatch{},
 		&ModelAccessRequest{},
 		&ModelAuthAudit{},
 	); err != nil {

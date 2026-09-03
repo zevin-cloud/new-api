@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -133,6 +134,7 @@ func UpdateDepartment(c *gin.Context) {
 
 	actorId := c.GetInt("id")
 	_ = model.RecordAuthAudit(actorId, "department_updated", "department", dept.Id, dept.Name)
+	service.InvalidateDeptModelAuthCache(dept.Id)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

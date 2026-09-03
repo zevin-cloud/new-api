@@ -173,6 +173,7 @@ func SetApiRouter(router *gin.Engine) {
 		departmentRoute.Use(middleware.AdminAuth())
 		{
 			departmentRoute.GET("/tree", controller.GetDepartmentTree)
+			departmentRoute.GET("", controller.GetAllDepartments)
 			departmentRoute.GET("/", controller.GetAllDepartments)
 			departmentRoute.GET("/:id", controller.GetDepartment)
 			departmentRoute.POST("/", controller.CreateDepartment)
@@ -214,9 +215,12 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			modelGrantRoute.GET("", controller.GetModelGrants)
 			modelGrantRoute.GET("/", controller.GetModelGrants)
+			modelGrantRoute.GET("/batch/:id/detail", controller.GetModelGrantBatchDetail)
+			modelGrantRoute.GET("/detail/:id", controller.GetModelGrantBatchDetail)
 			modelGrantRoute.GET("/inspect/:userId", controller.InspectUserGrant)
 			modelGrantRoute.POST("", controller.GrantModelSet)
 			modelGrantRoute.POST("/", controller.GrantModelSet)
+			modelGrantRoute.DELETE("/batch/:id", controller.RevokeModelGrantBatch)
 			modelGrantRoute.DELETE("/:id", controller.RevokeModelGrant)
 		}
 

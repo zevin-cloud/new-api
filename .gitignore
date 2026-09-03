@@ -38,6 +38,8 @@ skills-lock.json
 # Local-only live probes and scratch test workspaces.
 .local-tests/
 service/relayconvert/chat_responses_live_local_test.go
+bunfig.toml
+
 service/openaicompat/chat_responses_live_local_test.go
 go.work
 go.work.sum

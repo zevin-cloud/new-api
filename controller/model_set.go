@@ -1,11 +1,10 @@
 package controller
 
 import (
-	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -233,6 +232,24 @@ func GetModelGrants(c *gin.Context) {
 	status, _ := strconv.Atoi(c.DefaultQuery("status", "0"))
 	keyword := c.Query("keyword")
 
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	if c.Query("group_by") != "flat" {
+		batches, total, err := model.GetModelGrantBatches(page, pageSize, subjectType, subjectId, modelSetId, status, keyword)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"items": batches, "total": total, "page": page, "page_size": pageSize}})
+		return
+	}
 	grants, total, err := model.GetModelGrants(page, pageSize, subjectType, subjectId, modelSetId, status, keyword)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
@@ -278,6 +295,10 @@ func GrantModelSet(c *gin.Context) {
 		return
 	}
 
+	if req.ExpiredAt < 0 || req.DurationDays < 0 || int64(req.DurationDays) > (math.MaxInt64-common.GetTimestamp())/86400 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "授权有效期无效"})
+		return
+	}
 	var expiredAt int64
 	if req.DurationDays > 0 {
 		expiredAt = common.GetTimestamp() + int64(req.DurationDays)*86400
@@ -288,6 +309,14 @@ func GrantModelSet(c *gin.Context) {
 	actorId := c.GetInt("id")
 
 	// 1. Gather all target subjects into categorized maps
+	for _, ids := range [][]int{req.DepartmentIds, req.GroupIds, req.UserIds, req.SubjectIds, req.ModelSetIds} {
+		for _, id := range ids {
+			if id <= 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "授权主体或模型集 ID 无效"})
+				return
+			}
+		}
+	}
 	targetDepts := make(map[int]bool)
 	targetGroups := make(map[int]bool)
 	targetUsers := make(map[int]bool)
@@ -343,64 +372,33 @@ func GrantModelSet(c *gin.Context) {
 		return
 	}
 
-	// 2. Gather target model sets
-	finalModelSetMap := make(map[int]bool)
+	setMap := make(map[int]bool)
 	if req.ModelSetId > 0 {
-		finalModelSetMap[req.ModelSetId] = true
+		setMap[req.ModelSetId] = true
 	}
-	for _, sid := range req.ModelSetIds {
-		if sid > 0 {
-			finalModelSetMap[sid] = true
+	for _, id := range req.ModelSetIds {
+		if id > 0 {
+			setMap[id] = true
 		}
 	}
-
-	// If discrete models are provided, create an ad-hoc model set
-	if len(req.ModelNames) > 0 {
-		setName := strings.TrimSpace(req.CustomSetName)
-		if setName == "" {
-			setName = fmt.Sprintf("直接授权模型集-%s", time.Now().Format("20060102-150405"))
-		}
-		set := &model.ModelSet{
-			Name:        setName,
-			Description: "由直接模型授权生成的模型集",
-			Status:      model.ModelSetStatusEnabled,
-		}
-		if err := set.Insert(); err != nil {
-			c.JSON(http.StatusOK, gin.H{"success": false, "message": "创建模型集失败: " + err.Error()})
-			return
-		}
-		if err := model.AddModelsToModelSet(set.Id, req.ModelNames); err != nil {
-			c.JSON(http.StatusOK, gin.H{"success": false, "message": "添加模型到模型集失败: " + err.Error()})
-			return
-		}
-		finalModelSetMap[set.Id] = true
+	setIds := make([]int, 0, len(setMap))
+	for id := range setMap {
+		setIds = append(setIds, id)
 	}
-
-	if len(finalModelSetMap) == 0 {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "请选择至少一个模型集或具体模型"})
+	subjects := make([]model.ModelGrantSubject, 0, len(targetDepts)+len(targetGroups)+len(targetUsers))
+	for id := range targetDepts {
+		subjects = append(subjects, model.ModelGrantSubject{Type: model.SubjectTypeDepartment, Id: id})
+	}
+	for id := range targetGroups {
+		subjects = append(subjects, model.ModelGrantSubject{Type: model.SubjectTypeUserGroup, Id: id})
+	}
+	for id := range targetUsers {
+		subjects = append(subjects, model.ModelGrantSubject{Type: model.SubjectTypeUser, Id: id})
+	}
+	batch, err := model.CreateModelGrantBatch(subjects, setIds, req.ModelNames, req.CustomSetName, expiredAt, actorId)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
 		return
-	}
-
-	// 3. Perform grant for all subjects & model sets
-	for setId := range finalModelSetMap {
-		for deptId := range targetDepts {
-			if err := model.GrantModelSet(model.SubjectTypeDepartment, deptId, setId, expiredAt, actorId); err != nil {
-				c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
-				return
-			}
-		}
-		for groupId := range targetGroups {
-			if err := model.GrantModelSet(model.SubjectTypeUserGroup, groupId, setId, expiredAt, actorId); err != nil {
-				c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
-				return
-			}
-		}
-		for userId := range targetUsers {
-			if err := model.GrantModelSet(model.SubjectTypeUser, userId, setId, expiredAt, actorId); err != nil {
-				c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
-				return
-			}
-		}
 	}
 
 	// 4. Invalidate caches
@@ -414,9 +412,9 @@ func GrantModelSet(c *gin.Context) {
 		service.InvalidateUserModelAuthCache(userId)
 	}
 
-	_ = model.RecordAuthAudit(actorId, "model_grant_created", "model_grant", 0, req)
+	_ = model.RecordAuthAudit(actorId, "model_grant_created", "model_grant", batch.Id, req)
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "授权成功"})
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "授权成功", "data": batch})
 }
 
 func RevokeModelGrant(c *gin.Context) {
@@ -450,5 +448,47 @@ func RevokeModelGrant(c *gin.Context) {
 	_ = model.RecordAuthAudit(actorId, "model_grant_revoked", "model_grant", id, grant)
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "撤销授权成功"})
+}
+
+func RevokeModelGrantBatch(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "授权批次无效"})
+		return
+	}
+	grants, err := model.RevokeModelGrantBatch(id)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	for _, grant := range grants {
+		switch grant.SubjectType {
+		case model.SubjectTypeUser:
+			service.InvalidateUserModelAuthCache(grant.SubjectId)
+		case model.SubjectTypeUserGroup:
+			service.InvalidateGroupModelAuthCache(grant.SubjectId)
+		case model.SubjectTypeDepartment:
+			service.InvalidateDeptModelAuthCache(grant.SubjectId)
+		}
+	}
+	_ = model.RecordAuthAudit(c.GetInt("id"), "model_grant_batch_revoked", "model_grant_batch", id, grants)
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "撤销授权成功"})
+}
+
+func GetModelGrantBatchDetail(c *gin.Context) {
+	idStr := c.Param("id")
+	isLegacy := c.Query("type") == "legacy" || strings.HasPrefix(idStr, "grant_")
+	cleanIdStr := strings.TrimPrefix(strings.TrimPrefix(idStr, "batch_"), "grant_")
+	id, err := strconv.Atoi(cleanIdStr)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "授权 ID 无效"})
+		return
+	}
+	detail, err := model.GetModelGrantBatchDetail(id, isLegacy)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": detail})
 }
 
