@@ -15,6 +15,7 @@ import {
   IconEyeOpened,
   IconEyeClosed,
 } from '@douyinfe/semi-icons';
+import { useTranslation } from 'react-i18next';
 import { API, copy, showError, showSuccess, renderQuota } from '../../helpers';
 
 const { Text, Paragraph } = Typography;

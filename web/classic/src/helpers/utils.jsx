@@ -35,15 +35,23 @@ export default HTMLToastContent;
 export function isAdmin() {
   let user = localStorage.getItem('user');
   if (!user) return false;
-  user = JSON.parse(user);
-  return user.role >= 10;
+  try {
+    user = JSON.parse(user);
+    return Boolean(user && typeof user.role === 'number' && user.role >= 10);
+  } catch (e) {
+    return false;
+  }
 }
 
 export function isRoot() {
   let user = localStorage.getItem('user');
   if (!user) return false;
-  user = JSON.parse(user);
-  return user.role >= 100;
+  try {
+    user = JSON.parse(user);
+    return Boolean(user && typeof user.role === 'number' && user.role >= 100);
+  } catch (e) {
+    return false;
+  }
 }
 
 export function getSystemName() {
