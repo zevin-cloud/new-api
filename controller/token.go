@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
 )
 
 type tokenAutoGroupsInput struct {
@@ -502,3 +504,94 @@ func GetTokenKeysBatch(c *gin.Context) {
 	}
 	common.ApiSuccess(c, gin.H{"keys": keysMap})
 }
+
+func GetDefaultUserToken(c *gin.Context) {
+	userId := c.GetInt("id")
+	if userId <= 0 {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	var token model.Token
+	err := model.DB.Where("user_id = ? AND status = ?", userId, common.TokenStatusEnabled).Order("id asc").First(&token).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			user, uErr := model.GetUserById(userId, false)
+			if uErr != nil {
+				common.ApiError(c, uErr)
+				return
+			}
+			key, kErr := common.GenerateKey()
+			if kErr != nil {
+				common.ApiError(c, kErr)
+				return
+			}
+			token = model.Token{
+				UserId:             userId,
+				Name:               user.Username + " 的默认令牌",
+				Key:                key,
+				CreatedTime:        common.GetTimestamp(),
+				AccessedTime:       common.GetTimestamp(),
+				ExpiredTime:        -1,
+				RemainQuota:        0,
+				UnlimitedQuota:     true,
+				ModelLimitsEnabled: false,
+				Status:             common.TokenStatusEnabled,
+			}
+			if iErr := token.Insert(); iErr != nil {
+				common.ApiError(c, iErr)
+				return
+			}
+		} else {
+			common.ApiError(c, err)
+			return
+		}
+	}
+
+	common.ApiSuccess(c, gin.H{
+		"id":           token.Id,
+		"name":         token.Name,
+		"key":          token.Key,
+		"created_time": token.CreatedTime,
+	})
+}
+
+func ResetDefaultUserToken(c *gin.Context) {
+	userId := c.GetInt("id")
+	if userId <= 0 {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	var token model.Token
+	err := model.DB.Where("user_id = ? AND status = ?", userId, common.TokenStatusEnabled).Order("id asc").First(&token).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			GetDefaultUserToken(c)
+			return
+		}
+		common.ApiError(c, err)
+		return
+	}
+
+	key, kErr := common.GenerateKey()
+	if kErr != nil {
+		common.ApiError(c, kErr)
+		return
+	}
+
+	token.Key = key
+	token.AccessedTime = common.GetTimestamp()
+	if uErr := token.Update(); uErr != nil {
+		common.ApiError(c, uErr)
+		return
+	}
+
+	common.ApiSuccess(c, gin.H{
+		"id":           token.Id,
+		"name":         token.Name,
+		"key":          token.Key,
+		"created_time": token.CreatedTime,
+	})
+}
+

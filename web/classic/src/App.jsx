@@ -145,17 +145,17 @@ function App() {
         <Route
           path='/console/token'
           element={
-            <PrivateRoute>
+            <AdminRoute>
               <Token />
-            </PrivateRoute>
+            </AdminRoute>
           }
         />
         <Route
           path='/console/playground'
           element={
-            <PrivateRoute>
+            <AdminRoute>
               <Playground />
-            </PrivateRoute>
+            </AdminRoute>
           }
         />
         <Route
@@ -311,59 +311,59 @@ function App() {
         <Route
           path='/console/personal'
           element={
-            <PrivateRoute>
+            <AdminRoute>
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
                 <PersonalSetting />
               </Suspense>
-            </PrivateRoute>
+            </AdminRoute>
           }
         />
         <Route
           path='/console/topup'
           element={
-            <PrivateRoute>
+            <AdminRoute>
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
                 <TopUp />
               </Suspense>
-            </PrivateRoute>
+            </AdminRoute>
           }
         />
         <Route
           path='/console/log'
           element={
-            <PrivateRoute>
+            <AdminRoute>
               <Log />
-            </PrivateRoute>
+            </AdminRoute>
           }
         />
         <Route
           path='/console'
           element={
-            <PrivateRoute>
+            <AdminRoute>
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
                 <Dashboard />
               </Suspense>
-            </PrivateRoute>
+            </AdminRoute>
           }
         />
         <Route
           path='/console/midjourney'
           element={
-            <PrivateRoute>
+            <AdminRoute>
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
                 <MjProxy />
               </Suspense>
-            </PrivateRoute>
+            </AdminRoute>
           }
         />
         <Route
           path='/console/task'
           element={
-            <PrivateRoute>
+            <AdminRoute>
               <Suspense fallback={<Loading></Loading>} key={location.pathname}>
                 <Task />
               </Suspense>
-            </PrivateRoute>
+            </AdminRoute>
           }
         />
         <Route

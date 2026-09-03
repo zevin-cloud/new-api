@@ -57,6 +57,27 @@ func GetPricing(c *gin.Context) {
 
 	usableGroup = service.GetUserUsableGroups(group)
 	pricing = filterPricingByUsableGroups(pricing, usableGroup)
+
+	isUserAdmin := false
+	if exists {
+		uId, ok := userId.(int)
+		if ok && uId > 0 {
+			grantedMap, allAccess, err := service.GetUserGrantedModelMap(uId)
+			if err == nil {
+				isUserAdmin = allAccess
+				if !allAccess {
+					filtered := make([]model.Pricing, 0, len(pricing))
+					for _, item := range pricing {
+						if grantedMap[item.ModelName] {
+							filtered = append(filtered, item)
+						}
+					}
+					pricing = filtered
+				}
+			}
+		}
+	}
+
 	// check groupRatio contains usableGroup
 	for group := range ratio_setting.GetGroupRatioCopy() {
 		if _, ok := usableGroup[group]; !ok {
@@ -73,6 +94,7 @@ func GetPricing(c *gin.Context) {
 		"supported_endpoint": model.GetSupportedEndpointMap(),
 		"auto_groups":        service.GetUserAutoGroup(group),
 		"pricing_version":    "a42d372ccf0b5dd13ecf71203521f9d2",
+		"is_admin":           isUserAdmin,
 	})
 }
 

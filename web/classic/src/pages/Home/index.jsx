@@ -25,10 +25,11 @@ import {
   ScrollList,
   ScrollItem,
 } from '@douyinfe/semi-ui';
-import { API, showError, copy, showSuccess } from '../../helpers';
+import { API, showError, copy, showSuccess, isAdmin } from '../../helpers';
 import { useIsMobile } from '../../hooks/common/useIsMobile';
 import { API_ENDPOINTS } from '../../constants/common.constant';
 import { StatusContext } from '../../context/Status';
+import { UserContext } from '../../context/User';
 import { useActualTheme } from '../../context/Theme';
 import { marked } from 'marked';
 import { useTranslation } from 'react-i18next';
@@ -68,6 +69,7 @@ const { Text } = Typography;
 const Home = () => {
   const { t, i18n } = useTranslation();
   const [statusState] = useContext(StatusContext);
+  const [userState] = useContext(UserContext);
   const actualTheme = useActualTheme();
   const [homePageContentLoaded, setHomePageContentLoaded] = useState(false);
   const [homePageContent, setHomePageContent] = useState('');
@@ -80,6 +82,17 @@ const Home = () => {
   const endpointItems = API_ENDPOINTS.map((e) => ({ value: e }));
   const [endpointIndex, setEndpointIndex] = useState(0);
   const isChinese = i18n.language.startsWith('zh');
+
+  const targetRoute = !userState?.user
+    ? '/login'
+    : isAdmin()
+      ? '/console'
+      : '/pricing';
+  const buttonText = !userState?.user
+    ? t('开始使用')
+    : isAdmin()
+      ? t('进入控制台')
+      : t('模型广场');
 
   const displayHomePageContent = async () => {
     setHomePageContent(localStorage.getItem('home_page_content') || '');
@@ -213,7 +226,7 @@ const Home = () => {
 
                 {/* 操作按钮 */}
                 <div className='flex flex-row gap-4 justify-center items-center'>
-                  <Link to='/console'>
+                  <Link to={targetRoute}>
                     <Button
                       theme='solid'
                       type='primary'
@@ -221,7 +234,7 @@ const Home = () => {
                       className='!rounded-3xl px-8 py-2'
                       icon={<IconPlay />}
                     >
-                      {t('获取密钥')}
+                      {buttonText}
                     </Button>
                   </Link>
                   {isDemoSiteMode && statusState?.status?.version ? (

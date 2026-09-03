@@ -28,10 +28,18 @@ export function authHeader() {
 }
 
 export const AuthRedirect = ({ children }) => {
-  const user = localStorage.getItem('user');
+  const raw = localStorage.getItem('user');
 
-  if (user) {
-    return <Navigate to='/console' replace />;
+  if (raw) {
+    try {
+      const user = JSON.parse(raw);
+      if (user && typeof user.role === 'number' && user.role >= 10) {
+        return <Navigate to='/console' replace />;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return <Navigate to='/pricing' replace />;
   }
 
   return children;
@@ -44,7 +52,7 @@ function PrivateRoute({ children }) {
   return children;
 }
 
-export function AdminRoute({ children }) {
+export function AdminRoute({ children, fallback = '/pricing' }) {
   const raw = localStorage.getItem('user');
   if (!raw) {
     return <Navigate to='/login' state={{ from: history.location }} />;
@@ -57,7 +65,7 @@ export function AdminRoute({ children }) {
   } catch (e) {
     // ignore
   }
-  return <Navigate to='/forbidden' replace />;
+  return <Navigate to={fallback} replace />;
 }
 
 export { PrivateRoute };

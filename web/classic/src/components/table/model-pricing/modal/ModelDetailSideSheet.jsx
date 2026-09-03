@@ -27,6 +27,7 @@ import ModelBasicInfo from './components/ModelBasicInfo';
 import ModelEndpoints from './components/ModelEndpoints';
 import ModelPricingTable from './components/ModelPricingTable';
 import DynamicPricingBreakdown from './components/DynamicPricingBreakdown';
+import ModelCodeExample from './components/ModelCodeExample';
 
 const { Text } = Typography;
 
@@ -106,6 +107,10 @@ const ModelDetailSideSheet = ({
                 </div>
               </>
             )}
+            <Divider margin={16} />
+            <div style={{ padding: '0 24px' }}>
+              <ModelCodeExample modelName={modelData.model_name} t={t} />
+            </div>
             <Divider margin={16} />
             <div style={{ padding: '0 24px' }}>
               <ModelPricingTable

@@ -49,4 +49,7 @@ export default defineConfig({
       'src/services/__tests__/*.test.js',
     ],
   },
+  forks: {
+    execArgv: ['--experimental-require-module'],
+  },
 });
