@@ -713,36 +713,6 @@ const EditTagModal = (props) => {
                 </div>
               </Card>
 
-              <Card className='!rounded-2xl shadow-sm border-0'>
-                {/* Header: Group Settings */}
-                <div className='flex items-center mb-2'>
-                  <Avatar size='small' color='green' className='mr-2 shadow-md'>
-                    <IconUser size={16} />
-                  </Avatar>
-                  <div>
-                    <Text className='text-lg font-medium'>{t('分组设置')}</Text>
-                    <div className='text-xs text-gray-600'>
-                      {t('用户分组配置')}
-                    </div>
-                  </div>
-                </div>
-
-                <div className='space-y-4'>
-                  <Form.Select
-                    field='groups'
-                    label={t('分组')}
-                    placeholder={t('请选择可以使用该渠道的分组，留空则不更改')}
-                    multiple
-                    allowAdditions
-                    additionLabel={t(
-                      '请在系统设置页面编辑分组倍率以添加新的分组：',
-                    )}
-                    optionList={groupOptions}
-                    style={{ width: '100%' }}
-                    onChange={(value) => handleInputChange('groups', value)}
-                  />
-                </div>
-              </Card>
             </div>
           </Spin>
         )}

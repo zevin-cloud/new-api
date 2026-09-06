@@ -458,25 +458,6 @@ export const getChannelsColumns = ({
       },
     },
     {
-      key: COLUMN_KEYS.GROUP,
-      title: t('分组'),
-      dataIndex: 'group',
-      render: (text, record, index) => (
-        <div>
-          <Space spacing={2}>
-            {text
-              ?.split(',')
-              .sort((a, b) => {
-                if (a === 'default') return -1;
-                if (b === 'default') return 1;
-                return a.localeCompare(b);
-              })
-              .map((item, index) => renderGroup(item))}
-          </Space>
-        </div>
-      ),
-    },
-    {
       key: COLUMN_KEYS.TYPE,
       title: t('类型'),
       dataIndex: 'type',

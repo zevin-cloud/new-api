@@ -14,7 +14,6 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	kitdto "github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
 
@@ -147,16 +146,11 @@ func GetRandomSatisfiedChannelForModel(
 	channelSyncLock.RLock()
 	defer channelSyncLock.RUnlock()
 
-	usableGroups := setting.GetUserUsableGroupsCopy()
-	if len(usableGroups) == 0 {
-		usableGroups = map[string]string{"default": "默认分组"}
-	}
-
 	var candidateIDs []int
 	seen := make(map[int]bool)
 	normalizedModel := ratio_setting.FormatMatchingModelName(modelName)
 
-	for grp := range usableGroups {
+	for grp := range group2model2channels {
 		for _, chID := range group2model2channels[grp][modelName] {
 			if !seen[chID] {
 				seen[chID] = true
@@ -258,7 +252,11 @@ func GetRandomSatisfiedChannelFromAnyGroup(
 	retry int,
 	filters []dto.ChannelFilter,
 ) (*Channel, string, error) {
-	return GetRandomSatisfiedChannelForModel(model, retry, filters)
+	ch, err := GetChannelForModel(model, retry, filters)
+	if err != nil {
+		return nil, "", err
+	}
+	return ch, "default", nil
 }
 
 func getRandomSatisfiedChannelLocked(

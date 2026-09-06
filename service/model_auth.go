@@ -196,6 +196,12 @@ func ValidateUserAndTokenModelAccess(c *gin.Context, userId int, requestedModel 
 	if err != nil || (!allAccess && (policy == nil || policy.GrantId == 0)) {
 		return false, "获取用户模型授权失败"
 	}
+	if policy == nil && allAccess {
+		policy = &model.EffectiveGrantPolicy{
+			GrantId:   0,
+			QuotaType: 0,
+		}
+	}
 	if policy != nil {
 		if policy.QuotaType == 1 && policy.GrantQuota > 0 && policy.UsedQuota >= policy.GrantQuota {
 			return false, fmt.Sprintf("当前授权单模型 %s 专项预算额度已耗尽，请联系管理员增加额度", requestedModel)

@@ -651,6 +651,9 @@ func AddChannel(c *gin.Context) {
 		return
 	}
 
+	if strings.TrimSpace(addChannelRequest.Channel.Group) == "" {
+		addChannelRequest.Channel.Group = "default"
+	}
 	addChannelRequest.Channel.CreatedTime = common.GetTimestamp()
 	keys := make([]string, 0)
 	switch addChannelRequest.Mode {
@@ -1016,6 +1019,13 @@ func UpdateChannel(c *gin.Context) {
 		return
 	}
 	originProxy := originChannel.GetSetting().Proxy
+	if strings.TrimSpace(channel.Group) == "" {
+		if strings.TrimSpace(originChannel.Group) != "" {
+			channel.Group = originChannel.Group
+		} else {
+			channel.Group = "default"
+		}
+	}
 	proxyChanged := false
 	if _, settingProvided := requestData["setting"]; settingProvided {
 		newProxy, _ := service.NormalizeProxyURL(channel.GetSetting().Proxy)

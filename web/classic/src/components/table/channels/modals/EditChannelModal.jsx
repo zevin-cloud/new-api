@@ -1854,7 +1854,10 @@ const EditChannelModal = (props) => {
     let res;
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
     localInputs.models = localInputs.models.join(',');
-    localInputs.group = (localInputs.groups || []).join(',');
+    localInputs.group =
+      localInputs.groups && localInputs.groups.length > 0
+        ? localInputs.groups.join(',')
+        : localInputs.group || 'default';
 
     let mode = 'single';
     if (batch) {
@@ -3558,21 +3561,6 @@ const EditChannelModal = (props) => {
                     }
                   />
 
-                  {/* Groups - Core Config */}
-                  <Form.Select
-                    field='groups'
-                    label={t('分组')}
-                    placeholder={t('请选择可以使用该渠道的分组')}
-                    multiple
-                    allowAdditions
-                    additionLabel={t(
-                      '请在系统设置页面编辑分组倍率以添加新的分组：',
-                    )}
-                    optionList={groupOptions}
-                    style={{ width: '100%' }}
-                    position='top'
-                    onChange={(value) => handleInputChange('groups', value)}
-                  />
 
                   {/* Model Mapping - Core Config */}
                   <JSONEditor
