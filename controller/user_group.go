@@ -68,17 +68,19 @@ func GetAdminUserGroup(c *gin.Context) {
 }
 
 type UserGroupCreateRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Status      int    `json:"status"`
-	UserIds     []int  `json:"user_ids"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	Status         int    `json:"status"`
+	MaxConcurrency int    `json:"max_concurrency"`
+	UserIds        []int  `json:"user_ids"`
 }
 
 type UserGroupUpdateRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Status      int    `json:"status"`
-	UserIds     *[]int `json:"user_ids"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	Status         int    `json:"status"`
+	MaxConcurrency int    `json:"max_concurrency"`
+	UserIds        *[]int `json:"user_ids"`
 }
 
 func CreateAdminUserGroup(c *gin.Context) {
@@ -99,10 +101,11 @@ func CreateAdminUserGroup(c *gin.Context) {
 	}
 
 	group := model.UserGroup{
-		Name:        req.Name,
-		Description: req.Description,
-		Status:      req.Status,
-		CreatedBy:   c.GetInt("id"),
+		Name:           req.Name,
+		Description:    req.Description,
+		Status:         req.Status,
+		MaxConcurrency: req.MaxConcurrency,
+		CreatedBy:      c.GetInt("id"),
 	}
 	if err := group.Insert(); err != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -156,10 +159,11 @@ func UpdateAdminUserGroup(c *gin.Context) {
 	}
 
 	group := model.UserGroup{
-		Id:          id,
-		Name:        req.Name,
-		Description: req.Description,
-		Status:      req.Status,
+		Id:             id,
+		Name:           req.Name,
+		Description:    req.Description,
+		Status:         req.Status,
+		MaxConcurrency: req.MaxConcurrency,
 	}
 
 	affected, err := group.UpdateWithMembers(req.UserIds)

@@ -17,6 +17,7 @@ type UserGroup struct {
 	Name        string         `json:"name" gorm:"type:varchar(64);not null;index"`
 	Description string         `json:"description" gorm:"type:text"`
 	Status      int            `json:"status" gorm:"type:int;default:1"`
+	MaxConcurrency int         `json:"max_concurrency" gorm:"type:int;default:0"`
 	CreatedBy   int            `json:"created_by" gorm:"type:int;default:0"`
 	CreatedAt   int64          `json:"created_at" gorm:"bigint"`
 	UpdatedAt   int64          `json:"updated_at" gorm:"bigint"`
@@ -76,7 +77,7 @@ func (g *UserGroup) UpdateWithMembers(userIds *[]int) ([]int, error) {
 		}
 		g.UpdatedAt = common.GetTimestamp()
 		if err := tx.Model(g).Updates(map[string]any{
-			"name": g.Name, "description": g.Description, "status": g.Status, "updated_at": g.UpdatedAt,
+			"name": g.Name, "description": g.Description, "status": g.Status, "max_concurrency": g.MaxConcurrency, "updated_at": g.UpdatedAt,
 		}).Error; err != nil {
 			return err
 		}

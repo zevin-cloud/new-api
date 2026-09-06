@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	kitdto "github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
 
@@ -128,6 +129,144 @@ func GetRandomSatisfiedChannel(
 	channelSyncLock.RLock()
 	defer channelSyncLock.RUnlock()
 
+	return getRandomSatisfiedChannelLocked(group, model, retry, filters)
+}
+
+// GetRandomSatisfiedChannelForModel finds the best available channel for a model across all active service pools.
+// Candidates are filtered by usable groups (ignoring test/standby/isolated groups), ordered by priority descending,
+// and chosen by weighted random within the target priority level.
+func GetRandomSatisfiedChannelForModel(
+	modelName string,
+	retry int,
+	filters []dto.ChannelFilter,
+) (*Channel, string, error) {
+	if !common.MemoryCacheEnabled {
+		return GetRandomSatisfiedChannelFromAnyGroup(modelName, retry, filters)
+	}
+
+	channelSyncLock.RLock()
+	defer channelSyncLock.RUnlock()
+
+	usableGroups := setting.GetUserUsableGroupsCopy()
+	if len(usableGroups) == 0 {
+		usableGroups = map[string]string{"default": "默认分组"}
+	}
+
+	var candidateIDs []int
+	seen := make(map[int]bool)
+	normalizedModel := ratio_setting.FormatMatchingModelName(modelName)
+
+	for grp := range usableGroups {
+		for _, chID := range group2model2channels[grp][modelName] {
+			if !seen[chID] {
+				seen[chID] = true
+				candidateIDs = append(candidateIDs, chID)
+			}
+		}
+		if normalizedModel != modelName {
+			for _, chID := range group2model2channels[grp][normalizedModel] {
+				if !seen[chID] {
+					seen[chID] = true
+					candidateIDs = append(candidateIDs, chID)
+				}
+			}
+		}
+	}
+
+	channels, _ := filterCandidateIDs(candidateIDs, modelName, filters)
+	if len(channels) == 0 {
+		return nil, "", nil
+	}
+
+	if len(channels) == 1 {
+		if ch, ok := channelsIDM[channels[0]]; ok {
+			grp := "default"
+			if grps := ch.GetGroups(); len(grps) > 0 {
+				grp = grps[0]
+			}
+			return ch, grp, nil
+		}
+		return nil, "", fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channels[0])
+	}
+
+	uniquePriorities := make(map[int]bool)
+	for _, channelId := range channels {
+		if ch, ok := channelsIDM[channelId]; ok {
+			uniquePriorities[int(ch.GetPriority())] = true
+		} else {
+			return nil, "", fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
+		}
+	}
+
+	var sortedUniquePriorities []int
+	for priority := range uniquePriorities {
+		sortedUniquePriorities = append(sortedUniquePriorities, priority)
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(sortedUniquePriorities)))
+
+	if retry >= len(uniquePriorities) {
+		retry = len(uniquePriorities) - 1
+	}
+	targetPriority := int64(sortedUniquePriorities[retry])
+
+	var sumWeight = 0
+	var targetChannels []*Channel
+	for _, channelId := range channels {
+		if ch, ok := channelsIDM[channelId]; ok {
+			if ch.GetPriority() == targetPriority {
+				sumWeight += ch.GetWeight()
+				targetChannels = append(targetChannels, ch)
+			}
+		}
+	}
+
+	if len(targetChannels) == 0 {
+		return nil, "", fmt.Errorf("no channel found for model: %s, priority: %d", modelName, targetPriority)
+	}
+
+	smoothingFactor := 1
+	smoothingAdjustment := 0
+	if sumWeight == 0 {
+		sumWeight = len(targetChannels) * 100
+		smoothingAdjustment = 100
+	} else if sumWeight/len(targetChannels) < 10 {
+		smoothingFactor = 100
+	}
+
+	totalWeight := sumWeight * smoothingFactor
+	randomWeight := rand.Intn(totalWeight)
+	for _, ch := range targetChannels {
+		randomWeight -= ch.GetWeight()*smoothingFactor + smoothingAdjustment
+		if randomWeight < 0 {
+			grp := "default"
+			if grps := ch.GetGroups(); len(grps) > 0 {
+				grp = grps[0]
+			}
+			return ch, grp, nil
+		}
+	}
+
+	grp := "default"
+	if grps := targetChannels[0].GetGroups(); len(grps) > 0 {
+		grp = grps[0]
+	}
+	return targetChannels[0], grp, nil
+}
+
+func GetRandomSatisfiedChannelFromAnyGroup(
+	model string,
+	retry int,
+	filters []dto.ChannelFilter,
+) (*Channel, string, error) {
+	return GetRandomSatisfiedChannelForModel(model, retry, filters)
+}
+
+func getRandomSatisfiedChannelLocked(
+	group string,
+	model string,
+	retry int,
+	filters []dto.ChannelFilter,
+) (*Channel, error) {
 	// First, try to find channels with the exact model name.
 	channels, _ := filterCandidateIDs(group2model2channels[group][model], model, filters)
 

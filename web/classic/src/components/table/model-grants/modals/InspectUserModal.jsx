@@ -39,7 +39,7 @@ import {
   IconShield,
   IconCheckCircleStroked,
 } from '@douyinfe/semi-icons';
-import { showError, timestamp2string } from '../../../../helpers';
+import { showError, timestamp2string, renderQuota } from '../../../../helpers';
 
 import {
   loadGrantUsers,
@@ -83,7 +83,7 @@ const InspectUserModal = ({ visible, onClose }) => {
               user.username +
               ')',
             value: user.id,
-          }))
+          })),
         );
     } catch (error) {
       if (!signal.aborted)
@@ -254,7 +254,7 @@ const InspectUserModal = ({ visible, onClose }) => {
                 <Banner
                   type='info'
                   description={t(
-                    'Administrators have access to all models. API key restrictions and channel availability still apply.'
+                    'Administrators have access to all models. API key restrictions and channel availability still apply.',
                   )}
                 />
               )}
@@ -276,6 +276,96 @@ const InspectUserModal = ({ visible, onClose }) => {
                 )}
             </Card>
 
+            {!inspectData.is_admin && (
+              <Card title={t('生效授权诊断')}>
+                <div className='mb-2'>
+                  <Text type='secondary'>
+                    {t(
+                      '同一模型命中多条授权时按优先级生效：个人授权 > 用户组授权 > 部门授权；相同主体层级以最新授权生效。',
+                    )}
+                  </Text>
+                </div>
+                <Table
+                  rowKey='model'
+                  pagination={false}
+                  dataSource={inspectData.routes || []}
+                  columns={[
+                    {
+                      title: t('模型'),
+                      dataIndex: 'model',
+                      render: (text) => <span className='font-mono font-medium'>{text}</span>,
+                    },
+                    {
+                      title: t('生效授权来源'),
+                      dataIndex: 'policy',
+                      render: (policy) => {
+                        if (!policy) return '-';
+                        const subjectTypeNames = { 1: t('部门'), 2: t('用户组'), 3: t('个人') };
+                        const typeName = subjectTypeNames[policy.subject_type] || t('授权');
+                        return (
+                          <Tag color='blue' size='small'>
+                            {typeName} #{policy.grant_id}
+                          </Tag>
+                        );
+                      },
+                    },
+                    {
+                      title: t('预算额度模式'),
+                      dataIndex: 'policy',
+                      render: (policy) => {
+                        if (!policy) return '-';
+                        if (policy.quota_type === 1) {
+                          const isPerMember = policy.quota_scope === 1;
+                          return (
+                            <div className='flex flex-col gap-0.5'>
+                              <span className='font-mono text-xs'>
+                                {renderQuota(policy.used_quota || 0)} / {renderQuota(policy.grant_quota || 0)}
+                              </span>
+                              <div>
+                                <Tag size='small' color={isPerMember ? 'blue' : 'cyan'}>
+                                  {isPerMember ? t('每人独立') : t('团队共享')}
+                                </Tag>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return <Tag color='green' size='small'>{t('No authorization budget cap')}</Tag>;
+                      },
+                    },
+                    {
+                      title: t('并发限制'),
+                      dataIndex: 'policy',
+                      render: (policy) =>
+                        policy?.max_concurrency > 0 ? (
+                          <span className='font-mono font-medium'>{policy.max_concurrency}</span>
+                        ) : (
+                          <Tag color='green' size='small'>{t('无限制')}</Tag>
+                        ),
+                    },
+                    {
+                      title: t('有效期'),
+                      dataIndex: 'policy',
+                      render: (policy) =>
+                        policy?.expired_at > 0 ? (
+                          <span className='text-xs'>{timestamp2string(policy.expired_at)}</span>
+                        ) : (
+                          <Tag color='green' size='small'>{t('永久有效')}</Tag>
+                        ),
+                    },
+                    {
+                      title: t('服务可用性'),
+                      dataIndex: 'available',
+                      render: (available) => (
+                        <Tag color={available ? 'green' : 'red'}>
+                          {available ? t('渠道服务正常') : t('暂无可用渠道')}
+                        </Tag>
+                      ),
+                    },
+                  ]}
+                />
+              </Card>
+            )}
+
             {/* 权限来源溯源 Tab */}
             <Tabs type='card'>
               <TabPane
@@ -290,7 +380,7 @@ const InspectUserModal = ({ visible, onClose }) => {
                 <div className='pt-2'>
                   {renderGrantTable(
                     inspectData.department_grants,
-                    t('No direct or inherited department grants')
+                    t('No direct or inherited department grants'),
                   )}
                 </div>
               </TabPane>
@@ -307,7 +397,7 @@ const InspectUserModal = ({ visible, onClose }) => {
                 <div className='pt-2'>
                   {renderGrantTable(
                     inspectData.group_grants,
-                    t('No model sets assigned to these groups')
+                    t('No model sets assigned to these groups'),
                   )}
                 </div>
               </TabPane>
@@ -324,7 +414,7 @@ const InspectUserModal = ({ visible, onClose }) => {
                 <div className='pt-2'>
                   {renderGrantTable(
                     inspectData.direct_grants,
-                    t('No model sets assigned directly to this user')
+                    t('No model sets assigned directly to this user'),
                   )}
                 </div>
               </TabPane>
@@ -336,7 +426,7 @@ const InspectUserModal = ({ visible, onClose }) => {
             <Empty
               title={t('Select a user above')}
               description={t(
-                'Select a user to see their model access and authorization sources'
+                'Select a user to see their model access and authorization sources',
               )}
             />
           </div>

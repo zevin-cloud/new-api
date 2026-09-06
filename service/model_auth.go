@@ -191,5 +191,25 @@ func ValidateUserAndTokenModelAccess(c *gin.Context, userId int, requestedModel 
 		}
 	}
 
+	// 3. Resolve and Apply Effective Grant Policy
+	policy, err := model.GetEffectiveGrantPolicyForUser(userId, requestedModel)
+	if err != nil || (!allAccess && (policy == nil || policy.GrantId == 0)) {
+		return false, "获取用户模型授权失败"
+	}
+	if policy != nil {
+		if policy.QuotaType == 1 && policy.GrantQuota > 0 && policy.UsedQuota >= policy.GrantQuota {
+			return false, fmt.Sprintf("当前授权单模型 %s 专项预算额度已耗尽，请联系管理员增加额度", requestedModel)
+		}
+		if c != nil {
+			c.Set("effective_grant_policy", policy)
+			if policy.GrantId > 0 {
+				common.SetContextKey(c, constant.ContextKeyGrantId, policy.GrantId)
+			}
+			if policy.QuotaType == 0 {
+				common.SetContextKey(c, constant.ContextKeyTokenUnlimited, true)
+			}
+		}
+	}
+
 	return true, ""
 }

@@ -53,6 +53,14 @@ const UserGroupsTable = ({
       render: (v) => <Tag color='cyan'>{v || 0} {t('人')}</Tag>,
     },
     {
+      title: t('并发限制'),
+      dataIndex: 'max_concurrency',
+      width: 110,
+      render: (v) => (
+        v > 0 ? <Tag color='purple'>{v} {t('并发')}</Tag> : <Tag color='blue'>{t('不限')}</Tag>
+      ),
+    },
+    {
       title: t('状态'),
       dataIndex: 'status',
       width: 90,

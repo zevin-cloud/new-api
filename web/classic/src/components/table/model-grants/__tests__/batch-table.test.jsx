@@ -18,13 +18,19 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { expect, it, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { beforeAll, expect, it, vi } from 'vitest';
+import { Popconfirm } from '@douyinfe/semi-ui';
 import ModelGrantsTable from '../ModelGrantsTable';
 
 vi.mock('../../../../helpers', () => ({
   timestamp2string: (value) => String(value),
 }));
+
+// jsdom does not emit CSS animation events. Keep the real confirmation behavior.
+beforeAll(() => {
+  Popconfirm.defaultProps = { ...Popconfirm.defaultProps, motion: false };
+});
 
 it('renders one batch as a single record with edit drawer trigger', async () => {
   const grants = [
@@ -76,7 +82,7 @@ it('renders one batch as a single record with edit drawer trigger', async () => 
       enableBatchDelete={true}
       selectedRowKeys={['batch_9']}
       onSelectedChange={vi.fn()}
-    />
+    />,
   );
 
   // 1 次授权仅渲染为 1 行主记录
@@ -94,4 +100,23 @@ it('renders one batch as a single record with edit drawer trigger', async () => 
   // 点击编辑触发 onEdit
   fireEvent.click(screen.getByRole('button', { name: /编辑/ }));
   expect(onEdit).toHaveBeenCalledTimes(1);
+});
+
+it('keeps revoke behind a confirmation that can be cancelled', async () => {
+  const onRevoke = vi.fn();
+  render(
+    <ModelGrantsTable
+      grants={[{ id: 12, subject_type: 3, subject_name: 'Alice' }]}
+      onRevoke={onRevoke}
+    />,
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: '撤销' }));
+  expect(await screen.findByText('确认撤销')).toBeVisible();
+  expect(onRevoke).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '取消' }));
+  await waitFor(() =>
+    expect(screen.queryByText('确认撤销')).toBeNull(),
+  );
+  expect(onRevoke).not.toHaveBeenCalled();
 });

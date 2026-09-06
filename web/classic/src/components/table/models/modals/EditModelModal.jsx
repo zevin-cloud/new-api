@@ -123,7 +123,8 @@ const EditModelModal = (props) => {
     endpoints: '',
     name_rule: props.editingModel?.model_name ? 0 : undefined, // 通过未配置模型过来的固定为精确匹配
     status: true,
-    sync_official: true,
+    sync_official: 1,
+    max_concurrency: props.editingModel?.max_concurrency || 0,
   });
 
   const handleCancel = () => {
@@ -198,6 +199,7 @@ const EditModelModal = (props) => {
         endpoints: values.endpoints || '',
         status: values.status ? 1 : 0,
         sync_official: values.sync_official ? 1 : 0,
+        max_concurrency: Number(values.max_concurrency || 0),
       };
 
       if (isEdit) {
@@ -365,6 +367,19 @@ const EditModelModal = (props) => {
                       showClear
                     />
                   </Col>
+
+                  <Col span={24}>
+                    <Form.InputNumber
+                      field='max_concurrency'
+                      label={t('全平台最大在途并发限制')}
+                      placeholder={t('0 表示不限制')}
+                      extraText={t(
+                        '限制该模型在全平台允许同时处理的最高在途请求并发数（0 为不限制）',
+                      )}
+                      min={0}
+                      step={1}
+                    />
+                  </Col>
                   <Col span={24}>
                     <Form.TagInput
                       field='tags'
@@ -457,7 +472,7 @@ const EditModelModal = (props) => {
                         />
                       }
                       description={t(
-                        '提示：此处配置仅用于控制「模型广场」对用户的展示效果，不会影响模型的实际调用与路由。若需配置真实调用行为，请前往「渠道管理」进行设置。',
+                        '在此管理模型展示、能力与全平台并发限制。在渠道管理中配置上游连接与调度权重。',
                       )}
                       style={{ marginBottom: 12 }}
                     />

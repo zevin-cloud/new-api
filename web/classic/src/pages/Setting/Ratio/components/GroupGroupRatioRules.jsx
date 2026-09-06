@@ -121,7 +121,7 @@ function GroupSection({ groupName, items, groupOptions, onUpdate, onRemove, onAd
                 size='small'
                 filter
                 value={rule.usingGroup || undefined}
-                placeholder={t('选择使用分组')}
+                placeholder={t('选择目标渠道池')}
                 optionList={groupOptions}
                 onChange={(v) => onUpdate(rule._id, 'usingGroup', v)}
                 style={{ flex: 1 }}

@@ -70,12 +70,16 @@ func TestModelGrantBatchSubmissionRegrantAndRevocation(t *testing.T) {
 	require.NoError(t, set.Insert())
 	require.NoError(t, AddModelsToModelSet(set.Id, []string{"shared-model", "other-model"}))
 	subjects := []ModelGrantSubject{{SubjectTypeDepartment, dept.Id}, {SubjectTypeUserGroup, group.Id}, {SubjectTypeUser, user.Id}}
-	batch, err := CreateModelGrantBatch(subjects, []int{set.Id}, []string{"shared-model"}, "", 0, 1)
+	batch, err := CreateModelGrantBatch(subjects, []int{set.Id}, []string{"shared-model"}, "", "vip", 1, 100000, 0, 5, 0, 1)
 	require.NoError(t, err)
 	views, total, err := GetModelGrantBatches(1, 10, 0, 0, 0, 0, "")
 	require.NoError(t, err)
 	require.Len(t, views, 1)
 	assert.EqualValues(t, 1, total)
+	assert.Equal(t, "vip", views[0].RoutingGroup)
+	assert.Equal(t, 5, views[0].MaxConcurrency)
+	assert.Equal(t, 1, views[0].QuotaType)
+	assert.EqualValues(t, 100000, views[0].GrantQuota)
 	assert.Len(t, views[0].Grants, 6)
 	directCount := 0
 	for _, grant := range views[0].Grants {
@@ -90,7 +94,7 @@ func TestModelGrantBatchSubmissionRegrantAndRevocation(t *testing.T) {
 	require.Len(t, views, 1)
 	assert.EqualValues(t, 1, total)
 	assert.Len(t, views[0].Grants, 6)
-	second, err := CreateModelGrantBatch(subjects[2:], []int{set.Id}, nil, "", 0, 1)
+	second, err := CreateModelGrantBatch(subjects[2:], []int{set.Id}, nil, "", "", 0, 0, 0, 0, 0, 1)
 	require.NoError(t, err)
 	require.NotEqual(t, batch.Id, second.Id)
 	removed, err := RevokeModelGrantBatch(batch.Id)
@@ -112,7 +116,7 @@ func TestModelGrantBatchRollbackAndLegacyPagination(t *testing.T) {
 	require.NoError(t, DB.Create(&user).Error)
 	set := ModelSet{Name: "Research models"}
 	require.NoError(t, set.Insert())
-	_, err := CreateModelGrantBatch([]ModelGrantSubject{{SubjectTypeUser, user.Id}}, []int{set.Id, 99999}, []string{"direct-model"}, "temporary", 0, 1)
+	_, err := CreateModelGrantBatch([]ModelGrantSubject{{SubjectTypeUser, user.Id}}, []int{set.Id, 99999}, []string{"direct-model"}, "temporary", "", 0, 0, 0, 0, 0, 1)
 	require.Error(t, err)
 	for _, table := range []any{&ModelGrant{}, &ModelGrantBatch{}} {
 		var count int64
@@ -157,12 +161,14 @@ func TestModelGrantBatchDetailUnionUsers(t *testing.T) {
 	batch, err := CreateModelGrantBatch([]ModelGrantSubject{
 		{Type: SubjectTypeDepartment, Id: dept.Id},
 		{Type: SubjectTypeUser, Id: user2.Id},
-	}, []int{set.Id}, []string{"claude-3-5-sonnet"}, "Adhoc", 0, 1)
+	}, []int{set.Id}, []string{"claude-3-5-sonnet"}, "Adhoc", "dedicated", 0, 0, 0, 10, 0, 1)
 	require.NoError(t, err)
 
 	detail, err := GetModelGrantBatchDetail(batch.Id, false)
 	require.NoError(t, err)
 	assert.Equal(t, batch.Id, detail.BatchId)
+	assert.Equal(t, "dedicated", detail.RoutingGroup)
+	assert.Equal(t, 10, detail.MaxConcurrency)
 	assert.Len(t, detail.Subjects, 2)
 	assert.Equal(t, 2, detail.TotalUsers)
 	assert.Contains(t, detail.Models, "gpt-4o")
@@ -182,5 +188,149 @@ func TestModelGrantBatchDetailUnionUsers(t *testing.T) {
 	}
 	assert.True(t, aliceFound)
 	assert.True(t, bobFound)
+}
+
+func TestGetEffectiveGrantPolicyForUser(t *testing.T) {
+	setupModelGrantTestDB(t)
+	dept := Department{Name: "DevDept", Status: DepartmentStatusEnabled}
+	require.NoError(t, dept.Insert())
+	user := User{Username: "charlie", DepartmentId: dept.Id, Status: common.UserStatusEnabled, AffCode: "CHARLIE1"}
+	require.NoError(t, DB.Create(&user).Error)
+
+	setDept := ModelSet{Name: "DeptSet", Status: ModelSetStatusEnabled}
+	require.NoError(t, DB.Create(&setDept).Error)
+	require.NoError(t, AddModelsToModelSet(setDept.Id, []string{"gpt-4o"}))
+
+	setUser := ModelSet{Name: "UserSet", Status: ModelSetStatusEnabled}
+	require.NoError(t, DB.Create(&setUser).Error)
+	require.NoError(t, AddModelsToModelSet(setUser.Id, []string{"gpt-4o", "claude-3-5-sonnet"}))
+
+	// 1. Dept grant has routing_group="dept_pool", max_concurrency=2
+	_, err := CreateModelGrantBatch([]ModelGrantSubject{{Type: SubjectTypeDepartment, Id: dept.Id}}, []int{setDept.Id}, nil, "", "dept_pool", 0, 0, 0, 2, 0, 1)
+	require.NoError(t, err)
+
+	policy, err := GetEffectiveGrantPolicyForUser(user.Id, "gpt-4o")
+	require.NoError(t, err)
+	require.NotNil(t, policy)
+	assert.Equal(t, "dept_pool", policy.RoutingGroup)
+	assert.Equal(t, 2, policy.MaxConcurrency)
+
+	// 2. User direct grant has routing_group="vip_direct", max_concurrency=10
+	_, err = CreateModelGrantBatch([]ModelGrantSubject{{Type: SubjectTypeUser, Id: user.Id}}, []int{setUser.Id}, nil, "", "vip_direct", 1, 50000, 0, 10, 0, 1)
+	require.NoError(t, err)
+
+	// Direct user grant must take priority over dept grant
+	policy, err = GetEffectiveGrantPolicyForUser(user.Id, "gpt-4o")
+	require.NoError(t, err)
+	require.NotNil(t, policy)
+	assert.Equal(t, "vip_direct", policy.RoutingGroup)
+	assert.Equal(t, 10, policy.MaxConcurrency)
+	assert.Equal(t, 1, policy.QuotaType)
+	assert.EqualValues(t, 50000, policy.GrantQuota)
+
+	// claude-3-5-sonnet only in user grant
+	policyClaude, err := GetEffectiveGrantPolicyForUser(user.Id, "claude-3-5-sonnet")
+	require.NoError(t, err)
+	require.NotNil(t, policyClaude)
+	assert.Equal(t, "vip_direct", policyClaude.RoutingGroup)
+
+	// ungranted model returns nil
+	policyNone, err := GetEffectiveGrantPolicyForUser(user.Id, "gemini-1.5-pro")
+	require.NoError(t, err)
+	assert.Nil(t, policyNone)
+}
+
+func TestModelGrantBatchQuotaScope(t *testing.T) {
+	setupModelGrantTestDB(t)
+	dept := Department{Name: "SharedDept", Status: DepartmentStatusEnabled}
+	require.NoError(t, dept.Insert())
+	user1 := User{Username: "user1", DepartmentId: dept.Id, Status: common.UserStatusEnabled, AffCode: "U1"}
+	user2 := User{Username: "user2", DepartmentId: dept.Id, Status: common.UserStatusEnabled, AffCode: "U2"}
+	require.NoError(t, DB.Create(&user1).Error)
+	require.NoError(t, DB.Create(&user2).Error)
+
+	set := ModelSet{Name: "ScopeSet", Status: ModelSetStatusEnabled}
+	require.NoError(t, DB.Create(&set).Error)
+	require.NoError(t, AddModelsToModelSet(set.Id, []string{"scoped-model"}))
+
+	// 1. QuotaScope = 0 (Shared Pool): dept gets 1 grant, members share it
+	batchShared, err := CreateModelGrantBatch(
+		[]ModelGrantSubject{{Type: SubjectTypeDepartment, Id: dept.Id}},
+		[]int{set.Id},
+		nil,
+		"",
+		"shared_pool",
+		1,
+		100000,
+		0, // shared
+		0,
+		0,
+		1,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, 0, batchShared.QuotaScope)
+
+	detailShared, err := GetModelGrantBatchDetail(batchShared.Id, false)
+	require.NoError(t, err)
+	assert.Equal(t, 0, detailShared.QuotaScope)
+	assert.Len(t, detailShared.Subjects, 1)
+
+	// Consume quota on grant
+	var sharedGrant ModelGrant
+	require.NoError(t, DB.Where("batch_id = ?", batchShared.Id).First(&sharedGrant).Error)
+	require.NoError(t, IncreaseGrantUsedQuota(sharedGrant.Id, 30000))
+
+	policy1, err := GetEffectiveGrantPolicyForUser(user1.Id, "scoped-model")
+	require.NoError(t, err)
+	require.NotNil(t, policy1)
+	assert.EqualValues(t, 30000, policy1.UsedQuota)
+
+	policy2, err := GetEffectiveGrantPolicyForUser(user2.Id, "scoped-model")
+	require.NoError(t, err)
+	require.NotNil(t, policy2)
+	assert.EqualValues(t, 30000, policy2.UsedQuota) // Both users see 30000 used
+
+	// Revoke shared batch
+	_, err = RevokeModelGrantBatch(batchShared.Id)
+	require.NoError(t, err)
+
+	// 2. QuotaScope = 1 (Per-Member Cap): dept is expanded to user1 and user2
+	batchPerMember, err := CreateModelGrantBatch(
+		[]ModelGrantSubject{{Type: SubjectTypeDepartment, Id: dept.Id}},
+		[]int{set.Id},
+		nil,
+		"",
+		"per_member_pool",
+		1,
+		50000,
+		1, // per-member
+		0,
+		0,
+		1,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, 1, batchPerMember.QuotaScope)
+
+	// Check grants in batch: both user1 and user2 got individual user grants
+	var userGrants []ModelGrant
+	require.NoError(t, DB.Where("batch_id = ?", batchPerMember.Id).Order("subject_id ASC").Find(&userGrants).Error)
+	require.Len(t, userGrants, 2)
+	assert.Equal(t, SubjectTypeUser, userGrants[0].SubjectType)
+	assert.Equal(t, user1.Id, userGrants[0].SubjectId)
+	assert.Equal(t, SubjectTypeUser, userGrants[1].SubjectType)
+	assert.Equal(t, user2.Id, userGrants[1].SubjectId)
+	assert.Equal(t, 1, userGrants[0].QuotaScope)
+	assert.Equal(t, 1, userGrants[1].QuotaScope)
+
+	// User1 consumes quota
+	require.NoError(t, IncreaseGrantUsedQuota(userGrants[0].Id, 20000))
+
+	pUser1, err := GetEffectiveGrantPolicyForUser(user1.Id, "scoped-model")
+	require.NoError(t, err)
+	assert.EqualValues(t, 20000, pUser1.UsedQuota)
+
+	pUser2, err := GetEffectiveGrantPolicyForUser(user2.Id, "scoped-model")
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, pUser2.UsedQuota) // User2's quota is unaffected!
 }
 

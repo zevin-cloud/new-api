@@ -50,27 +50,16 @@ const PricingGroups = ({
         ? models.length
         : models.filter((m) => m.enable_groups && m.enable_groups.includes(g))
             .length;
-    let ratioDisplay = '';
-    if (g === 'all') {
-      // ratioDisplay = t('全部');
-    } else {
-      const ratio = groupRatio[g];
-      if (ratio !== undefined && ratio !== null) {
-        ratioDisplay = `${ratio}x`;
-      } else {
-        ratioDisplay = '1x';
-      }
-    }
     return {
       value: g,
-      label: g === 'all' ? t('全部分组') : g,
-      tagCount: ratioDisplay,
+      label: g === 'all' ? t('全部') : g,
+      tagCount: modelCount > 0 ? String(modelCount) : '',
     };
   });
 
   return (
     <SelectableButtonGroup
-      title={t('可用令牌分组')}
+      title={t('路由资源池')}
       items={items}
       activeValue={filterGroup}
       onChange={setFilterGroup}

@@ -43,7 +43,7 @@ import {
   IllustrationNoResultDark,
 } from '@douyinfe/semi-illustrations';
 import { getGrantBatchDetail } from '../../../../services/modelGrants';
-import { timestamp2string, showError } from '../../../../helpers';
+import { timestamp2string, showError, renderQuota } from '../../../../helpers';
 
 const GrantDetailModal = ({ visible, batchItem, onClose, onRevoke }) => {
   const { t } = useTranslation();
@@ -110,7 +110,7 @@ const GrantDetailModal = ({ visible, batchItem, onClose, onRevoke }) => {
         u.display_name?.toLowerCase().includes(kw) ||
         u.email?.toLowerCase().includes(kw) ||
         u.department_name?.toLowerCase().includes(kw) ||
-        u.sources?.some((s) => s.toLowerCase().includes(kw))
+        u.sources?.some((s) => s.toLowerCase().includes(kw)),
     );
   }, [detail?.union_users, userKeyword]);
 
@@ -199,7 +199,8 @@ const GrantDetailModal = ({ visible, batchItem, onClose, onRevoke }) => {
     const isExpired = detail.expired_at <= Date.now() / 1000;
     return (
       <Tag color={isExpired ? 'red' : 'orange'}>
-        {timestamp2string(detail.expired_at)} {isExpired ? `(${t('已过期')})` : ''}
+        {timestamp2string(detail.expired_at)}{' '}
+        {isExpired ? `(${t('已过期')})` : ''}
       </Tag>
     );
   }, [detail, t]);
@@ -209,7 +210,9 @@ const GrantDetailModal = ({ visible, batchItem, onClose, onRevoke }) => {
     return [
       {
         key: t('授权编号'),
-        value: detail.is_legacy ? `#${detail.subjects?.[0]?.id || targetId}` : `#${detail.batchId}`,
+        value: detail.is_legacy
+          ? `#${detail.subjects?.[0]?.id || targetId}`
+          : `#${detail.batchId}`,
       },
       {
         key: t('授权时间'),
@@ -234,6 +237,35 @@ const GrantDetailModal = ({ visible, batchItem, onClose, onRevoke }) => {
             {detail.total_models} {t('个')}
           </span>
         ),
+      },
+      {
+        key: t('预算配额'),
+        value:
+          detail.quota_type === 1 ? (
+            <div className='flex items-center gap-1.5'>
+              <span className='font-mono text-xs'>
+                {renderQuota(detail.used_quota || 0)} /{' '}
+                {renderQuota(detail.grant_quota || 0)}
+              </span>
+              <Tag
+                size='small'
+                color={detail.quota_scope === 1 ? 'blue' : 'cyan'}
+              >
+                {detail.quota_scope === 1 ? t('每人独立') : t('团队共享')}
+              </Tag>
+            </div>
+          ) : (
+            <Tag color='green'>{t('No authorization budget cap')}</Tag>
+          ),
+      },
+      {
+        key: t('最大并发'),
+        value:
+          detail.max_concurrency > 0 ? (
+            <span className='font-mono'>{detail.max_concurrency}</span>
+          ) : (
+            <Tag color='green'>{t('无限制')}</Tag>
+          ),
       },
     ];
   }, [detail, expiryTag, targetId, t]);
@@ -262,7 +294,9 @@ const GrantDetailModal = ({ visible, batchItem, onClose, onRevoke }) => {
             {batchItem && (
               <Popconfirm
                 title={t('确认撤销')}
-                content={t('确定撤销此次授权吗？撤销后相关主体将失去此授权的所有模型访问权限。')}
+                content={t(
+                  '确定撤销此次授权吗？撤销后相关主体将失去此授权的所有模型访问权限。',
+                )}
                 onConfirm={() => {
                   onRevoke?.(batchItem);
                   onClose();
@@ -301,7 +335,9 @@ const GrantDetailModal = ({ visible, batchItem, onClose, onRevoke }) => {
                 <div className='space-y-3 pt-2'>
                   <div className='flex justify-between items-center'>
                     <span className='text-xs text-gray-500'>
-                      {t('已自动展开部门下成员、用户组成员及个人用户，合并去重后的真实受权人员名单')}
+                      {t(
+                        '已自动展开部门下成员、用户组成员及个人用户，合并去重后的真实受权人员名单',
+                      )}
                     </span>
                     <Input
                       size='small'
@@ -358,7 +394,8 @@ const GrantDetailModal = ({ visible, batchItem, onClose, onRevoke }) => {
                       <span>{t('所属模型集')}:</span>
                       {(detail.model_sets || []).map((ms) => (
                         <Tag key={ms.id} color='cyan' size='small'>
-                          {ms.name} {ms.direct_models ? `(${t('指定模型')})` : ''}
+                          {ms.name}{' '}
+                          {ms.direct_models ? `(${t('指定模型')})` : ''}
                         </Tag>
                       ))}
                     </div>

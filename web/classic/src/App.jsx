@@ -18,13 +18,26 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { lazy, Suspense, useContext, useMemo } from 'react';
-import { Route, Routes, useLocation, useParams } from 'react-router-dom';
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useParams,
+} from 'react-router-dom';
 import Loading from './components/common/ui/Loading';
 import User from './pages/User';
 import UserGroup from './pages/UserGroup';
 import ModelSet from './pages/ModelSet';
 import ModelGrant from './pages/ModelGrant';
-import { AuthRedirect, PrivateRoute, AdminRoute } from './helpers';
+import {
+  AuthRedirect,
+  PrivateRoute,
+  AdminRoute,
+  getStoredUser,
+  MODEL_MARKETPLACE_PATH,
+  shouldRedirectOrdinaryUser,
+} from './helpers';
 import RegisterForm from './components/auth/RegisterForm';
 import LoginForm from './components/auth/LoginForm';
 import NotFound from './pages/NotFound';
@@ -89,6 +102,10 @@ function App() {
     }
     return false; // 默认不需要登录
   }, [statusState?.status?.HeaderNavModules]);
+
+  if (shouldRedirectOrdinaryUser(getStoredUser(), location.pathname)) {
+    return <Navigate to={MODEL_MARKETPLACE_PATH} replace />;
+  }
 
   return (
     <SetupCheck>

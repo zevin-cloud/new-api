@@ -1,0 +1,157 @@
+# 企业级 AI 网关改造实施记录
+
+本文档完整记录从商业 Relay 代理站转型为**企业级内部统一 AI 网关 / 算力治理平台**的改造全过程，涵盖第一阶段的商业转售元素净化、第二阶段的在途并发流控，以及第三阶段的**【授权管理】企业权限、渠道、模型与预算全面统一治理**。
+
+---
+
+## 一、 第三阶段：【授权管理】企业权限、渠道、模型与预算统一治理（最新）
+
+### 1. 架构核心思想
+- **零权限基线 (Zero-Privilege by Default)**：
+  - 新建用户默认具备零信任/零权限基线，无需绑定物理渠道、无需充值或预存配额、无默认模型访问权限。
+- **一处授权，全维纳管 (Unified Enterprise Authorization)**：
+  - 管理员在【授权管理】中发起一次授权，即可完成以下维度的全量配置：
+    1. **主体维度**：按部门、按跨部门角色用户组、或按具体个人。
+    2. **模型资源**：按企业预设模型集或勾选指定模型。
+    3. **物理渠道池 (`routing_group`)**：指定该授权所调用的物理渠道集群（如 `default`、`vip`、`dedicated_gpu`）。
+    4. **预算额度策略 (`quota_type` & `grant_quota`)**：
+       - `0`: 无限额度（企业免充值模式，零门槛调用，无消费上限）。
+       - `1`: 指定预算配额（按 Token 预算控制消耗上限）。
+    5. **最大在途并发 (`max_concurrency`)**：限制该授权策略下的在途同时请求并发数。
+    6. **时效管理 (`expired_at`)**：支持永不过期或指定到期失效。
+- **动态调度穿透**：
+  - 请求进入网关在鉴权阶段解析用户的 `EffectiveGrantPolicy`，并将 `policy.RoutingGroup` 挂载到 Gin 上下文，下游渠道选择与调度自动查询匹配的物理渠道池，彻底解耦用户主体与渠道的关系。
+
+### 2. 代码落地清单
+
+#### 后端模型与业务层
+- [model/model_grant.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/model/model_grant.go)：
+  - `ModelGrant` 表增加 `RoutingGroup varchar(64)`, `QuotaType int`, `GrantQuota bigint`, `UsedQuota bigint`, `MaxConcurrency int`。
+  - 新增 `EffectiveGrantPolicy` 结构体及 `GetEffectiveGrantPolicyForUser(userId int, modelName string) (*EffectiveGrantPolicy, error)`，按优先级合并部门、用户组及个人授权。
+- [model/model_grant_batch.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/model/model_grant_batch.go)：
+  - `ModelGrantBatch`、`ModelGrantBatchView`、`ModelGrantBatchDetail` 同步增加 `RoutingGroup`, `QuotaType`, `GrantQuota`, `MaxConcurrency`。
+  - 批量授权、详情查询与批次列表同步返回与持久化 QoS 配置。
+- [service/model_auth.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/service/model_auth.go)：
+  - 在 `ValidateUserAndTokenModelAccess` 中注入 `EffectiveGrantPolicy` 解析：
+    - 当配额模式为 `QuotaType == 1` 且已用配额超标时，立即拦截并提示预算用尽。
+    - 当授权指定了 `RoutingGroup` 时，将请求的 `constant.ContextKeyUsingGroup` 动态覆盖为授权中的渠道池。
+    - 当配额模式为 `QuotaType == 0`（无限额度）时，激活 `ContextKeyTokenUnlimited = true`，使账户免充值即可畅享算力。
+- [service/concurrency_limiter.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/service/concurrency_limiter.go)：
+  - 并发限流器扩展新增 `"grant"` 维度（`concurrency:grant:<batch_id>`），对单项授权策略生效全局并发控制。
+- [controller/model_set.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/controller/model_set.go)：
+  - `GrantModelSetRequest` 接收 `routing_group`, `quota_type`, `grant_quota`, `max_concurrency` 并在创建授权批次时持久化。
+
+#### 前端交互层 (`web/classic/`)
+- [CreateGrantModal.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/model-grants/modals/CreateGrantModal.jsx)：
+  - 增加【渠道资源池与服务质量 (QoS)】卡片：
+    - 物理渠道池下拉选择（从 `/api/group/` 动态加载渠道池列表）。
+    - 预算额度模式单选按钮（无限额度企业免充值 / 指定预算配额）。
+    - 授权预算配额输入框（`grantQuota`，Token 标定）。
+    - 最大并发限制输入框（`maxConcurrency`，0 为不限制）。
+- [ModelGrantsTable.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/model-grants/ModelGrantsTable.jsx)：
+  - 表格新增【物理渠道池】、【预算配额】、【并发限制】3 列。
+- [GrantDetailModal.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/model-grants/modals/GrantDetailModal.jsx)：
+  - 概览 Descriptions 增加渠道资源池、预算配额（已用/总额）与最大并发限制条目。
+- [EditUserModal.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/users/modals/EditUserModal.jsx)：
+  - 移除必填限制，顶部增加引导横幅说明企业授权与预算已统一由【授权管理】负责，消除用户开户时的配置负担。
+- **多语言国际化**：
+  - 8 种语言字典（`en`, `zh`, `zh-CN`, `zh-TW`, `fr`, `ja`, `ru`, `vi`）全面录入 22 个新增 QoS 词条。
+
+---
+
+## 二、 验证结果汇总
+
+| 验证维度 | 测试命令 / 方式 | 执行结果 | 说明 |
+| :--- | :--- | :--- | :--- |
+| **Go 模块独立性** | `cd relaykit && GOWORK=off go build ./...` | **PASS (exit 0)** | 严格保障 relaykit 独立编译与零污染 |
+| **Go 后端整体编译** | `go build -o new-api main.go` | **PASS (exit 0)** | 成功生成二进制，无编译警告与错误 |
+| **数据库兼容性** | PostgreSQL 迁移与启动 | **PASS** | `ModelGrant` & `ModelGrantBatch` 全量字段迁移幂等无冲突 |
+| **授权策略解析单测** | `go test -v ./model -run TestGetEffectiveGrantPolicyForUser` | **PASS** | 验证主体优先级合并（部门、用户组、个人）及 QoS 策略解析 |
+| **授权并发限流单测** | `go test -v ./service -run TestConcurrencyLimiter_GrantLimit` | **PASS** | 验证基于授权维度的分布式原子并发限制及释放 |
+| **全后端核心套件** | `go test -count=1 ./model ./service ./middleware ./controller` | **PASS (4 套件全部通过)** | 跨模型/业务全流程校验无损 |
+| **Classic 前端单元测试** | `bunx vitest run` | **PASS (3 files, 7 passed)** | 包含授权创建、批次表格等全部用例通过 |
+| **Classic 前端生产打包** | `bun run build` in `web/classic` | **PASS (exit 0)** | Rsbuild 打包成功并完成 dist 产物同步 |
+| **浏览器 UI 端到端验证** | Browser Subagent | **PASS** | 成功验证授权管理列表 QoS 列、新建弹窗 QoS 卡片联动及渲染 |
+
+---
+
+## 三、 浏览器实机截图
+
+### 新建授权 QoS 配置界面 (`CreateGrantModal`)
+![新建授权 QoS 配置界面](/Users/zevin/.gemini/antigravity-ide/brain/fb258509-f602-416f-9f4b-dd76fea42234/create_grant_modal_qos_scrolled_1788684623387.png)
+
+### 用户编辑抽屉纯净化 (`EditUserModal`)
+已彻底剥离遗留的个人钱包金额、充值调整与个人路由等级，改造为【模型权限与渠道配额】引导入口：
+![用户编辑抽屉纯净化](/Users/zevin/.gemini/antigravity-ide/brain/fb258509-f602-416f-9f4b-dd76fea42234/edit_user_drawer_scrolled_1788685231397.png)
+
+### 用户列表企业免充值状态展示 (`UsersTable`)
+优化了原商业转售模式下的 `0 / 0` 虚假告警指示器，企业用户默认展示清晰规范的【免充值】状态标签：
+![用户列表企业免充值状态展示](/Users/zevin/.gemini/antigravity-ide/brain/fb258509-f602-416f-9f4b-dd76fea42234/user_table_unlimited_quota_1788685326658.png)
+
+---
+
+## 四、 第四阶段：用户组织归属与多主体额度分配模式（团队共享 vs 成员独立上限）
+
+### 1. 业务目标与需求
+1. **用户列表去商业化**：
+   - 彻底移除用户管理表格中商业转售遗留的 `剩余额度/总额度` 和 `免充值` 指示器，替换为企业组织标识【所属部门】（展示用户所在的部门 Tag，未分配部门时显示灰度占位标签）。
+2. **多主体授权额度分配模式 (`quota_scope`)**：
+   - 在【授权管理】中向部门或用户组批量授权并指定预算额度时，引入两种预算分配模式：
+     - **团队共享总额度 (`quota_scope = 0`)**：所有被授权部门及下级子部门、或用户组下的全体成员，共同消耗这一笔总预算池；当累计消耗达到上限时，全体成员暂停使用。
+     - **成员独立额度上限 (`quota_scope = 1`)**：被授权主体下的每一位成员，均独立享有等额的预算上限（如设置 500,000 点，则每位成员各拥有 500,000 点），成员之间的消费互不影响、互不挤占。
+
+### 2. 代码改造清单
+
+#### 后端模型与业务层
+- [model/user.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/model/user.go)：
+  - `User` 结构体新增 `DepartmentName string `json:"department_name,omitempty" gorm:"-"``。
+  - 新增 `populateUserDepartmentNames(users []*User)`，在 `GetAllUsers`、`SearchUsersAdvanced` 和 `GetUserById` 查询时批量映射并填充用户所在部门名称。
+- [model/model_grant.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/model/model_grant.go)：
+  - `ModelGrant` 表与 `EffectiveGrantPolicy` 结构体新增 `QuotaScope int `json:"quota_scope" gorm:"type:int;not null;default:0"``。
+  - 新增 `IncreaseGrantUsedQuota(grantId int, quota int64) error`，在用户实际发生模型调用后，实时原子更新授权记录及批次记录的 `used_quota`。
+  - 在 `GetEffectiveGrantPolicyForUser` 中适配共享模式：当 `QuotaScope == 0` 时，动态读取该批次共享总消耗与总额度。
+- [model/model_grant_batch.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/model/model_grant_batch.go)：
+  - `ModelGrantBatch`、`ModelGrantBatchView`、`ModelGrantBatchDetail` 增加 `QuotaScope int` 与 `UsedQuota int64`。
+  - 在 `CreateModelGrantBatch` 中实现成员独立上限模式展开逻辑：
+    - 当 `quotaScope == 1` 且主体为部门或用户组时，在当前事务 `tx` 内查询展开其全部成员，为每位成员独立生成对应的 `ModelGrant` 记录，每人享有独立的 `GrantQuota`。
+    - 注意避免 SQLite 单连接嵌套事务锁死问题，展开查询一律使用传入的 `tx` 执行。
+- [controller/model_set.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/controller/model_set.go)：
+  - `GrantModelSetRequest` 增加 `QuotaScope int`，透传至 `CreateModelGrantBatch`。
+- [service/model_auth.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/service/model_auth.go) & [service/quota.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/service/quota.go)：
+  - 上下文贯通：在 `ValidateUserAndTokenModelAccess` 中将生效策略的 `grant_id` 注入 Gin 上下文。
+  - 扣费落库：请求消费结算 (`postConsumeQuotaWithResult`) 时调用 `IncreaseGrantUsedQuota`，实时推进授权预算已用额度。
+
+#### 前端交互层 (`web/classic/`)
+- [UsersColumnDefs.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/users/UsersColumnDefs.jsx)：
+  - 彻底移除 `quota_usage` 列定义及其相关的半圆/百分比进度条逻辑。
+  - 新增 `所属部门` 列，渲染用户所在部门名称标签（或 `未分配` 占位标签）。
+- [CreateGrantModal.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/model-grants/modals/CreateGrantModal.jsx)：
+  - 在指定预算配额模式下，动态呈现【额度分配模式】单选框：
+    - `团队共享总额度`：展示提示语“所有选中的主体共同消耗此总预算池，适合部门项目制预算”。
+    - `成员独立额度上限`：展示提示语“为所选主体下的每位成员分别赋予此额度上限，成员之间额度互不影响”。
+  - 提交创建授权请求时携带 `quota_scope` 参数。
+- [ModelGrantsTable.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/model-grants/ModelGrantsTable.jsx) & [GrantDetailModal.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/model-grants/modals/GrantDetailModal.jsx)：
+  - 预算配额列与详情弹窗中，附带高亮 Tag 标注【团队共享】或【每人独立】。
+- **国际化同步**：
+  - 8 种语言字典（`en`, `zh`, `zh-CN`, `zh-TW`, `fr`, `ja`, `ru`, `vi`）全面录入 `所属部门`、`额度分配模式`、`团队共享总额度`、`成员独立额度上限` 等 9 个新增词条。
+
+---
+
+## 五、 验证与浏览器实机效果
+
+### 1. 自动化测试验证
+- **独立编译**：`cd relaykit && GOWORK=off go build ./...` 编译成功 (exit 0)。
+- **后端模型单测**：`go test -v ./model -run TestModelGrantBatchQuotaScope` 通过，精确验证了团队共享总消耗累加及成员独立额度互不干扰的逻辑。
+- **核心模块单测**：`go test -count=1 ./model ./service ./middleware ./controller` 全量通过。
+- **前端单元测试**：`bunx vitest run` 全部通过 (3 files, 7 passed)。
+- **前端生产打包**：`bun run build` 产物同步成功 (exit 0)。
+
+### 2. 浏览器端到端实机截图
+
+#### 用户管理列表：展示【所属部门】，彻底剥离商业额度
+![用户管理所属部门列](/Users/zevin/.gemini/antigravity-ide/brain/fb258509-f602-416f-9f4b-dd76fea42234/users_table_department_1788686690950.png)
+
+#### 授权管理：支持【团队共享总额度】与【成员独立额度上限】
+![授权分配模式切换](/Users/zevin/.gemini/antigravity-ide/brain/fb258509-f602-416f-9f4b-dd76fea42234/grant_modal_quota_allocation_1788686739504.png)
+
+

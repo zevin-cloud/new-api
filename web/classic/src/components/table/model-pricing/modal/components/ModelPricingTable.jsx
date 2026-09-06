@@ -85,12 +85,11 @@ const ModelPricingTable = ({
     // 定义表格列
     const columns = [
       {
-        title: t('分组'),
+        title: t('路由资源池'),
         dataIndex: 'group',
         render: (text) => (
           <Tag color='white' size='small' shape='circle'>
             {text}
-            {t('分组')}
           </Tag>
         ),
       },
@@ -101,7 +100,7 @@ const ModelPricingTable = ({
     // 动态计费时始终显示倍率列，否则根据设置
     if (showRatio || isDynamic) {
       columns.push({
-        title: t('分组倍率'),
+        title: t('折算倍率'),
         dataIndex: 'ratio',
         render: (text) => (
           <Tag color='blue' size='small' shape='circle'>
@@ -174,19 +173,18 @@ const ModelPricingTable = ({
         <div>
           <Text className='text-lg font-medium'>{t('额度扣减标准')}</Text>
           <div className='text-xs text-gray-600'>
-            {t('不同分组的配额扣减规则，由企业统一配额结算')}
+            {t('不同路由池的配额扣减规则，由企业统一配额结算')}
           </div>
         </div>
       </div>
       {autoChain.length > 0 && (
         <div className='flex flex-wrap items-center gap-1 mb-4'>
-          <span className='text-sm text-gray-600'>{t('auto分组调用链路')}</span>
+          <span className='text-sm text-gray-600'>{t('auto调用链路')}</span>
           <span className='text-sm'>→</span>
           {autoChain.map((g, idx) => (
             <React.Fragment key={g}>
               <Tag color='white' size='small' shape='circle'>
                 {g}
-                {t('分组')}
               </Tag>
               {idx < autoChain.length - 1 && <span className='text-sm'>→</span>}
             </React.Fragment>

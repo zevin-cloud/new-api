@@ -17,6 +17,7 @@ type ModelSet struct {
 	Name        string         `json:"name" gorm:"type:varchar(64);not null;index"`
 	Description string         `json:"description" gorm:"type:text"`
 	Status      int            `json:"status" gorm:"type:int;default:1"`
+	MaxConcurrency int         `json:"max_concurrency" gorm:"type:int;default:0"`
 	CreatedBy   int            `json:"created_by" gorm:"type:int;default:0"`
 	CreatedAt   int64          `json:"created_at" gorm:"bigint"`
 	UpdatedAt   int64          `json:"updated_at" gorm:"bigint"`
@@ -58,10 +59,11 @@ func (s *ModelSet) Update() error {
 
 	s.UpdatedAt = common.GetTimestamp()
 	return DB.Model(s).Where("id = ?", s.Id).Updates(map[string]any{
-		"name":        s.Name,
-		"description": s.Description,
-		"status":      s.Status,
-		"updated_at":  s.UpdatedAt,
+		"name":            s.Name,
+		"description":     s.Description,
+		"status":          s.Status,
+		"max_concurrency": s.MaxConcurrency,
+		"updated_at":      s.UpdatedAt,
 	}).Error
 }
 
@@ -165,4 +167,13 @@ func GetModelSets(page int, pageSize int, keyword string, status int) ([]*ModelS
 	}
 
 	return sets, total, nil
+}
+
+func GetModelSetsByIds(ids []int) ([]*ModelSet, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var sets []*ModelSet
+	err := DB.Where("id IN ? AND status = ?", ids, ModelSetStatusEnabled).Find(&sets).Error
+	return sets, err
 }

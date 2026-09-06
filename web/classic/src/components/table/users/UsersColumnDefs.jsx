@@ -23,16 +23,11 @@ import {
   Space,
   Tag,
   Tooltip,
-  Progress,
-  Popover,
-  Typography,
   Dropdown,
 } from '@douyinfe/semi-ui';
 import { IconMore } from '@douyinfe/semi-icons';
 import {
-  renderGroup,
   renderNumber,
-  renderQuota,
   timestamp2string,
 } from '../../../helpers';
 
@@ -140,65 +135,6 @@ const renderStatistics = (text, record, showEnableDisableModal, t) => {
   );
 };
 
-// Render separate quota usage column
-const renderQuotaUsage = (text, record, t) => {
-  const { Paragraph } = Typography;
-  const used = parseInt(record.used_quota) || 0;
-  const remain = parseInt(record.quota) || 0;
-  const total = used + remain;
-  const percent = total > 0 ? (remain / total) * 100 : 0;
-  const popoverContent = (
-    <div className='text-xs p-2'>
-      <Paragraph copyable={{ content: renderQuota(used) }}>
-        {t('已用额度')}: {renderQuota(used)}
-      </Paragraph>
-      <Paragraph copyable={{ content: renderQuota(remain) }}>
-        {t('剩余额度')}: {renderQuota(remain)} ({percent.toFixed(0)}%)
-      </Paragraph>
-      <Paragraph copyable={{ content: renderQuota(total) }}>
-        {t('总额度')}: {renderQuota(total)}
-      </Paragraph>
-    </div>
-  );
-  return (
-    <Popover content={popoverContent} position='top'>
-      <Tag color='white' shape='circle'>
-        <div className='flex flex-col items-end'>
-          <span className='text-xs leading-none'>{`${renderQuota(remain)} / ${renderQuota(total)}`}</span>
-          <Progress
-            percent={percent}
-            aria-label='quota usage'
-            format={() => `${percent.toFixed(0)}%`}
-            style={{ width: '100%', marginTop: '1px', marginBottom: 0 }}
-          />
-        </div>
-      </Tag>
-    </Popover>
-  );
-};
-
-/**
- * Render invite information
- */
-const renderInviteInfo = (text, record, t) => {
-  return (
-    <div>
-      <Space spacing={1}>
-        <Tag color='white' shape='circle' className='!text-xs'>
-          {t('邀请')}: {renderNumber(record.aff_count)}
-        </Tag>
-        <Tag color='white' shape='circle' className='!text-xs'>
-          {t('收益')}: {renderQuota(record.aff_history_quota)}
-        </Tag>
-        <Tag color='white' shape='circle' className='!text-xs'>
-          {record.inviter_id === 0
-            ? t('无邀请人')
-            : `${t('邀请人')}: ${record.inviter_id}`}
-        </Tag>
-      </Space>
-    </div>
-  );
-};
 
 /**
  * Render operations column
@@ -215,7 +151,6 @@ const renderOperations = (
     showDeleteModal,
     showResetPasskeyModal,
     showResetTwoFAModal,
-    showUserSubscriptionsModal,
     t,
   },
 ) => {
@@ -224,14 +159,6 @@ const renderOperations = (
   }
 
   const moreMenu = [
-    {
-      node: 'item',
-      name: t('订阅管理'),
-      onClick: () => showUserSubscriptionsModal(record),
-    },
-    {
-      node: 'divider',
-    },
     {
       node: 'item',
       name: t('重置 Passkey'),
@@ -338,9 +265,22 @@ export const getUsersColumns = ({
         renderStatistics(text, record, showEnableDisableModal, t),
     },
     {
-      title: t('剩余额度/总额度'),
-      key: 'quota_usage',
-      render: (text, record) => renderQuotaUsage(text, record, t),
+      title: t('所属部门'),
+      dataIndex: 'department_name',
+      render: (text, record) => {
+        if (record.department_name) {
+          return (
+            <Tag color='cyan' shape='circle'>
+              {record.department_name}
+            </Tag>
+          );
+        }
+        return (
+          <Tag color='grey' shape='circle'>
+            {t('未分配')}
+          </Tag>
+        );
+      },
     },
     {
       title: t('角色'),

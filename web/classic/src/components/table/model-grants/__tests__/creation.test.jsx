@@ -69,14 +69,14 @@ beforeEach(() => {
 it('keeps a selected individual as a direct grant when they are the only displayed department member', async () => {
   render(<CreateGrantModal visible onClose={vi.fn()} onSuccess={vi.fn()} />);
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: /Grant access/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Grant access/ })).toBeEnabled(),
   );
   fireEvent.click(screen.getByText('Search departments or members...'));
   const department = await screen.findByText(/^Research \(/);
   fireEvent.click(
     department
       .closest('[role=treeitem]')
-      .querySelector('.semi-tree-option-expand-icon')
+      .querySelector('.semi-tree-option-expand-icon'),
   );
   // Select the member itself, without selecting the department checkbox.
   const member = await screen.findByText('Alice (@alice)');
@@ -108,12 +108,12 @@ it('shows unrestricted model access for administrators even when model metadata 
 
   await waitFor(() =>
     expect(
-      api.get.mock.calls.some(([url]) => url === '/api/model-grant/inspect/1')
-    ).toBe(true)
+      api.get.mock.calls.some(([url]) => url === '/api/model-grant/inspect/1'),
+    ).toBe(true),
   );
   expect(showError).not.toHaveBeenCalled();
   expect(await screen.findByText('All models available')).toBeInTheDocument();
   expect(
-    screen.queryByText('This user has no active model access')
+    screen.queryByText('This user has no active model access'),
   ).not.toBeInTheDocument();
 });

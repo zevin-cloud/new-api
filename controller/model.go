@@ -251,12 +251,26 @@ func ListModels(c *gin.Context, modelType int) {
 			tokenModelLimit = map[string]bool{}
 		}
 	}
-	models := service.GetGroupsEnabledModels(ownerGroups)
+	_, hasTokenAutoGroups := common.GetContextKey(c, constant.ContextKeyTokenAutoGroups)
+	var models []string
+	if hasTokenAutoGroups {
+		models = service.GetGroupsEnabledModels(ownerGroups)
+	} else if !allAccess {
+		models = model.GetEnabledModels()
+	} else {
+		models = service.GetGroupsEnabledModels(ownerGroups)
+	}
 	for _, modelName := range models {
 		matchingName := ratio_setting.FormatMatchingModelName(modelName)
 		// Check user grant
 		if !allAccess && !userGrantedMap[modelName] && !userGrantedMap[matchingName] {
 			continue
+		}
+		if !allAccess {
+			policy, policyErr := model.GetEffectiveGrantPolicyForUser(userId, modelName)
+			if policyErr != nil || policy == nil || policy.GrantId == 0 {
+				continue
+			}
 		}
 		// Check token model limits
 		if modelLimitEnable {

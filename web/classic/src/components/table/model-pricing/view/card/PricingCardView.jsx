@@ -362,17 +362,17 @@ const PricingCardView = ({
                       </div>
                       <div className='grid grid-cols-3 gap-2 text-xs text-gray-600'>
                         <div>
-                          {t('模型')}:{' '}
+                          {t('输入')}:{' '}
                           {model.quota_type === 0 ? model.model_ratio : t('无')}
                         </div>
                         <div>
-                          {t('补全')}:{' '}
+                          {t('输出')}:{' '}
                           {model.quota_type === 0
                             ? parseFloat(model.completion_ratio.toFixed(3))
                             : t('无')}
                         </div>
                         <div>
-                          {t('分组')}: {priceData?.usedGroupRatio ?? '-'}
+                          {t('渠道')}: {priceData?.usedGroupRatio ?? '-'}
                         </div>
                       </div>
                     </div>

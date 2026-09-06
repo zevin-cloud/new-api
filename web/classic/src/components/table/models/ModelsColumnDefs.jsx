@@ -348,6 +348,22 @@ export const getModelsColumns = ({
       render: (qts) => renderQuotaTypes(qts, t),
     },
     {
+      title: t('并发限制'),
+      dataIndex: 'max_concurrency',
+      width: 100,
+      render: (v) => (
+        v > 0 ? (
+          <Tag color='purple' size='small' shape='circle'>
+            {v} {t('并发')}
+          </Tag>
+        ) : (
+          <Tag color='blue' size='small' shape='circle'>
+            {t('不限')}
+          </Tag>
+        )
+      ),
+    },
+    {
       title: t('创建时间'),
       dataIndex: 'created_time',
       render: (text, record, index) => {

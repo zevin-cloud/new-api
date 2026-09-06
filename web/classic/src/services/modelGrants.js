@@ -59,7 +59,7 @@ export const loadGrantModelSets = (signal) =>
   loadAllPages('/api/model-set', 'page', signal);
 
 export async function loadGrantOptions(signal) {
-  const [depts, users, groups, sets, enabled, pricing] = await Promise.all([
+  const [depts, users, groups, sets, enabled, pricing, channelGroups] = await Promise.all([
     API.get('/api/department/tree', { signal, disableDuplicate: true }).then(
       unwrap
     ),
@@ -71,6 +71,9 @@ export async function loadGrantOptions(signal) {
       disableDuplicate: true,
     }).then(unwrap),
     API.get('/api/pricing', { signal, disableDuplicate: true }).then(unwrap),
+    API.get('/api/group/', { signal, disableDuplicate: true }).then(
+      (res) => res.data?.data || []
+    ).catch(() => []),
   ]);
   const models = new Set();
   for (const model of [...(enabled || []), ...(pricing || [])]) {
@@ -86,6 +89,7 @@ export async function loadGrantOptions(signal) {
     groups: groups.filter((g) => g.status === 1),
     sets: sets.filter((s) => s.status === 1),
     models: [...models].sort(),
+    channelGroups: channelGroups || [],
   };
 }
 

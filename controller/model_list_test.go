@@ -34,6 +34,11 @@ type userModelsResponse struct {
 	Data    []string `json:"data"`
 }
 
+type pricingResponse struct {
+	Success bool            `json:"success"`
+	Data    []model.Pricing `json:"data"`
+}
+
 func setupModelListControllerTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
@@ -179,6 +184,60 @@ func decodeUserModelsResponse(t *testing.T, recorder *httptest.ResponseRecorder)
 	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
 	require.True(t, payload.Success)
 	return payload.Data
+}
+
+func TestGetPricingShowsOnlyModelsGrantedToCommonUser(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{
+		Id:       1004,
+		Username: "model-marketplace-user",
+		Password: "password",
+		Role:     common.RoleCommonUser,
+		Group:    "default",
+		Status:   common.UserStatusEnabled,
+	}).Error)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "zz-marketplace-granted", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "zz-marketplace-hidden", ChannelId: 2, Enabled: true},
+	}).Error)
+	grantModelListAccess(t, 1004, []string{"zz-marketplace-granted"})
+	model.InvalidatePricingCache()
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/pricing", nil)
+	ctx.Set("id", 1004)
+
+	GetPricing(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var payload pricingResponse
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
+	require.True(t, payload.Success)
+	modelNames := make([]string, 0, len(payload.Data))
+	for _, item := range payload.Data {
+		modelNames = append(modelNames, item.ModelName)
+	}
+	assert.Contains(t, modelNames, "zz-marketplace-granted")
+	assert.NotContains(t, modelNames, "zz-marketplace-hidden")
+}
+
+func TestGetPricingDoesNotReturnModelsWhenAuthenticatedUserCannotBeResolved(t *testing.T) {
+	setupModelListControllerTestDB(t)
+	model.InvalidatePricingCache()
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/pricing", nil)
+	ctx.Set("id", 9999)
+
+	GetPricing(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var payload pricingResponse
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
+	assert.False(t, payload.Success)
+	assert.Empty(t, payload.Data)
 }
 
 func TestGetUserModelsFiltersByRequestedGroup(t *testing.T) {
@@ -585,4 +644,46 @@ func grantModelListAccess(t *testing.T, userID int, names []string) {
 	require.NoError(t, set.Insert())
 	require.NoError(t, model.AddModelsToModelSet(set.Id, names))
 	require.NoError(t, model.GrantModelSet(model.SubjectTypeUser, userID, set.Id, 0, 1))
+}
+
+func TestModelRoutingListsCrossPoolModelsWithoutUserGroupPermission(t *testing.T) {
+	withSelfUseModeEnabled(t)
+	db := setupModelListControllerTestDB(t)
+	original := ratio_setting.GroupRatio2JSONString()
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"private-route":1}`))
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(original))
+		model.InvalidatePricingCache()
+	})
+	require.NoError(t, db.Create(&[]model.Ability{{Group: "default", Model: "routing-a", ChannelId: 1, Enabled: true}, {Group: "private-route", Model: "routing-b", ChannelId: 2, Enabled: true}, {Group: "private-route", Model: "routing-ungranted", ChannelId: 2, Enabled: true}}).Error)
+	grantModelListAccess(t, 1011, []string{"routing-a", "routing-b"})
+	require.NoError(t, db.Model(&model.ModelGrant{}).Where("subject_id = ?", 1011).Update("routing_group", model.ModelRoutingPolicy).Error)
+	require.NoError(t, db.Create(&model.Model{ModelName: "routing-b", RoutingGroups: `["private-route"]`}).Error)
+	model.InvalidatePricingCache()
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Set("id", 1011)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	ListModels(c, constant.ChannelTypeOpenAI)
+	names := decodeListModelsResponse(t, recorder)
+	assert.Contains(t, names, "routing-a")
+	assert.Contains(t, names, "routing-b")
+	assert.NotContains(t, names, "routing-ungranted")
+	recorder = httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(recorder)
+	c.Set("id", 1011)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/pricing", nil)
+	GetPricing(c)
+	var pricing pricingResponse
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &pricing))
+	require.True(t, pricing.Success)
+	names2 := []string{}
+	for _, p := range pricing.Data {
+		names2 = append(names2, p.ModelName)
+		if p.ModelName == "routing-b" {
+			assert.Equal(t, []string{"private-route"}, p.EnableGroup)
+		}
+	}
+	assert.ElementsMatch(t, []string{"routing-a", "routing-b"}, names2)
 }

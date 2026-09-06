@@ -147,3 +147,60 @@ func refundWithRetry(fn func() error) error {
 	}
 	return lastErr
 }
+
+// ---------------------------------------------------------------------------
+// GrantFunding — 授权单预算资金来源实现
+// ---------------------------------------------------------------------------
+
+// ErrInsufficientGrantQuota 授权单预算原子预扣失败（额度不足）
+var ErrInsufficientGrantQuota = errors.New("grant quota insufficient")
+
+type GrantFunding struct {
+	grantId    int
+	batchId    int
+	quotaType  int // 0: unlimited, 1: capped
+	quotaScope int // 0: shared pool, 1: per member
+	grantQuota int64
+	consumed   int // 实际预扣的授权单额度
+}
+
+func (g *GrantFunding) Source() string { return BillingSourceGrant }
+
+func (g *GrantFunding) PreConsume(amount int) error {
+	if amount <= 0 {
+		return nil
+	}
+	if g.quotaType == 0 {
+		// 企业免充值不限预算：直接放行并累加用于记账
+		_ = model.IncreaseGrantUsedQuota(g.grantId, int64(amount))
+		g.consumed = amount
+		return nil
+	}
+	// quotaType == 1: 限额原子预扣
+	reserved, err := model.TryReserveGrantQuota(g.grantId, g.batchId, g.quotaScope, int64(amount))
+	if err != nil {
+		return err
+	}
+	if !reserved {
+		return ErrInsufficientGrantQuota
+	}
+	g.consumed = amount
+	return nil
+}
+
+func (g *GrantFunding) Settle(delta int) error {
+	if delta == 0 {
+		return nil
+	}
+	if delta > 0 {
+		return model.IncreaseGrantUsedQuota(g.grantId, int64(delta))
+	}
+	return model.DecreaseGrantUsedQuota(g.grantId, -int64(delta))
+}
+
+func (g *GrantFunding) Refund() error {
+	if g.consumed <= 0 {
+		return nil
+	}
+	return model.DecreaseGrantUsedQuota(g.grantId, int64(g.consumed))
+}

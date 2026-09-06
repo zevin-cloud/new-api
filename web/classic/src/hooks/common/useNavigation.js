@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import { useMemo } from 'react';
 import { isAdmin } from '../../helpers';
+import { isOrdinaryUser } from '../../helpers/user-access';
 
 export const useNavigation = (t, docsLink, headerNavModules, user) => {
   const mainNavLinks = useMemo(() => {
@@ -69,6 +70,9 @@ export const useNavigation = (t, docsLink, headerNavModules, user) => {
 
     // 根据配置与权限过滤导航链接
     return allLinks.filter((link) => {
+      if (isOrdinaryUser(user)) {
+        return link.itemKey === 'pricing';
+      }
       if (link.itemKey === 'console') {
         if (!isAdmin()) {
           return false;

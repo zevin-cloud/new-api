@@ -34,6 +34,9 @@ import {
   Avatar,
   Row,
   Col,
+  RadioGroup,
+  Radio,
+  InputNumber,
 } from '@douyinfe/semi-ui';
 import {
   IconSave,
@@ -41,6 +44,7 @@ import {
   IconUserGroup,
   IconLayers,
   IconClock,
+  IconServer,
 } from '@douyinfe/semi-icons';
 import { showError, showSuccess, timestamp2string } from '../../../../helpers';
 import {
@@ -74,7 +78,13 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
   const [selectedModelNames, setSelectedModelNames] = useState([]);
   const [customSetName, setCustomSetName] = useState('');
 
-  // 4. Expiration time (DateTime string or -1 for never)
+  // 4. QoS and quota
+  const [quotaType, setQuotaType] = useState(0);
+  const [quotaScope, setQuotaScope] = useState(0);
+  const [grantQuota, setGrantQuota] = useState(500000);
+  const [maxConcurrency, setMaxConcurrency] = useState(0);
+
+  // 5. Expiration time (DateTime string or -1 for never)
   const [expiredTime, setExpiredTime] = useState(-1);
 
   // Status
@@ -118,18 +128,25 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
           const businessModels = new Set(
             (options?.sets || [])
               .filter((s) => setIds.includes(s.id))
-              .flatMap((s) => s.models || [])
+              .flatMap((s) => s.models || []),
           );
           const directModels = (detail.models || []).filter(
-            (m) => !businessModels.has(m)
+            (m) => !businessModels.has(m),
           );
-          setSelectedModelNames(directModels.length > 0 ? directModels : detail.models || []);
+          setSelectedModelNames(
+            directModels.length > 0 ? directModels : detail.models || [],
+          );
 
           if (detail.expired_at && detail.expired_at > 0) {
             setExpiredTime(timestamp2string(detail.expired_at));
           } else {
             setExpiredTime(-1);
           }
+
+          setQuotaType(detail.quota_type ?? 0);
+          setQuotaScope(detail.quota_scope ?? 0);
+          setGrantQuota(detail.grant_quota ?? 500000);
+          setMaxConcurrency(detail.max_concurrency ?? 0);
         } catch {
           // ignore
         }
@@ -146,6 +163,10 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
     setSelectedModelNames([]);
     setCustomSetName('');
     setExpiredTime(-1);
+    setQuotaType(0);
+    setQuotaScope(0);
+    setGrantQuota(500000);
+    setMaxConcurrency(0);
   };
 
   const handleQuickExpire = (days, months = 0, years = 0) => {
@@ -174,6 +195,7 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
         groups,
         sets,
         models,
+        channelGroups,
       } = await loadGrantOptions(signal);
       if (signal.aborted) return;
       // Group users by department_id
@@ -204,7 +226,9 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
             raw: u,
           }));
 
-          const { nodes: subDeptChildren, count: subCount } = buildOrgTree(d.children);
+          const { nodes: subDeptChildren, count: subCount } = buildOrgTree(
+            d.children,
+          );
           const allChildren = [...subDeptChildren, ...userChildren];
           const deptTotalCount = deptUsers.length + subCount;
           totalCount += deptTotalCount;
@@ -248,6 +272,7 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
       setGroupOptions(groups.map((g) => ({ label: g.name, value: g.id })));
       setModelSets(sets);
       setAvailableModels(models.map((name) => ({ label: name, value: name })));
+
       setOptionsReady(true);
     } catch (error) {
       if (!signal.aborted)
@@ -313,6 +338,10 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
       model_names: selectedModelNames,
       custom_set_name: customSetName,
       expired_at: expiredAt,
+      quota_type: quotaType,
+      quota_scope: quotaType === 1 ? quotaScope : 0,
+      grant_quota: quotaType === 1 ? Number(grantQuota) || 0 : 0,
+      max_concurrency: Number(maxConcurrency) || 0,
     };
 
     try {
@@ -341,7 +370,9 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
             {t(isEdit ? 'Edit' : 'New')}
           </Tag>
           <Title heading={4} className='m-0'>
-            {isEdit ? t('Edit model authorization') : t('Create model authorization')}
+            {isEdit
+              ? t('Edit model authorization')
+              : t('Create model authorization')}
           </Title>
         </Space>
       }
@@ -396,7 +427,7 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
                 <Text className='text-lg font-medium'>{t('Subjects')}</Text>
                 <div className='text-xs text-gray-600'>
                   {t(
-                    'Select departments or users from the organization tree and optionally add user groups.'
+                    'Select departments or users from the organization tree and optionally add user groups.',
                   )}
                 </div>
               </div>
@@ -422,7 +453,7 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
                   />
                   <Text type='secondary' className='text-xs'>
                     {t(
-                      'Departments and users are selected independently. Department grants include current and future members of that department and its subdepartments.'
+                      'Departments and users are selected independently. Department grants include current and future members of that department and its subdepartments.',
                     )}
                   </Text>
                 </div>
@@ -522,7 +553,7 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
                     </Text>
                     <Input
                       placeholder={t(
-                        'For example: temporary access (leave empty for an automatic name)'
+                        'For example: temporary access (leave empty for an automatic name)',
                       )}
                       value={customSetName}
                       onChange={(v) => setCustomSetName(v)}
@@ -535,7 +566,116 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
             </Row>
           </Card>
 
-          {/* 3. 过期时间卡片 */}
+          {/* 3. 渠道池与服务质量 QoS 卡片 */}
+          <Card className='!rounded-2xl shadow-sm border-0'>
+            <div className='flex items-center mb-3'>
+              <Avatar size='small' color='amber' className='mr-2 shadow-md'>
+                <IconServer size={16} />
+              </Avatar>
+              <div>
+                <Text className='text-lg font-medium'>
+                  {t('Budget and concurrency')}
+                </Text>
+                <div className='text-xs text-gray-600'>
+                  {t(
+                    'Each model uses its own routing policy. Configure pools in Model Management.',
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <Row gutter={12}>
+              <Col span={24}>
+                <div className='flex flex-col gap-1.5 mb-3'>
+                  <Text strong>{t('预算额度模式')}</Text>
+                  <RadioGroup
+                    value={quotaType}
+                    onChange={(e) => setQuotaType(e.target.value)}
+                    type='button'
+                  >
+                    <Radio value={0}>{t('No authorization budget cap')}</Radio>
+                    <Radio value={1}>{t('指定预算额度')}</Radio>
+                  </RadioGroup>
+                  <Text type='secondary' className='text-xs'>
+                    {quotaType === 0
+                      ? t(
+                          '企业免充值不限预算：直接放行并记录消耗，不再要求个人账户充值。',
+                        )
+                      : t(
+                          '指定预算模式下，该项授权累计消耗达到预算上限后将暂停调用。',
+                        )}
+                  </Text>
+                </div>
+              </Col>
+
+              {quotaType === 1 && (
+                <>
+                  <Col span={24}>
+                    <div className='flex flex-col gap-1.5 mb-3'>
+                      <Text strong>{t('授权预算配额 (Token 点数)')}</Text>
+                      <InputNumber
+                        value={grantQuota}
+                        onChange={(v) => setGrantQuota(v)}
+                        min={0}
+                        step={100000}
+                        className='!rounded-lg'
+                        style={{ width: '100%' }}
+                        placeholder={t('例如 500000 点 (等值 $1)')}
+                      />
+                      <Text type='secondary' className='text-xs'>
+                        {t('500,000 点额度基准等值约 $1 美元算力配额。')}
+                      </Text>
+                    </div>
+                  </Col>
+
+                  <Col span={24}>
+                    <div className='flex flex-col gap-1.5 mb-3'>
+                      <Text strong>{t('额度分配模式')}</Text>
+                      <RadioGroup
+                        value={quotaScope}
+                        onChange={(e) => setQuotaScope(e.target.value)}
+                        type='button'
+                      >
+                        <Radio value={0}>{t('团队共享总额度')}</Radio>
+                        <Radio value={1}>{t('成员独立额度上限')}</Radio>
+                      </RadioGroup>
+                      <Text type='secondary' className='text-xs'>
+                        {quotaScope === 0
+                          ? t(
+                              '团队共享模式：所有选中的主体共同消耗此总预算池，适合部门整体项目制预算。',
+                            )
+                          : t(
+                              '成员独立模式：为所选主体下的每一位成员分配独立的预算上限（每人均可使用该数额）。',
+                            )}
+                      </Text>
+                    </div>
+                  </Col>
+                </>
+              )}
+
+              <Col span={24}>
+                <div className='flex flex-col gap-1.5'>
+                  <Text strong>{t('最大并发限制')}</Text>
+                  <InputNumber
+                    value={maxConcurrency}
+                    onChange={(v) => setMaxConcurrency(v)}
+                    min={0}
+                    step={1}
+                    className='!rounded-lg'
+                    style={{ width: '100%' }}
+                    placeholder={t('0 表示无限制')}
+                  />
+                  <Text type='secondary' className='text-xs'>
+                    {t(
+                      '限制该授权策略下的同时在飞请求数。设置为 0 表示不单独限制并发。',
+                    )}
+                  </Text>
+                </div>
+              </Col>
+            </Row>
+          </Card>
+
+          {/* 4. 过期时间卡片 */}
           <Card className='!rounded-2xl shadow-sm border-0'>
             <div className='flex items-center mb-3'>
               <Avatar size='small' color='green' className='mr-2 shadow-md'>
@@ -623,7 +763,7 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
                 <Text type='secondary' className='text-xs'>
                   {expiredTime === -1 || !expiredTime
                     ? t(
-                        'This authorization remains valid until an administrator revokes it'
+                        'This authorization remains valid until an administrator revokes it',
                       )
                     : t('This authorization expires at {{time}}', {
                         time: expiredTime,

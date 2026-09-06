@@ -35,47 +35,56 @@ func filterPricingByUsableGroups(pricing []model.Pricing, usableGroup map[string
 
 func GetPricing(c *gin.Context) {
 	pricing := model.GetPricing()
-	userId, exists := c.Get("id")
+	userId, authenticated := c.Get("id")
 	usableGroup := map[string]string{}
 	groupRatio := map[string]float64{}
 	for s, f := range ratio_setting.GetGroupRatioCopy() {
 		groupRatio[s] = f
 	}
 	var group string
-	if exists {
-		user, err := model.GetUserCache(userId.(int))
-		if err == nil {
-			group = user.Group
-			for g := range groupRatio {
-				ratio, ok := ratio_setting.GetGroupGroupRatio(group, g)
-				if ok {
-					groupRatio[g] = ratio
-				}
+	if authenticated {
+		id, ok := userId.(int)
+		if !ok || id <= 0 {
+			c.JSON(200, gin.H{"success": false, "message": "用户身份无效"})
+			return
+		}
+		user, err := model.GetUserCache(id)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		group = user.Group
+		for g := range groupRatio {
+			ratio, ok := ratio_setting.GetGroupGroupRatio(group, g)
+			if ok {
+				groupRatio[g] = ratio
 			}
 		}
 	}
 
 	usableGroup = service.GetUserUsableGroups(group)
-	pricing = filterPricingByUsableGroups(pricing, usableGroup)
 
 	isUserAdmin := false
-	if exists {
-		uId, ok := userId.(int)
-		if ok && uId > 0 {
-			grantedMap, allAccess, err := service.GetUserGrantedModelMap(uId)
-			if err == nil {
-				isUserAdmin = allAccess
-				if !allAccess {
-					filtered := make([]model.Pricing, 0, len(pricing))
-					for _, item := range pricing {
-						if grantedMap[item.ModelName] {
-							filtered = append(filtered, item)
-						}
-					}
-					pricing = filtered
+	if authenticated {
+		id := userId.(int)
+		grantedMap, allAccess, err := service.GetUserGrantedModelMap(id)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if !allAccess {
+			filtered := make([]model.Pricing, 0, len(pricing))
+			for _, item := range pricing {
+				if grantedMap[item.ModelName] {
+					filtered = append(filtered, item)
 				}
 			}
+			pricing = filtered
+		} else {
+			pricing = filterPricingByUsableGroups(pricing, usableGroup)
 		}
+	} else {
+		pricing = filterPricingByUsableGroups(pricing, usableGroup)
 	}
 
 	// check groupRatio contains usableGroup

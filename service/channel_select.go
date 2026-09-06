@@ -109,8 +109,27 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	var channel *model.Channel
 	var err error
 	selectGroup := param.TokenGroup
-	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
 	filters := GetChannelConstraints(param.Ctx).Filters
+
+	// 若当前请求命中模型授权策略，直接在模型的可用服务渠道中按优先级与权重调度，不设渠道分组第二道门槛
+	if param.Ctx != nil {
+		if policyVal, exists := param.Ctx.Get("effective_grant_policy"); exists && policyVal != nil {
+			channel, selectGroup, err = model.GetRandomSatisfiedChannelForModel(
+				param.ModelName,
+				param.GetRetry(),
+				filters,
+			)
+			if err != nil {
+				return nil, selectGroup, err
+			}
+			if channel != nil {
+				common.SetContextKey(param.Ctx, constant.ContextKeyUsingGroup, selectGroup)
+			}
+			return channel, selectGroup, nil
+		}
+	}
+
+	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
 
 	if param.TokenGroup == "auto" {
 		autoGroups := GetRequestAutoGroups(param.Ctx, userGroup)
@@ -192,6 +211,17 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		)
 		if err != nil {
 			return nil, param.TokenGroup, err
+		}
+		if channel == nil {
+			// 若当前指定分组无渠道，自动从可用服务池中查找
+			channel, selectGroup, err = model.GetRandomSatisfiedChannelForModel(
+				param.ModelName,
+				param.GetRetry(),
+				filters,
+			)
+			if err == nil && channel != nil {
+				common.SetContextKey(param.Ctx, constant.ContextKeyUsingGroup, selectGroup)
+			}
 		}
 	}
 	return channel, selectGroup, nil

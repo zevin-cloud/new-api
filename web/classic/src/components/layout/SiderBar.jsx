@@ -130,11 +130,6 @@ const SiderBar = ({ onNavigate = () => {} }) => {
   const financeItems = useMemo(() => {
     const items = [
       {
-        text: t('钱包管理'),
-        itemKey: 'topup',
-        to: '/topup',
-      },
-      {
         text: t('个人设置'),
         itemKey: 'personal',
         to: '/personal',
@@ -159,12 +154,6 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {
-        text: t('订阅管理'),
-        itemKey: 'subscription',
-        to: '/subscription',
-        className: isAdmin() ? '' : 'tableHiddle',
-      },
-      {
         text: t('模型管理'),
         itemKey: 'models',
         to: '/console/models',
@@ -186,12 +175,6 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         text: t('模型部署'),
         itemKey: 'deployment',
         to: '/deployment',
-        className: isAdmin() ? '' : 'tableHiddle',
-      },
-      {
-        text: t('兑换码管理'),
-        itemKey: 'redemption',
-        to: '/redemption',
         className: isAdmin() ? '' : 'tableHiddle',
       },
       {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -17,15 +18,21 @@ const (
 )
 
 type ModelGrant struct {
-	Id          int   `json:"id"`
-	BatchId     int   `json:"batch_id" gorm:"not null;default:0;index"`
-	SubjectType int   `json:"subject_type" gorm:"type:int;not null;index;uniqueIndex:uk_grant_subject_set"` // 1: dept, 2: group, 3: user
-	SubjectId   int   `json:"subject_id" gorm:"type:int;not null;index;uniqueIndex:uk_grant_subject_set"`
-	ModelSetId  int   `json:"model_set_id" gorm:"type:int;not null;index;uniqueIndex:uk_grant_subject_set"`
-	ExpiredAt   int64 `json:"expired_at" gorm:"bigint;default:0"` // 0 = never expires
-	GrantedBy   int   `json:"granted_by" gorm:"type:int;default:0"`
-	CreatedAt   int64 `json:"created_at" gorm:"bigint"`
-	UpdatedAt   int64 `json:"updated_at" gorm:"bigint"`
+	Id             int    `json:"id"`
+	BatchId        int    `json:"batch_id" gorm:"not null;default:0;index"`
+	SubjectType    int    `json:"subject_type" gorm:"type:int;not null;index;uniqueIndex:uk_grant_subject_set"` // 1: dept, 2: group, 3: user
+	SubjectId      int    `json:"subject_id" gorm:"type:int;not null;index;uniqueIndex:uk_grant_subject_set"`
+	ModelSetId     int    `json:"model_set_id" gorm:"type:int;not null;index;uniqueIndex:uk_grant_subject_set"`
+	RoutingGroup   string `json:"routing_group" gorm:"type:varchar(64);not null;default:''"`
+	QuotaType      int    `json:"quota_type" gorm:"type:int;not null;default:0"`  // 0: unlimited, 1: fixed quota
+	QuotaScope     int    `json:"quota_scope" gorm:"type:int;not null;default:0"` // 0: shared, 1: per_member
+	GrantQuota     int64  `json:"grant_quota" gorm:"type:bigint;not null;default:0"`
+	UsedQuota      int64  `json:"used_quota" gorm:"type:bigint;not null;default:0"`
+	MaxConcurrency int    `json:"max_concurrency" gorm:"type:int;not null;default:0"`
+	ExpiredAt      int64  `json:"expired_at" gorm:"bigint;default:0"` // 0 = never expires
+	GrantedBy      int    `json:"granted_by" gorm:"type:int;default:0"`
+	CreatedAt      int64  `json:"created_at" gorm:"bigint"`
+	UpdatedAt      int64  `json:"updated_at" gorm:"bigint"`
 
 	// Non-db response fields
 	SubjectName  string   `json:"subject_name,omitempty" gorm:"-"`
@@ -33,6 +40,20 @@ type ModelGrant struct {
 	Models       []string `json:"models,omitempty" gorm:"-"`
 	ModelCount   int      `json:"model_count,omitempty" gorm:"-"`
 	DirectModels bool     `json:"direct_models" gorm:"-"`
+}
+
+type EffectiveGrantPolicy struct {
+	GrantId        int    `json:"grant_id"`
+	BatchId        int    `json:"batch_id"`
+	SubjectType    int    `json:"subject_type"`
+	SubjectId      int    `json:"subject_id"`
+	RoutingGroup   string `json:"routing_group"`
+	QuotaType      int    `json:"quota_type"`
+	QuotaScope     int    `json:"quota_scope"`
+	GrantQuota     int64  `json:"grant_quota"`
+	UsedQuota      int64  `json:"used_quota"`
+	MaxConcurrency int    `json:"max_concurrency"`
+	ExpiredAt      int64  `json:"expired_at"`
 }
 
 type UserGrantDetail struct {
@@ -446,6 +467,177 @@ func GetEffectiveModelAccessForUser(userId int) ([]string, int64, error) {
 	// Get distinct model names from those model sets
 	models, err := GetModelNamesByModelSetIds(setIds)
 	return models, expiresAt, err
+}
+
+// GetEffectiveGrantPolicyForUser returns the effective grant policy for a user and model.
+func GetEffectiveGrantPolicyForUser(userId int, modelName string) (*EffectiveGrantPolicy, error) {
+	if userId <= 0 || modelName == "" {
+		return nil, nil
+	}
+	var user User
+	if err := DB.Select("id", "department_id", "role").First(&user, userId).Error; err != nil {
+		return nil, err
+	}
+	if user.Role >= common.RoleAdminUser {
+		return &EffectiveGrantPolicy{}, nil
+	}
+	groupIds, err := GetUserGroupIdsByUserId(userId)
+	if err != nil {
+		return nil, err
+	}
+	grants, err := GetEffectiveModelGrantsForUser(userId, user.DepartmentId, groupIds)
+	if err != nil || len(grants) == 0 {
+		return nil, err
+	}
+
+	normModel := ratio_setting.FormatMatchingModelName(modelName)
+	setIds, err := GetModelSetIdsByModelName(modelName)
+	if err != nil {
+		return nil, err
+	}
+	if normModel != "" && normModel != modelName {
+		normSetIds, err := GetModelSetIdsByModelName(normModel)
+		if err != nil {
+			return nil, err
+		}
+		setIds = append(setIds, normSetIds...)
+	}
+	if len(setIds) == 0 {
+		return nil, nil
+	}
+
+	setMap := make(map[int]bool, len(setIds))
+	for _, sid := range setIds {
+		setMap[sid] = true
+	}
+
+	var bestGrant *ModelGrant
+	for i := range grants {
+		g := &grants[i]
+		if !setMap[g.ModelSetId] {
+			continue
+		}
+		if bestGrant == nil {
+			bestGrant = g
+			continue
+		}
+		// Priority: User (3) > UserGroup (2) > Dept (1)
+		if g.SubjectType > bestGrant.SubjectType {
+			bestGrant = g
+		} else if g.SubjectType == bestGrant.SubjectType {
+			if g.Id > bestGrant.Id {
+				bestGrant = g
+			}
+		}
+	}
+
+	if bestGrant == nil {
+		return nil, nil
+	}
+
+	grantQuota := bestGrant.GrantQuota
+	usedQuota := bestGrant.UsedQuota
+	if bestGrant.QuotaScope == 0 && bestGrant.BatchId > 0 {
+		var batch ModelGrantBatch
+		if err := DB.Select("id", "grant_quota", "used_quota").First(&batch, bestGrant.BatchId).Error; err == nil {
+			if batch.GrantQuota > 0 {
+				grantQuota = batch.GrantQuota
+			}
+			if batch.UsedQuota > usedQuota {
+				usedQuota = batch.UsedQuota
+			}
+		}
+	}
+
+	return &EffectiveGrantPolicy{
+		GrantId:        bestGrant.Id,
+		BatchId:        bestGrant.BatchId,
+		SubjectType:    bestGrant.SubjectType,
+		SubjectId:      bestGrant.SubjectId,
+		RoutingGroup:   bestGrant.RoutingGroup,
+		QuotaType:      bestGrant.QuotaType,
+		QuotaScope:     bestGrant.QuotaScope,
+		GrantQuota:     grantQuota,
+		UsedQuota:      usedQuota,
+		MaxConcurrency: bestGrant.MaxConcurrency,
+		ExpiredAt:      bestGrant.ExpiredAt,
+	}, nil
+}
+
+// IncreaseGrantUsedQuota increments the used_quota for a grant and its batch.
+func IncreaseGrantUsedQuota(grantId int, quota int64) error {
+	if grantId <= 0 || quota <= 0 {
+		return nil
+	}
+	var grant ModelGrant
+	if err := DB.Select("id", "batch_id").First(&grant, grantId).Error; err != nil {
+		return err
+	}
+	if err := DB.Model(&ModelGrant{}).Where("id = ?", grantId).
+		Update("used_quota", gorm.Expr("used_quota + ?", quota)).Error; err != nil {
+		return err
+	}
+	if grant.BatchId > 0 {
+		_ = DB.Model(&ModelGrantBatch{}).Where("id = ?", grant.BatchId).
+			Update("used_quota", gorm.Expr("used_quota + ?", quota)).Error
+	}
+	return nil
+}
+
+// DecreaseGrantUsedQuota decrements the used_quota for a grant and its batch, preventing negative values.
+func DecreaseGrantUsedQuota(grantId int, quota int64) error {
+	if grantId <= 0 || quota <= 0 {
+		return nil
+	}
+	var grant ModelGrant
+	if err := DB.Select("id", "batch_id").First(&grant, grantId).Error; err != nil {
+		return err
+	}
+	if err := DB.Model(&ModelGrant{}).Where("id = ?", grantId).
+		Update("used_quota", gorm.Expr("CASE WHEN used_quota >= ? THEN used_quota - ? ELSE 0 END", quota, quota)).Error; err != nil {
+		return err
+	}
+	if grant.BatchId > 0 {
+		_ = DB.Model(&ModelGrantBatch{}).Where("id = ?", grant.BatchId).
+			Update("used_quota", gorm.Expr("CASE WHEN used_quota >= ? THEN used_quota - ? ELSE 0 END", quota, quota)).Error
+	}
+	return nil
+}
+
+// TryReserveGrantQuota atomically checks and reserves quota for a grant.
+// If quotaScope == 0 (shared pool) and batchId > 0, it reserves from the batch quota.
+// Otherwise, it reserves from the individual grant's quota.
+func TryReserveGrantQuota(grantId int, batchId int, quotaScope int, quota int64) (bool, error) {
+	if quota <= 0 {
+		return true, nil
+	}
+	if grantId <= 0 {
+		return false, errors.New("invalid grant id")
+	}
+
+	if quotaScope == 0 && batchId > 0 {
+		result := DB.Model(&ModelGrantBatch{}).
+			Where("id = ? AND (grant_quota = 0 OR used_quota + ? <= grant_quota)", batchId, quota).
+			Update("used_quota", gorm.Expr("used_quota + ?", quota))
+		if result.Error != nil || result.RowsAffected == 0 {
+			return false, result.Error
+		}
+		_ = DB.Model(&ModelGrant{}).Where("id = ?", grantId).
+			Update("used_quota", gorm.Expr("used_quota + ?", quota))
+		return true, nil
+	}
+
+	result := DB.Model(&ModelGrant{}).
+		Where("id = ? AND (grant_quota = 0 OR used_quota + ? <= grant_quota)", grantId, quota).
+		Update("used_quota", gorm.Expr("used_quota + ?", quota))
+	if result.Error != nil || result.RowsAffected == 0 {
+		return false, result.Error
+	}
+	if batchId > 0 {
+		_ = DB.Model(&ModelGrantBatch{}).Where("id = ?", batchId).
+			Update("used_quota", gorm.Expr("used_quota + ?", quota))
+	}
+	return true, nil
 }
 
 func GetUserGrantDetail(userId int) (*UserGrantDetail, error) {

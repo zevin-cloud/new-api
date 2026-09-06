@@ -51,6 +51,15 @@ func Distribute() func(c *gin.Context) {
 				abortWithOpenAiMessage(c, http.StatusForbidden, errMsg)
 				return
 			}
+
+			releaseConcurrency, limitErr := service.AcquireConcurrency(c.Request.Context(), c.GetInt("id"), modelRequest.Model)
+			if limitErr != nil {
+				abortWithOpenAiMessage(c, http.StatusTooManyRequests, limitErr.Error(), types.ErrorCode("concurrency_limit_exceeded"))
+				return
+			}
+			if releaseConcurrency != nil {
+				defer releaseConcurrency()
+			}
 		}
 		if pin, found, overridden := constraints.ResolvedPin(); found {
 			for _, lost := range overridden {

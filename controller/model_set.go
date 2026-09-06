@@ -70,10 +70,11 @@ func GetModelSet(c *gin.Context) {
 }
 
 type ModelSetCreateRequest struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Status      int      `json:"status"`
-	Models      []string `json:"models"`
+	Name           string   `json:"name"`
+	Description    string   `json:"description"`
+	Status         int      `json:"status"`
+	MaxConcurrency int      `json:"max_concurrency"`
+	Models         []string `json:"models"`
 }
 
 func CreateModelSet(c *gin.Context) {
@@ -94,10 +95,11 @@ func CreateModelSet(c *gin.Context) {
 	}
 
 	set := model.ModelSet{
-		Name:        req.Name,
-		Description: req.Description,
-		Status:      req.Status,
-		CreatedBy:   c.GetInt("id"),
+		Name:           req.Name,
+		Description:    req.Description,
+		Status:         req.Status,
+		MaxConcurrency: req.MaxConcurrency,
+		CreatedBy:      c.GetInt("id"),
 	}
 
 	if err := set.Insert(); err != nil {
@@ -148,10 +150,11 @@ func UpdateModelSet(c *gin.Context) {
 	}
 
 	set := model.ModelSet{
-		Id:          id,
-		Name:        req.Name,
-		Description: req.Description,
-		Status:      req.Status,
+		Id:             id,
+		Name:           req.Name,
+		Description:    req.Description,
+		Status:         req.Status,
+		MaxConcurrency: req.MaxConcurrency,
 	}
 
 	if err := set.Update(); err != nil {
@@ -207,14 +210,20 @@ func DeleteModelSet(c *gin.Context) {
 }
 
 type GrantModelSetRequest struct {
-	DepartmentIds []int    `json:"department_ids"`
-	GroupIds      []int    `json:"group_ids"`
-	UserIds       []int    `json:"user_ids"`
-	ModelSetIds   []int    `json:"model_set_ids"`
-	ModelNames    []string `json:"model_names"`
-	CustomSetName string   `json:"custom_set_name"`
-	DurationDays  int      `json:"duration_days"` // 0 = permanent
-	ExpiredAt     int64    `json:"expired_at"`
+	DepartmentIds  []int    `json:"department_ids"`
+	GroupIds       []int    `json:"group_ids"`
+	UserIds        []int    `json:"user_ids"`
+	ModelSetIds    []int    `json:"model_set_ids"`
+	ModelNames     []string `json:"model_names"`
+	CustomSetName  string   `json:"custom_set_name"`
+	RoutingGroup   string   `json:"routing_group"`
+	RoutingMode    string   `json:"routing_mode"`
+	QuotaType      int      `json:"quota_type"`
+	QuotaScope     int      `json:"quota_scope"`
+	GrantQuota     int64    `json:"grant_quota"`
+	MaxConcurrency int      `json:"max_concurrency"`
+	DurationDays   int      `json:"duration_days"` // 0 = permanent
+	ExpiredAt      int64    `json:"expired_at"`
 
 	// Legacy backward compatibility fields
 	SubjectType int   `json:"subject_type"` // 1: dept, 2: group, 3: user
@@ -281,11 +290,28 @@ func InspectUserGrant(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    detail,
-	})
+	var routes []gin.H
+	for _, name := range detail.EffectiveModels {
+		if detail.IsAdmin {
+			break
+		}
+		policy, policyErr := model.GetEffectiveGrantPolicyForUser(userId, name)
+		if policyErr != nil {
+			common.ApiError(c, policyErr)
+			return
+		}
+		var count int64
+		_ = model.DB.Model(&model.Ability{}).Where("model = ? AND enabled = ?", name, true).Count(&count).Error
+		routes = append(routes, gin.H{
+			"model":     name,
+			"available": count > 0,
+			"policy":    policy,
+		})
+	}
+	common.ApiSuccess(c, struct {
+		*model.UserGrantDetail
+		Routes []gin.H `json:"routes"`
+	}{detail, routes})
 }
 
 func GrantModelSet(c *gin.Context) {
@@ -395,7 +421,19 @@ func GrantModelSet(c *gin.Context) {
 	for id := range targetUsers {
 		subjects = append(subjects, model.ModelGrantSubject{Type: model.SubjectTypeUser, Id: id})
 	}
-	batch, err := model.CreateModelGrantBatch(subjects, setIds, req.ModelNames, req.CustomSetName, expiredAt, actorId)
+	batch, err := model.CreateModelGrantBatch(
+		subjects,
+		setIds,
+		req.ModelNames,
+		req.CustomSetName,
+		"",
+		req.QuotaType,
+		req.GrantQuota,
+		req.QuotaScope,
+		req.MaxConcurrency,
+		expiredAt,
+		actorId,
+	)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
 		return
@@ -491,4 +529,3 @@ func GetModelGrantBatchDetail(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": detail})
 }
-

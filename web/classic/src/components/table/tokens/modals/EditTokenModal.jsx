@@ -36,6 +36,7 @@ import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 import {
   Button,
   SideSheet,
+  Banner,
   Space,
   Spin,
   Typography,
@@ -219,14 +220,12 @@ const EditTokenModal = (props) => {
     setLoading(true);
     if (isEdit) {
       let { tokenCount: _tc, ...localInputs } = values;
-      localInputs.remain_quota = localInputs.unlimited_quota
-        ? 0
-        : displayAmountToQuota(localInputs.remain_amount);
-      if (!localInputs.unlimited_quota && localInputs.remain_quota <= 0) {
-        showError(t('请输入金额'));
-        setLoading(false);
-        return;
-      }
+      localInputs.unlimited_quota = true;
+      localInputs.remain_quota = 0;
+      localInputs.group = '';
+      localInputs.cross_group_retry = false;
+      localInputs.model_limits = '';
+      localInputs.model_limits_enabled = false;
       if (localInputs.expired_time !== -1) {
         let time = Date.parse(localInputs.expired_time);
         if (isNaN(time)) {
@@ -236,8 +235,6 @@ const EditTokenModal = (props) => {
         }
         localInputs.expired_time = Math.ceil(time / 1000);
       }
-      localInputs.model_limits = localInputs.model_limits.join(',');
-      localInputs.model_limits_enabled = localInputs.model_limits.length > 0;
       let res = await API.put(`/api/token/`, {
         ...localInputs,
         id: parseInt(props.editingToken.id),
@@ -262,14 +259,12 @@ const EditTokenModal = (props) => {
         } else {
           localInputs.name = baseName;
         }
-        localInputs.remain_quota = localInputs.unlimited_quota
-          ? 0
-          : displayAmountToQuota(localInputs.remain_amount);
-        if (!localInputs.unlimited_quota && localInputs.remain_quota <= 0) {
-          showError(t('请输入金额'));
-          setLoading(false);
-          break;
-        }
+        localInputs.unlimited_quota = true;
+        localInputs.remain_quota = 0;
+        localInputs.group = '';
+        localInputs.cross_group_retry = false;
+        localInputs.model_limits = '';
+        localInputs.model_limits_enabled = false;
 
         if (localInputs.expired_time !== -1) {
           let time = Date.parse(localInputs.expired_time);
@@ -280,8 +275,6 @@ const EditTokenModal = (props) => {
           }
           localInputs.expired_time = Math.ceil(time / 1000);
         }
-        localInputs.model_limits = localInputs.model_limits.join(',');
-        localInputs.model_limits_enabled = localInputs.model_limits.length > 0;
         let res = await API.post(`/api/token/`, localInputs);
         const { success, message } = res.data;
         if (success) {
@@ -359,6 +352,14 @@ const EditTokenModal = (props) => {
         >
           {({ values }) => (
             <div className='p-2'>
+              <Banner
+                type='info'
+                closeIcon={null}
+                description={t(
+                  'API Key 仅作为调用凭据，自动继承您当前账号拥有的所有模型授权与企业预算，无需单独配置权限或额度。',
+                )}
+                style={{ marginBottom: 12, borderRadius: '0.75rem' }}
+              />
               {/* 基本信息 */}
               <Card className='!rounded-2xl shadow-sm border-0'>
                 <div className='flex items-center mb-2'>
@@ -380,49 +381,6 @@ const EditTokenModal = (props) => {
                       placeholder={t('请输入名称')}
                       rules={[{ required: true, message: t('请输入名称') }]}
                       showClear
-                    />
-                  </Col>
-                  <Col span={24}>
-                    {groups.length > 0 ? (
-                      <Form.Select
-                        field='group'
-                        label={t('令牌分组')}
-                        placeholder={t('令牌分组，默认为用户的分组')}
-                        optionList={groups}
-                        renderOptionItem={renderGroupOption}
-                        filter={(input, option) => {
-                          const q = input.toLowerCase();
-                          return (
-                            option.value?.toLowerCase().includes(q) ||
-                            (typeof option.label === 'string' &&
-                              option.label.toLowerCase().includes(q))
-                          );
-                        }}
-                        showClear
-                        style={{ width: '100%' }}
-                      />
-                    ) : (
-                      <Form.Select
-                        placeholder={t('管理员未设置用户可选分组')}
-                        disabled
-                        label={t('令牌分组')}
-                        style={{ width: '100%' }}
-                      />
-                    )}
-                  </Col>
-                  <Col
-                    span={24}
-                    style={{
-                      display: values.group === 'auto' ? 'block' : 'none',
-                    }}
-                  >
-                    <Form.Switch
-                      field='cross_group_retry'
-                      label={t('跨分组重试')}
-                      size='default'
-                      extraText={t(
-                        '开启后，当前分组渠道失败时会按顺序尝试下一个分组的渠道',
-                      )}
                     />
                   </Col>
                   <Col xs={24} sm={24} md={24} lg={10} xl={10}>
@@ -506,93 +464,8 @@ const EditTokenModal = (props) => {
                 </Row>
               </Card>
 
-              {/* 额度设置 */}
-              <Card className='!rounded-2xl shadow-sm border-0'>
-                <div className='flex items-center mb-2'>
-                  <Avatar size='small' color='green' className='mr-2 shadow-md'>
-                    <IconCreditCard size={16} />
-                  </Avatar>
-                  <div>
-                    <Text className='text-lg font-medium'>{t('额度设置')}</Text>
-                    <div className='text-xs text-gray-600'>
-                      {t('设置令牌可用额度和数量')}
-                    </div>
-                  </div>
-                </div>
-                <Row gutter={12}>
-                  <Col span={24}>
-                    <Form.InputNumber
-                      field='remain_amount'
-                      label={t('金额')}
-                      prefix={getCurrencyConfig().symbol}
-                      placeholder={t('输入金额')}
-                      precision={6}
-                      disabled={values.unlimited_quota}
-                      min={0}
-                      step={0.000001}
-                      onChange={(val) => {
-                        const amount = val === '' || val == null ? 0 : val;
-                        formApiRef.current?.setValue('remain_amount', amount);
-                        formApiRef.current?.setValue(
-                          'remain_quota',
-                          displayAmountToQuota(amount),
-                        );
-                      }}
-                      style={{ width: '100%' }}
-                      showClear
-                    />
-                  </Col>
-                  <Col span={24}>
-                    <div
-                      className='text-xs cursor-pointer mt-1'
-                      style={{ color: 'var(--semi-color-text-2)' }}
-                      onClick={() => setShowQuotaInput((v) => !v)}
-                    >
-                      {showQuotaInput
-                        ? `▾ ${t('收起原生额度输入')}`
-                        : `▸ ${t('使用原生额度输入')}`}
-                    </div>
-                    <div style={{ display: showQuotaInput ? 'block' : 'none' }} className='mt-2'>
-                      <Form.InputNumber
-                        field='remain_quota'
-                        label={t('额度')}
-                        placeholder={t('输入额度')}
-                        disabled={values.unlimited_quota}
-                        min={0}
-                        step={500000}
-                        rules={
-                          values.unlimited_quota
-                            ? []
-                            : [{ required: true, message: t('请输入额度') }]
-                        }
-                        onChange={(val) => {
-                          const quota = val === '' || val == null ? 0 : val;
-                          formApiRef.current?.setValue('remain_quota', quota);
-                          formApiRef.current?.setValue(
-                            'remain_amount',
-                            Number(quotaToDisplayAmount(quota).toFixed(6)),
-                          );
-                        }}
-                        style={{ width: '100%' }}
-                        showClear
-                      />
-                    </div>
-                  </Col>
-                  <Col span={24}>
-                    <Form.Switch
-                      field='unlimited_quota'
-                      label={t('无限额度')}
-                      size='default'
-                      extraText={t(
-                        '令牌的额度仅用于限制令牌本身的最大额度使用量，实际的使用受到账户的剩余额度限制',
-                      )}
-                    />
-                  </Col>
-                </Row>
-              </Card>
-
-              {/* 访问限制 */}
-              <Card className='!rounded-2xl shadow-sm border-0'>
+              {/* 访问安全限制 */}
+              <Card className='!rounded-2xl shadow-sm border-0 mt-3'>
                 <div className='flex items-center mb-2'>
                   <Avatar
                     size='small'
@@ -602,30 +475,13 @@ const EditTokenModal = (props) => {
                     <IconLink size={16} />
                   </Avatar>
                   <div>
-                    <Text className='text-lg font-medium'>{t('访问限制')}</Text>
+                    <Text className='text-lg font-medium'>{t('安全限制')}</Text>
                     <div className='text-xs text-gray-600'>
-                      {t('设置令牌的访问限制')}
+                      {t('设置令牌的网络访问限制')}
                     </div>
                   </div>
                 </div>
                 <Row gutter={12}>
-                  <Col span={24}>
-                    <Form.Select
-                      field='model_limits'
-                      label={t('模型限制列表')}
-                      placeholder={t(
-                        '请选择该令牌支持的模型，留空支持所有模型',
-                      )}
-                      multiple
-                      optionList={models}
-                      extraText={t('非必要，不建议启用模型限制')}
-                      filter={selectFilter}
-                      autoClearSearchValue={false}
-                      searchPosition='dropdown'
-                      showClear
-                      style={{ width: '100%' }}
-                    />
-                  </Col>
                   <Col span={24}>
                     <Form.TextArea
                       field='allow_ips'

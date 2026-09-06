@@ -447,6 +447,10 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 	}
 	result.FundingApplied = true
 
+	if relayInfo != nil && relayInfo.GrantId > 0 && quota != 0 {
+		_ = model.IncreaseGrantUsedQuota(relayInfo.GrantId, int64(quota))
+	}
+
 	if !relayInfo.IsPlayground {
 		if quota > 0 {
 			err = model.DecreaseTokenQuota(relayInfo.TokenId, relayInfo.TokenKey, quota)

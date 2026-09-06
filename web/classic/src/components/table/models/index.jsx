@@ -142,7 +142,7 @@ const ModelsPage = () => {
               />
             }
             description={t(
-              '提示：此处配置仅用于控制「模型广场」对用户的展示效果，不会影响模型的实际调用与路由。若需配置真实调用行为，请前往「渠道管理」进行设置。',
+              'Manage model display, routing pools, and concurrency here. Configure upstream connections in Channel Management.',
             )}
             style={{ marginBottom: 0 }}
           />

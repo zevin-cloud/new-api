@@ -62,6 +62,7 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
             name: editingSet.name,
             description: editingSet.description || '',
             status: editingSet.status !== undefined ? editingSet.status : 1,
+            max_concurrency: editingSet.max_concurrency || 0,
             models: initialList,
           });
         } else {
@@ -69,6 +70,7 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
             name: '',
             description: '',
             status: 1,
+            max_concurrency: 0,
             models: [],
           });
         }
@@ -215,6 +217,7 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
           name: values.name,
           description: values.description,
           status: Number(values.status),
+          max_concurrency: Number(values.max_concurrency || 0),
           models: selectedModels,
         });
         if (res.data?.success) {
@@ -229,6 +232,7 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
           name: values.name,
           description: values.description,
           status: Number(values.status),
+          max_concurrency: Number(values.max_concurrency || 0),
           models: selectedModels,
         });
         if (res.data?.success) {
@@ -325,6 +329,17 @@ const ModelSetModal = ({ visible, editingSet, onClose, onSuccess, t }) => {
                       placeholder={t('说明该模型集的适用场景及包含能力（可选）')}
                       rows={3}
                       showClear
+                    />
+                  </Col>
+
+                  <Col span={24}>
+                    <Form.InputNumber
+                      field='max_concurrency'
+                      label={t('最大在途并发数限制')}
+                      placeholder={t('0 表示不限制')}
+                      extraText={t('限制该模型集内任意模型同时在途执行的总并发数（0 为不限制）')}
+                      min={0}
+                      step={1}
                     />
                   </Col>
 

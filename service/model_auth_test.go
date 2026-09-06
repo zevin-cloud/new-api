@@ -32,8 +32,10 @@ func setupModelAuthTestDB(t *testing.T) {
 		&model.ModelSet{},
 		&model.ModelSetItem{},
 		&model.ModelGrant{},
+		&model.ModelGrantBatch{},
 		&model.ModelAccessRequest{},
 		&model.User{},
+		&model.Token{},
 		&model.Model{},
 	))
 	model.DB = db

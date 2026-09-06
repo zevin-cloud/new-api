@@ -101,18 +101,8 @@ const Setting = () => {
     panes.push({
       tab: (
         <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <CreditCard size={18} />
-          {t('支付设置')}
-        </span>
-      ),
-      content: <PaymentSetting />,
-      itemKey: 'payment',
-    });
-    panes.push({
-      tab: (
-        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
           <Calculator size={18} />
-          {t('分组与模型定价设置')}
+          {t('模型与路由核算设置')}
         </span>
       ),
       content: <RatioSetting />,

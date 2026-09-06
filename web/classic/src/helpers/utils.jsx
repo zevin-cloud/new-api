@@ -810,13 +810,13 @@ export const getModelPriceItems = (
       return [
         {
           key: 'input-ratio',
-          label: t('输入倍率'),
+          label: t('输入倍率 (提问)'),
           value: priceData.inputRatio,
           suffix: 'x',
         },
         {
           key: 'completion-ratio',
-          label: t('补全倍率'),
+          label: t('输出倍率 (回复)'),
           value: priceData.completionRatio,
           suffix: 'x',
         },
@@ -846,7 +846,7 @@ export const getModelPriceItems = (
         },
         {
           key: 'audio-output-ratio',
-          label: t('音频补全倍率'),
+          label: t('音频输出倍率'),
           value: priceData.audioOutputRatio,
           suffix: 'x',
         },
@@ -860,13 +860,13 @@ export const getModelPriceItems = (
     return [
       {
         key: 'input',
-        label: t('输入价格'),
+        label: t('输入价格 (提问)'),
         value: priceData.inputPrice,
         suffix: unitSuffix,
       },
       {
         key: 'completion',
-        label: t('补全价格'),
+        label: t('输出价格 (回复)'),
         value: priceData.completionPrice,
         suffix: unitSuffix,
       },
@@ -896,7 +896,7 @@ export const getModelPriceItems = (
       },
       {
         key: 'audio-output',
-        label: t('音频补全价格'),
+        label: t('音频输出价格'),
         value: priceData.audioOutputPrice,
         suffix: unitSuffix,
       },
@@ -917,7 +917,7 @@ export const getModelPriceItems = (
 export const formatDynamicPriceSummary = (billingExpr, t, groupRatio = 1) => {
   if (!billingExpr) return <span style={{ color: 'var(--semi-color-text-1)' }}>{t('动态计费')}</span>;
 
-  const quotaDisplayType = localStorage.getItem('quota_display_type') || 'USD';
+  const quotaDisplayType = localStorage.getItem('quota_display_type') || 'TOKENS';
   let symbol = '$';
   let rate = 1;
   try {

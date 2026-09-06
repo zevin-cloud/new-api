@@ -460,7 +460,9 @@ func TokenAuth() func(c *gin.Context) {
 
 		userGroup := userCache.Group
 		tokenGroup := token.Group
-		if tokenGroup != "" {
+		// Ordinary users resolve their routing policy after model authorization.
+		// Checking the old token group here would reject model-based grants.
+		if tokenGroup != "" && userCache.Role >= common.RoleAdminUser {
 			// check common.UserUsableGroups[userGroup]
 			if _, ok := service.GetUserUsableGroups(userGroup)[tokenGroup]; !ok {
 				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
@@ -473,6 +475,8 @@ func TokenAuth() func(c *gin.Context) {
 					return
 				}
 			}
+		}
+		if tokenGroup != "" {
 			userGroup = tokenGroup
 		}
 		common.SetContextKey(c, constant.ContextKeyUsingGroup, userGroup)

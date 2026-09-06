@@ -100,7 +100,7 @@ const RatioSetting = () => {
           <Tabs.TabPane tab={t('模型定价设置')} itemKey='pricing'>
             <ModelPricingCombined options={inputs} refresh={onRefresh} />
           </Tabs.TabPane>
-          <Tabs.TabPane tab={t('分组相关设置')} itemKey='group'>
+          <Tabs.TabPane tab={t('渠道池与调度设置')} itemKey='group'>
             <GroupRatioSettings options={inputs} refresh={onRefresh} />
           </Tabs.TabPane>
           <Tabs.TabPane tab={t('未设置价格模型')} itemKey='unset_models'>

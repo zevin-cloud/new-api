@@ -109,6 +109,7 @@ type User struct {
 	CreatedAt        int64                      `json:"created_at" gorm:"autoCreateTime;column:created_at"`
 	LastLoginAt      int64                      `json:"last_login_at" gorm:"default:0;column:last_login_at"`
 	DepartmentId     int                        `json:"department_id" gorm:"type:int;default:0;index"`
+	DepartmentName   string                     `json:"department_name,omitempty" gorm:"-"`
 	EmployeeId       string                     `json:"employee_id" gorm:"type:varchar(64);column:employee_id;index"`
 	AuthVersion      int64                      `json:"-" gorm:"type:bigint;not null;default:1;column:auth_version"`
 	AdminPermissions map[string]map[string]bool `json:"admin_permissions,omitempty" gorm:"-:all"`
@@ -390,6 +391,38 @@ func GetMaxUserId() int {
 	return user.Id
 }
 
+func populateUserDepartmentNames(users []*User) {
+	if len(users) == 0 {
+		return
+	}
+	deptIds := make([]int, 0)
+	seen := make(map[int]bool)
+	for _, u := range users {
+		if u != nil && u.DepartmentId > 0 && !seen[u.DepartmentId] {
+			seen[u.DepartmentId] = true
+			deptIds = append(deptIds, u.DepartmentId)
+		}
+	}
+	if len(deptIds) == 0 {
+		return
+	}
+	var depts []Department
+	if err := DB.Select("id", "name").Where("id IN ?", deptIds).Find(&depts).Error; err != nil {
+		return
+	}
+	deptMap := make(map[int]string, len(depts))
+	for _, d := range depts {
+		deptMap[d.Id] = d.Name
+	}
+	for _, u := range users {
+		if u != nil && u.DepartmentId > 0 {
+			if name, ok := deptMap[u.DepartmentId]; ok {
+				u.DepartmentName = name
+			}
+		}
+	}
+}
+
 func GetAllUsers(pageInfo *common.PageInfo, sortOptions ...UserSortOptions) (users []*User, total int64, err error) {
 	// Start transaction
 	tx := DB.Begin()
@@ -422,6 +455,7 @@ func GetAllUsers(pageInfo *common.PageInfo, sortOptions ...UserSortOptions) (use
 		return nil, 0, err
 	}
 
+	populateUserDepartmentNames(users)
 	return users, total, nil
 }
 
@@ -510,6 +544,7 @@ func SearchUsersAdvanced(keyword string, group string, role *int, status *int, d
 		return nil, 0, err
 	}
 
+	populateUserDepartmentNames(users)
 	return users, total, nil
 }
 
@@ -523,6 +558,9 @@ func GetUserById(id int, selectAll bool) (*User, error) {
 		err = DB.First(&user, "id = ?", id).Error
 	} else {
 		err = DB.Omit("password", "access_token").First(&user, "id = ?", id).Error
+	}
+	if err == nil && user.DepartmentId > 0 {
+		populateUserDepartmentNames([]*User{&user})
 	}
 	return &user, err
 }

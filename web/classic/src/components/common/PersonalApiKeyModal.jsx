@@ -160,7 +160,7 @@ print(response.choices[0].message.content)`;
                 {t('可用企业配额')}
               </Text>
               <Text strong className='text-base text-semi-color-primary'>
-                {renderQuota(quotaInfo.quota)}
+                {renderQuota(quotaInfo.quota)} Tokens
               </Text>
             </div>
             <div>
@@ -168,7 +168,7 @@ print(response.choices[0].message.content)`;
                 {t('已消耗配额')}
               </Text>
               <Text strong className='text-base text-semi-color-text-0'>
-                {renderQuota(quotaInfo.used_quota)}
+                {renderQuota(quotaInfo.used_quota)} Tokens
               </Text>
             </div>
             <div>

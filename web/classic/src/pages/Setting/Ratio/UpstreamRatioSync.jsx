@@ -281,13 +281,13 @@ export default function UpstreamRatioSync(props) {
 
   function getSyncFieldLabel(ratioType) {
     const typeMap = {
-      model_ratio: t('模型倍率'),
-      completion_ratio: t('补全倍率'),
+      model_ratio: t('输入倍率'),
+      completion_ratio: t('输出倍率'),
       cache_ratio: t('缓存倍率'),
       create_cache_ratio: t('缓存创建倍率'),
       image_ratio: t('图片倍率'),
       audio_ratio: t('音频倍率'),
-      audio_completion_ratio: t('音频补全倍率'),
+      audio_completion_ratio: t('音频输出倍率'),
       model_price: t('固定价格'),
       billing_mode: t('计费模式'),
       billing_expr: t('表达式计费'),
@@ -481,7 +481,7 @@ export default function UpstreamRatioSync(props) {
         const currentDesc =
           localCat === 'price'
             ? `${t('固定价格')} : ${currentRatios.ModelPrice[model]}`
-            : `${t('模型倍率')} : ${currentRatios.ModelRatio[model] ?? '-'}\n${t('补全倍率')} : ${currentRatios.CompletionRatio[model] ?? '-'}`;
+            : `${t('输入倍率')} : ${currentRatios.ModelRatio[model] ?? '-'}\n${t('输出倍率')} : ${currentRatios.CompletionRatio[model] ?? '-'}`;
 
         let newDesc = '';
         if (newCat === 'price') {
@@ -489,7 +489,7 @@ export default function UpstreamRatioSync(props) {
         } else {
           const newModelRatio = ratios['model_ratio'] ?? '-';
           const newCompRatio = ratios['completion_ratio'] ?? '-';
-          newDesc = `${t('模型倍率')} : ${newModelRatio}\n${t('补全倍率')} : ${newCompRatio}`;
+          newDesc = `${t('输入倍率')} : ${newModelRatio}\n${t('输出倍率')} : ${newCompRatio}`;
         }
 
         const channels = Object.entries(ratios)
@@ -675,9 +675,9 @@ export default function UpstreamRatioSync(props) {
               showClear
               onClear={() => setRatioTypeFilter('')}
             >
-              <Select.Option value='model_ratio'>{t('模型倍率')}</Select.Option>
+              <Select.Option value='model_ratio'>{t('输入倍率')}</Select.Option>
               <Select.Option value='completion_ratio'>
-                {t('补全倍率')}
+                {t('输出倍率')}
               </Select.Option>
               <Select.Option value='cache_ratio'>{t('缓存倍率')}</Select.Option>
               <Select.Option value='create_cache_ratio'>
@@ -686,7 +686,7 @@ export default function UpstreamRatioSync(props) {
               <Select.Option value='image_ratio'>{t('图片倍率')}</Select.Option>
               <Select.Option value='audio_ratio'>{t('音频倍率')}</Select.Option>
               <Select.Option value='audio_completion_ratio'>
-                {t('音频补全倍率')}
+                {t('音频输出倍率')}
               </Select.Option>
               <Select.Option value='model_price'>{t('固定价格')}</Select.Option>
               <Select.Option value='billing_expr'>

@@ -31,7 +31,7 @@ func setupOriginTaskDB(t *testing.T) {
 	previousType := common.MainDatabaseType()
 	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, database.AutoMigrate(&model.Task{}, &model.Channel{}))
+	require.NoError(t, database.AutoMigrate(&model.Task{}, &model.Channel{}, &model.Ability{}, &model.Model{}))
 	model.DB = database
 	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
 	t.Cleanup(func() {
@@ -49,6 +49,7 @@ func insertOriginTaskChannel(t *testing.T, status int) *model.Channel {
 		Type:   constant.ChannelTypeDoubaoVideo,
 	}
 	require.NoError(t, model.DB.Create(channel).Error)
+	require.NoError(t, model.DB.Create(&model.Ability{Group: "default", Model: "resolved-model", ChannelId: channel.Id, Enabled: status == common.ChannelStatusEnabled}).Error)
 	return channel
 }
 
@@ -501,3 +502,5 @@ func TestApplyChannelPinLocksOnlySameChannelRetry(t *testing.T) {
 	require.Nil(t, relay.ApplyChannelPin(tokenOnly, tokenInfo))
 	assert.Nil(t, tokenInfo.LockedChannel)
 }
+
+

@@ -179,6 +179,7 @@ const UserGroupModal = ({ visible, editingGroup, onClose, onSuccess, t }) => {
             name: editingGroup.name,
             description: editingGroup.description || '',
             status: editingGroup.status !== undefined ? editingGroup.status : 1,
+            max_concurrency: editingGroup.max_concurrency || 0,
           });
         }
         loadGroupMembers(editingGroup.id);
@@ -189,6 +190,7 @@ const UserGroupModal = ({ visible, editingGroup, onClose, onSuccess, t }) => {
             name: '',
             description: '',
             status: 1,
+            max_concurrency: 0,
           });
         }
       }
@@ -222,6 +224,7 @@ const UserGroupModal = ({ visible, editingGroup, onClose, onSuccess, t }) => {
           name: values.name,
           description: values.description,
           status: Number(values.status),
+          max_concurrency: Number(values.max_concurrency || 0),
           user_ids: finalUserIds,
         });
         if (res.data?.success) {
@@ -236,6 +239,7 @@ const UserGroupModal = ({ visible, editingGroup, onClose, onSuccess, t }) => {
           name: values.name,
           description: values.description,
           status: Number(values.status),
+          max_concurrency: Number(values.max_concurrency || 0),
           user_ids: finalUserIds,
         });
         if (res.data?.success) {
@@ -336,6 +340,17 @@ const UserGroupModal = ({ visible, editingGroup, onClose, onSuccess, t }) => {
                     placeholder={t('说明该组的用途及授权范围（可选）')}
                     rows={3}
                     showClear
+                  />
+                </Col>
+
+                <Col span={24}>
+                  <Form.InputNumber
+                    field='max_concurrency'
+                    label={t('最大在途并发数限制')}
+                    placeholder={t('0 表示不限制')}
+                    extraText={t('限制该用户组内所有成员同时在途执行的最高请求并发数（0 为不限制）')}
+                    min={0}
+                    step={1}
                   />
                 </Col>
 

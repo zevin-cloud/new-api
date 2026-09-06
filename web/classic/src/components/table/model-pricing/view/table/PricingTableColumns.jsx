@@ -195,8 +195,8 @@ export const getPricingTableColumns = ({
   const ratioColumn = {
     title: () => (
       <div className='flex items-center space-x-1'>
-        <span>{t('倍率')}</span>
-        <Tooltip content={t('倍率是为了方便换算不同价格的模型')}>
+        <span>{t('倍率体系')}</span>
+        <Tooltip content={t('倍率用于换算不同模型的算力成本：输入倍率代表提问消耗基准，输出倍率代表回复生成消耗，渠道倍率代表物理通道系数')}>
           <IconHelpCircle
             className='text-blue-500 cursor-pointer'
             onClick={() => {
@@ -215,14 +215,14 @@ export const getPricingTableColumns = ({
       return (
         <div className='space-y-1'>
           <div className='text-gray-700'>
-            {t('模型倍率')}：{record.quota_type === 0 ? text : t('无')}
+            {t('输入倍率 (提问)')}：{record.quota_type === 0 ? text : t('无')}
           </div>
           <div className='text-gray-700'>
-            {t('补全倍率')}：
+            {t('输出倍率 (回复)')}：
             {record.quota_type === 0 ? completionRatio : t('无')}
           </div>
           <div className='text-gray-700'>
-            {t('分组倍率')}：{priceData?.usedGroupRatio ?? '-'}
+            {t('渠道倍率')}：{priceData?.usedGroupRatio ?? '-'}
           </div>
         </div>
       );
@@ -230,7 +230,7 @@ export const getPricingTableColumns = ({
   };
 
   const priceColumn = {
-    title: siteDisplayType === 'TOKENS' ? t('计费摘要') : t('模型价格'),
+    title: siteDisplayType === 'TOKENS' ? t('计费摘要') : t('额度消耗标准'),
     dataIndex: 'model_price',
     ...(isMobile ? {} : { fixed: 'right' }),
     render: (text, record, index) => {

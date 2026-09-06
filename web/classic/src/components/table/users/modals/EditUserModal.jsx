@@ -19,21 +19,15 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import {
   API,
   showError,
   showSuccess,
-  renderQuota,
-  getCurrencyConfig,
 } from '../../../../helpers';
-import {
-  quotaToDisplayAmount,
-  displayAmountToQuota,
-} from '../../../../helpers/quota';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 import {
   Button,
-  Modal,
   SideSheet,
   Space,
   Spin,
@@ -44,9 +38,7 @@ import {
   Avatar,
   Row,
   Col,
-  InputNumber,
-  RadioGroup,
-  Radio,
+  Banner,
 } from '@douyinfe/semi-ui';
 import {
   IconUser,
@@ -54,7 +46,6 @@ import {
   IconClose,
   IconLink,
   IconUserGroup,
-  IconEdit,
 } from '@douyinfe/semi-icons';
 import UserBindingManagementModal from './UserBindingManagementModal';
 
@@ -62,21 +53,14 @@ const { Text, Title } = Typography;
 
 const EditUserModal = (props) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const userId = props.editingUser?.id;
   const isEdit = Boolean(userId);
   const [loading, setLoading] = useState(true);
-  const [adjustModalOpen, setAdjustModalOpen] = useState(false);
-  const [adjustQuotaLocal, setAdjustQuotaLocal] = useState('');
-  const [adjustAmountLocal, setAdjustAmountLocal] = useState('');
-  const [adjustMode, setAdjustMode] = useState('add');
-  const [adjustLoading, setAdjustLoading] = useState(false);
   const isMobile = useIsMobile();
-  const [groupOptions, setGroupOptions] = useState([]);
   const [deptTreeData, setDeptTreeData] = useState([]);
   const [bindingModalVisible, setBindingModalVisible] = useState(false);
   const formApiRef = useRef(null);
-  const [showAdjustQuotaRaw, setShowAdjustQuotaRaw] = useState(false);
-  const [showQuotaInput, setShowQuotaInput] = useState(false);
   const [inputs, setInputs] = useState(null);
 
   const loadDeptTree = async () => {
@@ -121,15 +105,6 @@ const EditUserModal = (props) => {
     remark: '',
   });
 
-  const fetchGroups = async () => {
-    try {
-      let res = await API.get(`/api/group/`);
-      setGroupOptions(res.data.data.map((g) => ({ label: g, value: g })));
-    } catch (e) {
-      showError(e.message);
-    }
-  };
-
   const handleCancel = () => props.handleClose();
 
   const loadUser = async () => {
@@ -144,9 +119,6 @@ const EditUserModal = (props) => {
     const { success, message, data } = res.data;
     if (success) {
       data.password = '';
-      data.quota_amount = Number(
-        quotaToDisplayAmount(data.quota || 0).toFixed(6),
-      );
       if (data.department_id === 0) {
         data.department_id = undefined;
       }
@@ -165,7 +137,6 @@ const EditUserModal = (props) => {
 
   useEffect(() => {
     loadDeptTree();
-    fetchGroups();
     loadUser();
     setBindingModalVisible(false);
   }, [props.editingUser?.id, props.visible]);
@@ -184,6 +155,7 @@ const EditUserModal = (props) => {
     let payload = { ...values };
     delete payload.quota;
     delete payload.quota_amount;
+    payload.group = payload.group || 'default';
     payload.department_id = payload.department_id ? Number(payload.department_id) : 0;
     try {
       if (isEdit) {
@@ -212,62 +184,6 @@ const EditUserModal = (props) => {
       showError(e.message || t('操作失败'));
     } finally {
       setLoading(false);
-    }
-  };
-
-  /* --------------------- atomic quota adjust -------------------- */
-  const adjustQuota = async () => {
-    const quotaVal = parseInt(adjustQuotaLocal) || 0;
-    if (quotaVal <= 0 && adjustMode !== 'override') return;
-    if (adjustMode === 'override' && (adjustQuotaLocal === '' || adjustQuotaLocal == null)) return;
-    setAdjustLoading(true);
-    try {
-      const res = await API.post('/api/user/manage', {
-        id: parseInt(userId),
-        action: 'add_quota',
-        mode: adjustMode,
-        value: adjustMode === 'override' ? quotaVal : Math.abs(quotaVal),
-      });
-      const { success, message } = res.data;
-      if (success) {
-        showSuccess(t('调整额度成功'));
-        setAdjustModalOpen(false);
-        setAdjustQuotaLocal('');
-        setAdjustAmountLocal('');
-        const userRes = await API.get(`/api/user/${userId}`);
-        if (userRes.data.success) {
-          const data = userRes.data.data;
-          data.password = '';
-          data.quota_amount = Number(
-            quotaToDisplayAmount(data.quota || 0).toFixed(6),
-          );
-          setInputs({ ...getInitValues(), ...data });
-        }
-        props.refresh();
-      } else {
-        showError(message);
-      }
-    } catch (e) {
-      showError(e.message);
-    }
-    setAdjustLoading(false);
-  };
-
-  const getPreviewText = () => {
-    const current = formApiRef.current?.getValue('quota') || 0;
-    const val = parseInt(adjustQuotaLocal) || 0;
-    let result;
-    switch (adjustMode) {
-      case 'add':
-        result = current + Math.abs(val);
-        return `${t('当前额度')}：${renderQuota(current)}，+${renderQuota(Math.abs(val))} = ${renderQuota(result)}`;
-      case 'subtract':
-        result = current - Math.abs(val);
-        return `${t('当前额度')}：${renderQuota(current)}，-${renderQuota(Math.abs(val))} = ${renderQuota(result)}`;
-      case 'override':
-        return `${t('当前额度')}：${renderQuota(current)} → ${renderQuota(val)}`;
-      default:
-        return '';
     }
   };
 
@@ -322,6 +238,24 @@ const EditUserModal = (props) => {
           >
             {({ values }) => (
               <div className='p-2 space-y-3'>
+                <Banner
+                  type='info'
+                  bordered
+                  className='!rounded-xl'
+                  description={
+                    <div>
+                      <div className='font-semibold mb-0.5'>
+                        {t('企业授权提示')}
+                      </div>
+                      <div className='text-xs text-gray-600 dark:text-gray-400'>
+                        {t(
+                          '企业组织成员的模型访问、渠道资源池路由与预算额度已统一在【授权管理】中按部门/人员配置，新用户默认具备零权限基线，无需在此处额外充值或单独配置复杂渠道。'
+                        )}
+                      </div>
+                    </div>
+                  }
+                />
+
                 {/* 基本信息 */}
                 <Card className='!rounded-2xl shadow-sm border-0'>
                   <div className='flex items-center mb-2'>
@@ -421,84 +355,38 @@ const EditUserModal = (props) => {
                   </Row>
                 </Card>
 
-                {/* 权限设置 - 仅编辑用户时展示 */}
+                {/* 权限与配额设置 - 统一引导至授权管理 */}
                 {isEdit && userId && (
                   <Card className='!rounded-2xl shadow-sm border-0'>
-                    <div className='flex items-center mb-2'>
-                      <Avatar
-                        size='small'
-                        color='green'
-                        className='mr-2 shadow-md'
-                      >
-                        <IconUserGroup size={16} />
-                      </Avatar>
-                      <div>
-                        <Text className='text-lg font-medium'>
-                          {t('权限设置')}
-                        </Text>
-                        <div className='text-xs text-gray-600'>
-                          {t('用户分组和额度管理')}
+                    <div className='flex items-center justify-between gap-3'>
+                      <div className='flex items-center min-w-0'>
+                        <Avatar
+                          size='small'
+                          color='green'
+                          className='mr-2 shadow-md'
+                        >
+                          <IconUserGroup size={16} />
+                        </Avatar>
+                        <div className='min-w-0'>
+                          <Text className='text-lg font-medium'>
+                            {t('模型权限与渠道配额')}
+                          </Text>
+                          <div className='text-xs text-gray-600 dark:text-gray-400'>
+                            {t('该用户的模型访问权限、上游物理渠道池及预算配额统一在【授权管理】中按部门或人员配置。')}
+                          </div>
                         </div>
                       </div>
+                      <Button
+                        theme='light'
+                        type='primary'
+                        onClick={() => {
+                          handleCancel();
+                          navigate('/console/model-grant');
+                        }}
+                      >
+                        {t('前往授权管理')}
+                      </Button>
                     </div>
-
-                    <Row gutter={12}>
-                      <Col span={24}>
-                        <Form.Select
-                          field='group'
-                          label={t('分组')}
-                          placeholder={t('请选择分组')}
-                          optionList={groupOptions}
-                          allowAdditions
-                          search
-                          rules={[{ required: true, message: t('请选择分组') }]}
-                        />
-                      </Col>
-
-                      <Col span={10}>
-                        <Form.InputNumber
-                          field='quota_amount'
-                          label={t('金额')}
-                          prefix={getCurrencyConfig().symbol}
-                          precision={6}
-                          step={0.000001}
-                          style={{ width: '100%' }}
-                          readonly
-                        />
-                      </Col>
-
-                      <Col span={14}>
-                        <Form.Slot label={t('调整额度')}>
-                          <Button
-                            icon={<IconEdit />}
-                            onClick={() => setAdjustModalOpen(true)}
-                          >
-                            {t('调整额度')}
-                          </Button>
-                        </Form.Slot>
-                      </Col>
-
-                      <Col span={24}>
-                        <div
-                          className='text-xs cursor-pointer'
-                          style={{ color: 'var(--semi-color-text-2)' }}
-                          onClick={() => setShowQuotaInput((v) => !v)}
-                        >
-                          {showQuotaInput
-                            ? `▾ ${t('收起原生额度输入')}`
-                            : `▸ ${t('使用原生额度输入')}`}
-                        </div>
-                        <div style={{ display: showQuotaInput ? 'block' : 'none' }} className='mt-2'>
-                          <Form.InputNumber
-                            field='quota'
-                            label={t('额度')}
-                            placeholder={t('请输入额度')}
-                            style={{ width: '100%' }}
-                            readonly
-                          />
-                        </div>
-                      </Col>
-                    </Row>
                   </Card>
                 )}
 
@@ -546,111 +434,6 @@ const EditUserModal = (props) => {
         isMobile={isMobile}
         formApiRef={formApiRef}
       />
-
-      {/* 调整额度模态框 */}
-      <Modal
-        centered
-        visible={adjustModalOpen}
-        onOk={adjustQuota}
-        onCancel={() => {
-          setAdjustModalOpen(false);
-          setAdjustQuotaLocal('');
-          setAdjustAmountLocal('');
-          setAdjustMode('add');
-        }}
-        confirmLoading={adjustLoading}
-        closable={null}
-        title={
-          <div className='flex items-center'>
-            <IconEdit className='mr-2' />
-            {t('调整额度')}
-          </div>
-        }
-      >
-        <div className='mb-4'>
-          <Text type='secondary' className='block mb-2'>
-            {getPreviewText()}
-          </Text>
-        </div>
-        <div className='mb-3'>
-          <div className='mb-1'>
-            <Text size='small'>{t('操作')}</Text>
-          </div>
-          <RadioGroup
-            type='button'
-            value={adjustMode}
-            onChange={(e) => {
-              setAdjustMode(e.target.value);
-              setAdjustQuotaLocal('');
-              setAdjustAmountLocal('');
-            }}
-            style={{ width: '100%' }}
-          >
-            <Radio value='add'>{t('添加')}</Radio>
-            <Radio value='subtract'>{t('减少')}</Radio>
-            <Radio value='override'>{t('覆盖')}</Radio>
-          </RadioGroup>
-        </div>
-        <div className='mb-3'>
-          <div className='mb-1'>
-            <Text size='small'>{t('金额')}</Text>
-          </div>
-          <InputNumber
-            prefix={getCurrencyConfig().symbol}
-            placeholder={t('输入金额')}
-            value={adjustAmountLocal}
-            precision={6}
-            min={adjustMode === 'override' ? undefined : 0}
-            step={0.000001}
-            onChange={(val) => {
-              const amount = val === '' || val == null ? '' : val;
-              setAdjustAmountLocal(amount);
-              setAdjustQuotaLocal(
-                amount === ''
-                  ? ''
-                  : adjustMode === 'override'
-                    ? displayAmountToQuota(amount)
-                    : displayAmountToQuota(Math.abs(amount)),
-              );
-            }}
-            style={{ width: '100%' }}
-            showClear
-          />
-        </div>
-        <div
-          className='text-xs cursor-pointer mt-2'
-          style={{ color: 'var(--semi-color-text-2)' }}
-          onClick={() => setShowAdjustQuotaRaw((v) => !v)}
-        >
-          {showAdjustQuotaRaw
-            ? `▾ ${t('收起原生额度输入')}`
-            : `▸ ${t('使用原生额度输入')}`}
-        </div>
-        <div style={{ display: showAdjustQuotaRaw ? 'block' : 'none' }} className='mt-2'>
-          <div className='mb-1'>
-            <Text size='small'>{t('额度')}</Text>
-          </div>
-          <InputNumber
-            placeholder={t('输入额度')}
-            value={adjustQuotaLocal}
-            min={adjustMode === 'override' ? undefined : 0}
-            onChange={(val) => {
-              const quota = val === '' || val == null ? '' : val;
-              setAdjustQuotaLocal(quota);
-              setAdjustAmountLocal(
-                quota === ''
-                  ? ''
-                  : adjustMode === 'override'
-                    ? Number(quotaToDisplayAmount(quota).toFixed(6))
-                    : Number(quotaToDisplayAmount(Math.abs(quota)).toFixed(6)),
-              );
-            }}
-            style={{ width: '100%' }}
-            showClear
-            step={500000}
-          />
-        </div>
-      </Modal>
     </>
   );
 };

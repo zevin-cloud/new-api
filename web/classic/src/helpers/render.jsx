@@ -1007,7 +1007,7 @@ export function renderQuotaNumberWithDigit(num, digits = 2) {
   if (typeof num !== 'number' || isNaN(num)) {
     return 0;
   }
-  const quotaDisplayType = localStorage.getItem('quota_display_type') || 'USD';
+  const quotaDisplayType = localStorage.getItem('quota_display_type') || 'TOKENS';
   num = num.toFixed(digits);
   if (quotaDisplayType === 'CNY') {
     return '¥' + num;
@@ -1135,7 +1135,7 @@ export function convertUSDToCurrency(usdAmount, digits = 2) {
 
 export function renderQuota(quota, digits = 2) {
   let quotaPerUnit = localStorage.getItem('quota_per_unit');
-  const quotaDisplayType = localStorage.getItem('quota_display_type') || 'USD';
+  const quotaDisplayType = localStorage.getItem('quota_display_type') || 'TOKENS';
   quotaPerUnit = parseFloat(quotaPerUnit);
   if (quotaDisplayType === 'TOKENS') {
     return renderNumber(quota);
@@ -1201,7 +1201,7 @@ function getEffectiveRatio(groupRatio, user_group_ratio) {
 }
 
 function getQuotaDisplayType() {
-  return localStorage.getItem('quota_display_type') || 'USD';
+  return localStorage.getItem('quota_display_type') || 'TOKENS';
 }
 
 function resolveBillingDisplayMode(displayMode, modelPrice = -1) {
@@ -1953,10 +1953,10 @@ export function renderModelPrice(opts) {
 
   return renderBillingArticle([
     [
-      buildBillingText('模型倍率 {{modelRatio}}', {
+      buildBillingText('输入倍率 {{modelRatio}}', {
         modelRatio: modelRatioValue,
       }),
-      buildBillingText('补全倍率 {{completionRatio}}', {
+      buildBillingText('输出倍率 {{completionRatio}}', {
         completionRatio: completionRatioValue,
       }),
       cacheInputTokens > 0
@@ -2033,7 +2033,7 @@ export function renderModelPrice(opts) {
         )
         : null,
     buildBillingText(
-        '输出：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 补全倍率 {{completionRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
+        '输出：{{tokens}} / 1M * 输入倍率 {{modelRatio}} * 输出倍率 {{completionRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
         {
           tokens: completionTokens,
           modelRatio: modelRatioValue,
@@ -2544,13 +2544,13 @@ export function renderAudioModelPrice(opts) {
         usdAmount: inputRatioPrice * audioRatio,
         rate,
       }),
-      buildBillingPriceText('音频补全价格：{{symbol}}{{price}} / 1M tokens', {
+      buildBillingPriceText('音频输出价格：{{symbol}}{{price}} / 1M tokens', {
         symbol,
         usdAmount: inputRatioPrice * audioRatio * audioCompletionRatio,
         rate,
       }),
       buildBillingText(
-          '文字提示 {{input}} tokens / 1M tokens * {{symbol}}{{textInputPrice}} + 文字补全 {{completion}} tokens / 1M tokens * {{symbol}}{{textCompPrice}} + 音频提示 {{audioInput}} tokens / 1M tokens * {{symbol}}{{audioInputPrice}} + 音频补全 {{audioCompletion}} tokens / 1M tokens * {{symbol}}{{audioCompPrice}} * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
+          '文字提示 {{input}} tokens / 1M tokens * {{symbol}}{{textInputPrice}} + 文字输出 {{completion}} tokens / 1M tokens * {{symbol}}{{textCompPrice}} + 音频提示 {{audioInput}} tokens / 1M tokens * {{symbol}}{{audioInputPrice}} + 音频输出 {{audioCompletion}} tokens / 1M tokens * {{symbol}}{{audioCompPrice}} * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
           {
             input: inputTokens,
             completion: completionTokens,
@@ -2618,7 +2618,7 @@ export function renderAudioModelPrice(opts) {
 
   return renderBillingArticle([
     buildBillingText(
-        '模型倍率 {{modelRatio}}，补全倍率 {{completionRatio}}，音频倍率 {{audioRatio}}，音频补全倍率 {{audioCompletionRatio}}，{{cachePart}}{{ratioType}} {{ratio}}',
+        '输入倍率 {{modelRatio}}，输出倍率 {{completionRatio}}，音频倍率 {{audioRatio}}，音频输出倍率 {{audioCompletionRatio}}，{{cachePart}}{{ratioType}} {{ratio}}',
         {
           modelRatio: modelRatioValue,
           completionRatio: completionRatioValue,
@@ -2665,7 +2665,7 @@ export function renderAudioModelPrice(opts) {
         )
         : null,
     buildBillingText(
-        '文字输出：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 补全倍率 {{completionRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
+        '文字输出：{{tokens}} / 1M * 输入倍率 {{modelRatio}} * 输出倍率 {{completionRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
         {
           tokens: completionTokens,
           modelRatio: modelRatioValue,
@@ -2697,7 +2697,7 @@ export function renderAudioModelPrice(opts) {
         },
     ),
     buildBillingText(
-        '音频输出：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 音频倍率 {{audioRatio}} * 音频补全倍率 {{audioCompletionRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
+        '音频输出：{{tokens}} / 1M * 输入倍率 {{modelRatio}} * 音频倍率 {{audioRatio}} * 音频输出倍率 {{audioCompletionRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
         {
           tokens: audioCompletionTokens,
           modelRatio: modelRatioValue,
@@ -2879,7 +2879,7 @@ export function renderClaudeModelPrice(opts) {
 
     breakdownSegments.push(
         i18next.t(
-            '补全 {{completion}} tokens / 1M tokens * {{symbol}}{{price}}',
+            '输出 {{completion}} tokens / 1M tokens * {{symbol}}{{price}}',
             {
               completion: completionTokens,
               symbol,
@@ -3108,7 +3108,7 @@ export function renderClaudeModelPrice(opts) {
         )
         : null,
     buildBillingText(
-        '补全 {{completion}} tokens * 输出倍率 {{completionRatio}}',
+        '输出 {{completion}} tokens * 输出倍率 {{completionRatio}}',
         {
           completion: completionTokens,
           completionRatio: completionRatioValue,

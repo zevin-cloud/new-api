@@ -24,7 +24,6 @@ import { ChevronDown } from 'lucide-react';
 import {
   IconExit,
   IconUserSetting,
-  IconCreditCard,
   IconKey,
 } from '@douyinfe/semi-icons';
 import { stringToColor, isAdmin, renderQuota } from '../../../helpers';
@@ -72,12 +71,12 @@ const UserArea = ({
                 <div className='flex items-center justify-between text-xs text-semi-color-text-2 mb-1'>
                   <span>{t('可用配额')}</span>
                   <span className='font-semibold text-semi-color-primary'>
-                    {renderQuota(userState?.user?.quota || 0)}
+                    {renderQuota(userState?.user?.quota || 0)} Tokens
                   </span>
                 </div>
                 <div className='flex items-center justify-between text-xs text-semi-color-text-2'>
                   <span>{t('已用配额')}</span>
-                  <span>{renderQuota(userState?.user?.used_quota || 0)}</span>
+                  <span>{renderQuota(userState?.user?.used_quota || 0)} Tokens</span>
                 </div>
               </div>
 
@@ -122,20 +121,6 @@ const UserArea = ({
                         className='text-gray-500 dark:text-gray-400'
                       />
                       <span>{t('令牌管理')}</span>
-                    </div>
-                  </Dropdown.Item>
-                  <Dropdown.Item
-                    onClick={() => {
-                      navigate('/console/topup');
-                    }}
-                    className='!px-3 !py-1.5 !text-sm !text-semi-color-text-0 hover:!bg-semi-color-fill-1 dark:!text-gray-200 dark:hover:!bg-blue-500 dark:hover:!text-white'
-                  >
-                    <div className='flex items-center gap-2'>
-                      <IconCreditCard
-                        size='small'
-                        className='text-gray-500 dark:text-gray-400'
-                      />
-                      <span>{t('钱包管理')}</span>
                     </div>
                   </Dropdown.Item>
                 </>

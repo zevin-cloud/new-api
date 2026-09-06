@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 
@@ -22,18 +23,20 @@ type BoundChannel struct {
 }
 
 type Model struct {
-	Id           int            `json:"id"`
-	ModelName    string         `json:"model_name" gorm:"size:128;not null;uniqueIndex:uk_model_name_delete_at,priority:1"`
-	Description  string         `json:"description,omitempty" gorm:"type:text"`
-	Icon         string         `json:"icon,omitempty" gorm:"type:varchar(128)"`
-	Tags         string         `json:"tags,omitempty" gorm:"type:varchar(255)"`
-	VendorID     int            `json:"vendor_id,omitempty" gorm:"index"`
-	Endpoints    string         `json:"endpoints,omitempty" gorm:"type:text"`
-	Status       int            `json:"status" gorm:"default:1"`
-	SyncOfficial int            `json:"sync_official" gorm:"default:1"`
-	CreatedTime  int64          `json:"created_time" gorm:"bigint"`
-	UpdatedTime  int64          `json:"updated_time" gorm:"bigint"`
-	DeletedAt    gorm.DeletedAt `json:"-" gorm:"index;uniqueIndex:uk_model_name_delete_at,priority:2"`
+	RoutingGroups  string         `json:"routing_groups" gorm:"type:text"`
+	Id             int            `json:"id"`
+	ModelName      string         `json:"model_name" gorm:"size:128;not null;uniqueIndex:uk_model_name_delete_at,priority:1"`
+	Description    string         `json:"description,omitempty" gorm:"type:text"`
+	Icon           string         `json:"icon,omitempty" gorm:"type:varchar(128)"`
+	Tags           string         `json:"tags,omitempty" gorm:"type:varchar(255)"`
+	VendorID       int            `json:"vendor_id,omitempty" gorm:"index"`
+	Endpoints      string         `json:"endpoints,omitempty" gorm:"type:text"`
+	Status         int            `json:"status" gorm:"default:1"`
+	SyncOfficial   int            `json:"sync_official" gorm:"default:1"`
+	MaxConcurrency int            `json:"max_concurrency" gorm:"type:int;default:0"`
+	CreatedTime    int64          `json:"created_time" gorm:"bigint"`
+	UpdatedTime    int64          `json:"updated_time" gorm:"bigint"`
+	DeletedAt      gorm.DeletedAt `json:"-" gorm:"index;uniqueIndex:uk_model_name_delete_at,priority:2"`
 
 	BoundChannels []BoundChannel `json:"bound_channels,omitempty" gorm:"-"`
 	EnableGroups  []string       `json:"enable_groups,omitempty" gorm:"-"`
@@ -45,6 +48,9 @@ type Model struct {
 }
 
 func (mi *Model) Insert() error {
+	if err := mi.ValidateRoutingGroups(); err != nil {
+		return err
+	}
 	now := common.GetTimestamp()
 	mi.CreatedTime = now
 	mi.UpdatedTime = now
@@ -75,10 +81,17 @@ func IsModelNameDuplicated(id int, name string) (bool, error) {
 }
 
 func (mi *Model) Update() error {
+	if err := mi.ValidateRoutingGroups(); err != nil {
+		return err
+	}
 	mi.UpdatedTime = common.GetTimestamp()
-	// 使用 Select 强制更新所有字段，包括零值
+	// Omitted routing data from older clients must not erase an explicit policy.
+	fields := []string{"model_name", "description", "icon", "tags", "vendor_id", "endpoints", "status", "sync_official", "name_rule", "max_concurrency", "updated_time"}
+	if mi.RoutingGroups != "" {
+		fields = append(fields, "routing_groups")
+	}
 	return DB.Model(&Model{}).Where("id = ?", mi.Id).
-		Select("model_name", "description", "icon", "tags", "vendor_id", "endpoints", "status", "sync_official", "name_rule", "updated_time").
+		Select(fields).
 		Updates(mi).Error
 }
 
@@ -257,4 +270,19 @@ func parseModelSyncFilter(syncOfficial string) (value int, ok bool) {
 		}
 		return n, true
 	}
+}
+
+func GetModelByName(modelName string) (*Model, error) {
+	if modelName == "" {
+		return nil, nil
+	}
+	var m Model
+	err := DB.Where("model_name = ?", modelName).First(&m).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &m, nil
 }

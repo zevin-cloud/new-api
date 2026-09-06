@@ -21,7 +21,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Table, Tag, Button, Popconfirm, Popover } from '@douyinfe/semi-ui';
 import { IconEdit } from '@douyinfe/semi-icons';
-import { timestamp2string } from '../../../helpers';
+import { timestamp2string, renderQuota } from '../../../helpers';
 
 function GrantTags({ values, color = 'blue', maxWidth = 210 }) {
   const list = Array.isArray(values) ? values.filter(Boolean) : [];
@@ -103,7 +103,7 @@ const ModelGrantsTable = ({
           const typeName = subjectTypeMeta[g.subject_type]?.text || '';
           subjectMap.set(
             key,
-            `${typeName ? typeName + ': ' : ''}${g.subject_name || '-'}`
+            `${typeName ? typeName + ': ' : ''}${g.subject_name || '-'}`,
           );
         }
       });
@@ -111,14 +111,10 @@ const ModelGrantsTable = ({
 
       // 提取模型集与模型（去重）
       const modelSets = [...new Set(grantList.map(setName))];
-      const models = [
-        ...new Set(grantList.flatMap((g) => g?.models || [])),
-      ];
+      const models = [...new Set(grantList.flatMap((g) => g?.models || []))];
 
       // 提取有效期
-      const expTimes = [
-        ...new Set(grantList.map((g) => g?.expired_at || 0)),
-      ];
+      const expTimes = [...new Set(grantList.map((g) => g?.expired_at || 0))];
 
       const rawBatchId =
         item.batch_id ||
@@ -134,6 +130,15 @@ const ModelGrantsTable = ({
           : item.id);
       const displayId = rawBatchId > 0 ? `#${rawBatchId}` : `#${legacyId}`;
 
+      const routingGroup =
+        item.routing_group ?? grantList[0]?.routing_group ?? '';
+      const quotaType = item.quota_type ?? grantList[0]?.quota_type ?? 0;
+      const quotaScope = item.quota_scope ?? grantList[0]?.quota_scope ?? 0;
+      const grantQuota = item.grant_quota ?? grantList[0]?.grant_quota ?? 0;
+      const usedQuota = item.used_quota ?? grantList[0]?.used_quota ?? 0;
+      const maxConcurrency =
+        item.max_concurrency ?? grantList[0]?.max_concurrency ?? 0;
+
       return {
         ...item,
         rowKey: item.id || `batch_${rawBatchId}_${legacyId}`,
@@ -146,6 +151,12 @@ const ModelGrantsTable = ({
         subjects,
         modelSets,
         models,
+        routingGroup,
+        quotaType,
+        quotaScope,
+        grantQuota,
+        usedQuota,
+        maxConcurrency,
         expiredAt: expTimes.length === 1 ? expTimes[0] : null,
         expTimes,
         createdAt: item.created_at || grantList[0]?.created_at,
@@ -198,7 +209,11 @@ const ModelGrantsTable = ({
         return (
           <div className='flex flex-col gap-1 min-w-0'>
             <div className='flex items-center gap-1'>
-              <GrantTags values={sets.slice(0, 1)} color='cyan' maxWidth={180} />
+              <GrantTags
+                values={sets.slice(0, 1)}
+                color='cyan'
+                maxWidth={180}
+              />
               {sets.length > 1 && (
                 <Tag size='small' color='grey'>
                   +{sets.length - 1}
@@ -207,16 +222,28 @@ const ModelGrantsTable = ({
             </div>
             {models.length > 0 && (
               <div className='flex items-center gap-1'>
-                <GrantTags values={models.slice(0, 2)} color='grey' maxWidth={170} />
+                <GrantTags
+                  values={models.slice(0, 2)}
+                  color='grey'
+                  maxWidth={170}
+                />
                 {models.length > 2 && (
                   <Popover
                     content={
                       <div className='p-2 max-w-sm'>
-                        <GrantTags values={models} color='grey' maxWidth={320} />
+                        <GrantTags
+                          values={models}
+                          color='grey'
+                          maxWidth={320}
+                        />
                       </div>
                     }
                   >
-                    <Button size='small' theme='borderless' className='!px-1 text-xs'>
+                    <Button
+                      size='small'
+                      theme='borderless'
+                      className='!px-1 text-xs'
+                    >
                       +{models.length - 2}
                     </Button>
                   </Popover>
@@ -226,6 +253,40 @@ const ModelGrantsTable = ({
           </div>
         );
       },
+    },
+    {
+      title: t('预算配额'),
+      width: 170,
+      render: (_, record) => {
+        if (record.quotaType === 1) {
+          const isPerMember = record.quotaScope === 1;
+          return (
+            <div className='flex flex-col gap-0.5'>
+              <span className='font-mono text-xs'>
+                {renderQuota(record.usedQuota || 0)} /{' '}
+                {renderQuota(record.grantQuota || 0)}
+              </span>
+              <div>
+                <Tag size='small' color={isPerMember ? 'blue' : 'cyan'}>
+                  {isPerMember ? t('每人独立') : t('团队共享')}
+                </Tag>
+              </div>
+            </div>
+          );
+        }
+        return <Tag color='green'>{t('No authorization budget cap')}</Tag>;
+      },
+    },
+    {
+      title: t('并发限制'),
+      dataIndex: 'maxConcurrency',
+      width: 100,
+      render: (val) =>
+        val > 0 ? (
+          <span className='font-mono font-medium'>{val}</span>
+        ) : (
+          <Tag color='green'>{t('无限制')}</Tag>
+        ),
     },
     {
       title: t('有效期'),
@@ -245,10 +306,10 @@ const ModelGrantsTable = ({
     },
     {
       title: t('操作'),
-      width: 180,
+      width: 240,
       fixed: 'right',
       render: (_, record) => (
-        <div className='flex items-center gap-1'>
+        <div className='flex flex-wrap items-center gap-1'>
           <Button
             size='small'
             theme='light'
@@ -269,6 +330,9 @@ const ModelGrantsTable = ({
           </Button>
 
           <Popconfirm
+            position='bottomRight'
+            autoAdjustOverflow
+            style={{ maxWidth: 'min(320px, calc(100vw - 32px))' }}
             title={t('确认撤销')}
             content={
               <div className='max-w-xs break-words'>
@@ -300,7 +364,7 @@ const ModelGrantsTable = ({
       loading={loading}
       rowKey='rowKey'
       size='small'
-      scroll={{ x: 1050 }}
+      scroll={{ x: enableBatchDelete ? 1480 : 1430 }}
       rowSelection={rowSelection}
       pagination={{
         currentPage: page,

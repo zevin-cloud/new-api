@@ -170,10 +170,10 @@ export default function GroupTable({ groupRatio, userUsableGroups, onChange }) {
         ),
       },
       {
-        title: t('用户可选'),
+        title: t('参与服务调度'),
         dataIndex: 'selectable',
         key: 'selectable',
-        width: 90,
+        width: 120,
         align: 'center',
         render: (_, record) => (
           <Checkbox
@@ -193,7 +193,7 @@ export default function GroupTable({ groupRatio, userUsableGroups, onChange }) {
             <Input
               size='small'
               value={record.description}
-              placeholder={t('分组描述')}
+              placeholder={t('渠道池描述')}
               onChange={(v) => updateRow(record._id, 'description', v)}
             />
           ) : (
