@@ -22,11 +22,13 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/service/clientauth"
 	"github.com/gin-gonic/gin"
 )
@@ -84,7 +86,15 @@ func PollClientAuth(c *gin.Context) {
 		return
 	}
 	c.Header("Cache-Control", "no-store")
-	c.JSON(200, gin.H{"success": true, "data": gin.H{"session_id": session.ID, "provider": session.Provider, "status": session.Status, "error_msg": session.ErrorMsg}})
+	c.JSON(200, gin.H{"success": true, "data": gin.H{
+		"session_id":     session.ID,
+		"provider":       session.Provider,
+		"status":         session.Status,
+		"error_msg":      session.ErrorMsg,
+		"default_name":   session.DefaultName,
+		"default_models": session.DefaultModels,
+		"email":          session.Email,
+	}})
 }
 
 func ExchangeClientOAuth(c *gin.Context) {
@@ -93,13 +103,78 @@ func ExchangeClientOAuth(c *gin.Context) {
 		c.JSON(400, gin.H{"success": false, "message": "Missing callback URL or session_id"})
 		return
 	}
-	_, err := clientauth.DefaultManager.ExchangeOAuthCode(clientauth.WithOwner(c.Request.Context(), c.GetInt("id")), payload.SessionID, payload.Code)
+	ctx := clientauth.WithOwner(c.Request.Context(), c.GetInt("id"))
+	_, err := clientauth.DefaultManager.ExchangeOAuthCode(ctx, payload.SessionID, payload.Code)
 	if err != nil {
 		c.JSON(400, gin.H{"success": false, "message": err.Error()})
 		return
 	}
+	session, _ := clientauth.DefaultManager.PollAuth(ctx, payload.SessionID)
+	data := gin.H{"status": "success"}
+	if session != nil {
+		data["default_name"] = session.DefaultName
+		data["default_models"] = session.DefaultModels
+		data["email"] = session.Email
+	}
 	c.Header("Cache-Control", "no-store")
-	c.JSON(200, gin.H{"success": true, "data": gin.H{"status": "success"}})
+	c.JSON(200, gin.H{"success": true, "data": data})
+}
+
+func GetClientChannelQuota(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid channel id"})
+		return
+	}
+	channel, err := model.GetChannelById(id, true)
+	if err != nil || channel == nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "channel not found"})
+		return
+	}
+	if channel.Type != constant.ChannelTypeClientOAuth {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "not a client auth channel"})
+		return
+	}
+
+	credential, err := service.ResolveClientCredential(c.Request.Context(), channel.Id)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": fmt.Sprintf("failed to resolve client credential: %v", err)})
+		return
+	}
+
+	switch credential.Provider {
+	case "antigravity":
+		summary, err := clientauth.FetchAntigravityQuotaSummary(c.Request.Context(), credential.AccessToken, credential.ProjectID)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": fmt.Sprintf("获取 Antigravity 配额失败: %v", err)})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success":  true,
+			"provider": credential.Provider,
+			"email":    credential.Email,
+			"data":     summary,
+		})
+		return
+	case "codex":
+		statusCode, body, err := service.FetchCodexWhamUsage(c.Request.Context(), http.DefaultClient, "https://chatgpt.com", credential.AccessToken, credential.AccountID)
+		if err != nil || statusCode != http.StatusOK {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": fmt.Sprintf("获取 Codex 用量失败: %v", err)})
+			return
+		}
+		var parsed any
+		_ = common.Unmarshal(body, &parsed)
+		c.JSON(http.StatusOK, gin.H{
+			"success":  true,
+			"provider": credential.Provider,
+			"email":    credential.Email,
+			"data":     parsed,
+		})
+		return
+	default:
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": fmt.Sprintf("暂不支持该 Provider 的配额详情查询: %s", credential.Provider)})
+		return
+	}
 }
 
 func CreateChannelWithClientToken(c *gin.Context) {

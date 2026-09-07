@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/service/clientauth"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/shopspring/decimal"
@@ -454,9 +456,58 @@ func fetchAdvancedCustomBalance(channel *model.Channel) (channelBalanceResult, e
 	return channelBalanceResult{RawResponse: string(formatted)}, nil
 }
 
+func fetchClientOAuthBalance(channel *model.Channel) (channelBalanceResult, error) {
+	credential, err := service.ResolveClientCredential(context.Background(), channel.Id)
+	if err != nil {
+		return channelBalanceResult{}, err
+	}
+	switch credential.Provider {
+	case "antigravity":
+		summary, err := clientauth.FetchAntigravityQuotaSummary(context.Background(), credential.AccessToken, credential.ProjectID)
+		if err != nil {
+			return channelBalanceResult{}, err
+		}
+		rawBytes, _ := common.Marshal(summary)
+		formatted, _ := common.IndentJson(rawBytes)
+		minFraction := 1.0
+		hasBucket := false
+		for _, g := range summary.Groups {
+			for _, b := range g.Buckets {
+				hasBucket = true
+				if b.RemainingFraction < minFraction {
+					minFraction = b.RemainingFraction
+				}
+			}
+		}
+		balance := 100.0
+		if hasBucket {
+			balance = math.Round(minFraction * 100)
+		}
+		channel.UpdateBalance(balance)
+		return channelBalanceResult{
+			Balance:     balance,
+			RawResponse: string(formatted),
+		}, nil
+	case "codex":
+		statusCode, body, err := service.FetchCodexWhamUsage(context.Background(), http.DefaultClient, "https://chatgpt.com", credential.AccessToken, credential.AccountID)
+		if err != nil || statusCode != http.StatusOK {
+			return channelBalanceResult{}, fmt.Errorf("failed to fetch codex usage (status %d): %v", statusCode, err)
+		}
+		formatted, _ := common.IndentJson(body)
+		return channelBalanceResult{
+			RawResponse: string(formatted),
+		}, nil
+	default:
+		return channelBalanceResult{}, errors.New("provider does not support balance queries")
+	}
+}
+
 func updateChannelBalance(channel *model.Channel) (channelBalanceResult, error) {
 	if channel.Type == constant.ChannelTypeAdvancedCustom {
 		return fetchAdvancedCustomBalance(channel)
+	}
+	if channel.Type == constant.ChannelTypeClientOAuth {
+		return fetchClientOAuthBalance(channel)
 	}
 	balance, err := updateStandardChannelBalance(channel)
 	return channelBalanceResult{Balance: balance}, err

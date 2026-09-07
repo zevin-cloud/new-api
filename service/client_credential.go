@@ -27,7 +27,7 @@ func ResolveClientCredential(ctx context.Context, channelID int) (*clientauth.To
 	if err != nil {
 		return nil, err
 	}
-	if ch.Type != constant.ChannelTypeClientOAuth || ch.Status != common.ChannelStatusEnabled {
+	if ch.Type != constant.ChannelTypeClientOAuth {
 		return nil, fmt.Errorf("client channel is unavailable")
 	}
 	var credential clientauth.TokenBundle

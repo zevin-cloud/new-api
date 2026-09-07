@@ -24,7 +24,7 @@ func ProviderBaseURL(provider string) (string, error) {
 	case "claude":
 		return "https://api.anthropic.com", nil
 	case "antigravity":
-		return "https://cloudcode-pa.googleapis.com", nil
+		return "https://daily-cloudcode-pa.googleapis.com", nil
 	default:
 		return "", fmt.Errorf("unsupported client provider")
 	}
@@ -65,7 +65,7 @@ func RefreshToken(ctx context.Context, token *TokenBundle) (*TokenBundle, error)
 	return next, nil
 }
 
-// DiscoverAntigravityProject reads the account's existing entitlement; it never provisions a project.
+// DiscoverAntigravityProject reads the account's existing entitlement or auto-onboards a free project if missing.
 func DiscoverAntigravityProject(ctx context.Context, accessToken string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist", bytes.NewBufferString(`{"metadata":{"ideType":"ANTIGRAVITY"}}`))
 	if err != nil {
@@ -74,25 +74,29 @@ func DiscoverAntigravityProject(ctx context.Context, accessToken string) (string
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := OAuthHTTPClient.Do(req)
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			var result struct {
+				Project any `json:"cloudaicompanionProject"`
+			}
+			if err := common.DecodeJson(io.LimitReader(resp.Body, 1<<20), &result); err == nil {
+				project := extractProjectID(result.Project)
+				if strings.TrimSpace(project) != "" {
+					return strings.TrimSpace(project), nil
+				}
+			}
+		}
+	}
+
+	// If the account has no active project, auto-onboard to free-tier (referencing CPA)
+	onboardedProject, onboardErr := OnboardAntigravityUser(ctx, accessToken, "free-tier")
+	if onboardErr == nil && strings.TrimSpace(onboardedProject) != "" {
+		return strings.TrimSpace(onboardedProject), nil
+	}
+
 	if err != nil {
-		return "", fmt.Errorf("could not load Antigravity entitlement")
+		return "", fmt.Errorf("could not load Antigravity entitlement: %w", err)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Antigravity entitlement request failed (HTTP %d)", resp.StatusCode)
-	}
-	var result struct {
-		Project any `json:"cloudaicompanionProject"`
-	}
-	if err := common.DecodeJson(io.LimitReader(resp.Body, 1<<20), &result); err != nil {
-		return "", fmt.Errorf("invalid Antigravity entitlement response")
-	}
-	project, _ := result.Project.(string)
-	if obj, ok := result.Project.(map[string]any); ok {
-		project, _ = obj["id"].(string)
-	}
-	if strings.TrimSpace(project) == "" {
-		return "", fmt.Errorf("account has no active Antigravity project; complete setup in Antigravity first")
-	}
-	return project, nil
+	return "", fmt.Errorf("account has no active Antigravity project and auto-onboarding failed: %v", onboardErr)
 }

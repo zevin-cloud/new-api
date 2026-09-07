@@ -17,20 +17,23 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Banner,
   Button,
   Card,
+  Collapse,
   Input,
   Modal,
   Pagination,
+  Progress,
   Select,
   Space,
   Spin,
   Table,
   Tag,
+  Toast,
 } from '@douyinfe/semi-ui';
 import { clientAuth } from '../../../services/clientAuth';
 
@@ -43,6 +46,7 @@ export default function ClientChannels({ groupOptions = [] }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [provider, setProvider] = useState(null);
+  const [quotaAccount, setQuotaAccount] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [testResult, setTestResult] = useState('');
 
@@ -99,11 +103,20 @@ export default function ClientChannels({ groupOptions = [] }) {
     setBusyId(account.id);
     setError('');
     setTestResult('');
+    const startTime = Date.now();
     try {
-      await clientAuth.test(account);
-      setTestResult(t('Connection successful'));
+      const res = await clientAuth.test(account);
+      const seconds =
+        typeof res?.time === 'number'
+          ? res.time.toFixed(2)
+          : ((Date.now() - startTime) / 1000).toFixed(2);
+      const msg = `${t('Connection successful')} (${seconds}s)`;
+      setTestResult(msg);
+      Toast.success(msg);
     } catch (err) {
-      setError(err.response?.data?.message || err.message);
+      const errMsg = err.response?.data?.message || err.message;
+      setError(errMsg);
+      Toast.error(errMsg);
     } finally {
       setBusyId(null);
     }
@@ -128,9 +141,21 @@ export default function ClientChannels({ groupOptions = [] }) {
         </Button>
       </div>
       {testResult && (
-        <Banner type='success' description={testResult} closeIcon={null} />
+        <Banner
+          type='success'
+          description={testResult}
+          closeIcon
+          onClose={() => setTestResult('')}
+        />
       )}
-      {error && <Banner type='danger' description={error} closeIcon={null} />}
+      {error && (
+        <Banner
+          type='danger'
+          description={error}
+          closeIcon
+          onClose={() => setError('')}
+        />
+      )}
       <Spin spinning={loading}>
         <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4'>
           {providers.map((item) => (
@@ -183,6 +208,12 @@ export default function ClientChannels({ groupOptions = [] }) {
                       {t('Test')}
                     </Button>
                     <Button
+                      disabled={busyId !== null}
+                      onClick={() => setQuotaAccount(account)}
+                    >
+                      {t('额度')}
+                    </Button>
+                    <Button
                       loading={busyId === account.id}
                       disabled={busyId !== null && busyId !== account.id}
                       onClick={() => toggle(account)}
@@ -215,6 +246,12 @@ export default function ClientChannels({ groupOptions = [] }) {
           }}
         />
       )}
+      {quotaAccount && (
+        <ClientQuotaModal
+          account={quotaAccount}
+          onClose={() => setQuotaAccount(null)}
+        />
+      )}
     </div>
   );
 }
@@ -243,6 +280,9 @@ export function ClientAuthorization({
       .then((data) => {
         if (controller.signal.aborted) return;
         setAuth({ ...data, deadline: Date.now() + data.expires_in * 1000 });
+        if (data.default_models && data.default_models.length > 0) {
+          setModels(data.default_models.join(', '));
+        }
         setStatus('pending');
       })
       .catch((err) => {
@@ -277,6 +317,12 @@ export function ClientAuthorization({
           if (controller.signal.aborted) return;
           if (progress.status !== 'pending') {
             setStatus(progress.status);
+            if (progress.default_name) {
+              setName(progress.default_name);
+            }
+            if (progress.default_models && progress.default_models.length > 0) {
+              setModels(progress.default_models.join(', '));
+            }
             if (progress.error_msg) setError(progress.error_msg);
             return;
           }
@@ -300,7 +346,13 @@ export function ClientAuthorization({
     setExchanging(true);
     setError('');
     try {
-      await clientAuth.exchange(auth.session_id, callback.trim());
+      const res = await clientAuth.exchange(auth.session_id, callback.trim());
+      if (res?.default_name) {
+        setName(res.default_name);
+      }
+      if (res?.default_models && res.default_models.length > 0) {
+        setModels(res.default_models.join(', '));
+      }
       setStatus('success');
     } catch (err) {
       setError(err.response?.data?.message || err.message);
@@ -448,3 +500,245 @@ export function ClientAuthorization({
     </Modal>
   );
 }
+
+function formatRemainingDuration(seconds) {
+  const secs = Math.max(0, Math.floor(Number(seconds) || 0));
+  const days = Math.floor(secs / 86400);
+  const hours = Math.floor((secs % 86400) / 3600);
+  const minutes = Math.floor((secs % 3600) / 60);
+  if (days > 0) return `${days} 天 ${hours} 小时 后刷新`;
+  if (hours > 0) return `${hours} 小时 ${minutes} 分钟 后刷新`;
+  return `${minutes} 分钟 后刷新`;
+}
+
+export function ClientQuotaModal({ account, onClose }) {
+  const { t } = useTranslation();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [data, setData] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchQuota = useCallback((isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError('');
+    const controller = new AbortController();
+    clientAuth
+      .quota(account.id, controller.signal)
+      .then((res) => {
+        setData(res);
+      })
+      .catch((err) => {
+        if (
+          !controller.signal.aborted &&
+          err?.name !== 'CanceledError' &&
+          err?.message !== 'canceled' &&
+          err?.code !== 'ERR_CANCELED'
+        ) {
+          setError(err.response?.data?.message || err.message);
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
+    return () => controller.abort();
+  }, [account.id]);
+
+  useEffect(() => {
+    return fetchQuota(false);
+  }, [fetchQuota]);
+
+  const groups = data?.data?.groups || [];
+  const rawData = data?.data;
+
+  const plan = data?.data?.plan || '';
+  let planLabel = '';
+  let planColor = 'blue';
+  if (plan === 'pro') {
+    planLabel = '套餐 Pro';
+    planColor = 'violet';
+  } else if (plan === 'ultra') {
+    planLabel = '套餐 Ultra';
+    planColor = 'green';
+  } else if (plan === 'free') {
+    planLabel = '套餐 Free';
+    planColor = 'amber';
+  } else if (plan) {
+    planLabel = `套餐 ${plan.toUpperCase()}`;
+  }
+
+  return (
+    <Modal
+      visible
+      title={
+        <div className='flex items-center justify-between pr-8'>
+          <span>{`${t('额度')} · ${account.name}`}</span>
+          <Button
+            size='small'
+            theme='borderless'
+            loading={refreshing}
+            onClick={() => fetchQuota(true)}
+          >
+            {t('Refresh')}
+          </Button>
+        </div>
+      }
+      onCancel={onClose}
+      footer={
+        <Button onClick={onClose}>{t('Close')}</Button>
+      }
+      width={720}
+    >
+      <div className='space-y-4'>
+        {error && <Banner type='danger' description={error} closeIcon={null} />}
+        {loading ? (
+          <div className='py-8 text-center'>
+            <Spin size='large' />
+          </div>
+        ) : (
+          <>
+            {(data?.email || planLabel) && (
+              <div className='flex items-center justify-between text-sm bg-[var(--semi-color-fill-0)] p-3 rounded-lg'>
+                <div className='flex items-center gap-3'>
+                  {data?.email && (
+                    <div>
+                      <span className='text-[var(--semi-color-text-2)]'>{t('邮箱')}: </span>
+                      <span className='font-mono font-medium'>{data.email}</span>
+                    </div>
+                  )}
+                  {planLabel && (
+                    <Tag color={planColor} size='small'>
+                      {planLabel}
+                    </Tag>
+                  )}
+                </div>
+                {data.provider && (
+                  <Tag color='blue'>{data.provider.toUpperCase()}</Tag>
+                )}
+              </div>
+            )}
+
+            {groups.length > 0 ? (
+              <div className='space-y-4 max-h-[60vh] overflow-y-auto pr-1'>
+                {groups.map((group, idx) => {
+                  const cleanDesc = (group.description || '').replace(/^Models within this group:\s*/i, '');
+                  return (
+                    <div
+                      key={group.id || idx}
+                      className='rounded-lg border border-[var(--semi-color-border)] p-4 bg-[var(--semi-color-bg-0)]'
+                    >
+                      <div className='flex items-center justify-between mb-3'>
+                        <div className='font-semibold text-base'>
+                          {group.label || group.displayName || `Quota Group ${idx + 1}`}
+                        </div>
+                        {cleanDesc && (
+                          <span className='text-xs text-[var(--semi-color-text-2)]'>
+                            {cleanDesc.startsWith('此分组包含')
+                              ? cleanDesc
+                              : `此分组包含: ${cleanDesc}`}
+                          </span>
+                        )}
+                      </div>
+                      <div className='space-y-3.5'>
+                        {(group.buckets || []).map((bucket, bIdx) => {
+                          const fraction = bucket.remainingFraction ?? bucket.remaining_fraction ?? 0;
+                          const pct = Math.max(0, Math.min(100, Math.round(fraction * 100)));
+                          const isAvailable = pct >= 100 || fraction >= 0.999;
+                          const isLow = pct < 20;
+                          const isWarn = pct < 50;
+                          const stroke = isAvailable
+                            ? '#10b981'
+                            : isLow
+                            ? '#ef4444'
+                            : '#f59e0b';
+
+                          let resetText = '';
+                          const rTime = bucket.resetTime || bucket.reset_time;
+                          if (rTime) {
+                            const resetMs = new Date(rTime).getTime();
+                            if (!Number.isNaN(resetMs)) {
+                              const deltaSecs = Math.floor((resetMs - Date.now()) / 1000);
+                              if (deltaSecs > 0) {
+                                resetText = formatRemainingDuration(deltaSecs);
+                              } else {
+                                resetText = t('已刷新');
+                              }
+                            }
+                          }
+
+                          return (
+                            <div key={bucket.id || bIdx} className='space-y-1.5'>
+                              <div className='flex items-center justify-between text-sm'>
+                                <div className='flex items-center gap-2'>
+                                  <span className='font-medium'>
+                                    {bucket.label || bucket.displayName || bucket.bucketId || `Bucket ${bIdx + 1}`}
+                                  </span>
+                                  {bucket.window && (
+                                    <Tag size='small' color='grey'>
+                                      {bucket.window}
+                                    </Tag>
+                                  )}
+                                </div>
+                                <div className='flex items-center gap-3'>
+                                  {isAvailable ? (
+                                    <Tag color='green'>{t('额度可用')}</Tag>
+                                  ) : (
+                                    <Tag color={isLow ? 'red' : isWarn ? 'orange' : 'green'}>
+                                      {pct}% {t('剩余')}
+                                    </Tag>
+                                  )}
+                                  {resetText && (
+                                    <span className='text-xs text-[var(--semi-color-text-2)]'>
+                                      {resetText}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <Progress
+                                percent={pct}
+                                stroke={stroke}
+                                showInfo={false}
+                                style={{ height: 8 }}
+                              />
+                              {rTime && (
+                                <div className='text-xs text-[var(--semi-color-text-2)] text-right'>
+                                  {new Date(rTime).toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : rawData ? (
+              <div className='rounded-lg border border-[var(--semi-color-border)] p-4 bg-[var(--semi-color-bg-0)]'>
+                <pre className='max-h-96 overflow-auto text-xs font-mono whitespace-pre-wrap'>
+                  {JSON.stringify(rawData, null, 2)}
+                </pre>
+              </div>
+            ) : (
+              <p className='text-sm text-[var(--semi-color-text-2)] py-4 text-center'>
+                {t('暂无可用配额数据')}
+              </p>
+            )}
+
+            {groups.length > 0 && (
+              <Collapse>
+                <Collapse.Panel header={t('原始 JSON')} itemKey='raw'>
+                  <pre className='max-h-60 overflow-auto text-xs font-mono whitespace-pre-wrap bg-[var(--semi-color-fill-0)] p-2 rounded'>
+                    {JSON.stringify(rawData, null, 2)}
+                  </pre>
+                </Collapse.Panel>
+              </Collapse>
+            )}
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+

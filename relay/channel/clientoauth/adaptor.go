@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strings"
 
@@ -67,10 +68,10 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	}
 	if a.credential.Provider == "antigravity" {
 		custom := strings.TrimRight(strings.TrimSpace(info.ChannelBaseUrl), "/")
-		if custom == "https://daily-cloudcode-pa.googleapis.com" ||
-			custom == "https://daily-cloudcode-pa.sandbox.googleapis.com" ||
-			custom == "https://cloudcode-pa.googleapis.com" {
+		if custom == "https://daily-cloudcode-pa.sandbox.googleapis.com" {
 			base = custom
+		} else {
+			base = "https://daily-cloudcode-pa.googleapis.com"
 		}
 	}
 	// OAuth tokens are restricted to their provider, regardless of channel edits.
@@ -153,6 +154,15 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, body io
 		var request json.RawMessage
 		if err := common.DecodeJson(body, &request); err != nil {
 			return nil, err
+		}
+		var reqMap map[string]any
+		if err := common.Unmarshal(request, &reqMap); err == nil && reqMap != nil {
+			if _, ok := reqMap["sessionId"]; !ok {
+				reqMap["sessionId"] = fmt.Sprintf("-%d", rand.Int63()&0x7FFFFFFFFFFFFFFF)
+			}
+			if updatedReq, err := common.Marshal(reqMap); err == nil {
+				request = updatedReq
+			}
 		}
 		reqType := "agent"
 		if strings.Contains(info.UpstreamModelName, "image") {

@@ -28,9 +28,17 @@ async function result(request) {
 
 export const clientAuth = {
   test: async (account) => {
+    const modelList = (account.models || '')
+      .split(',')
+      .map((m) => m.trim())
+      .filter(Boolean);
+    let selectedModel = modelList[0] || 'default';
+    if (account.provider === 'antigravity' && modelList.includes('gemini-3-flash')) {
+      selectedModel = 'gemini-3-flash';
+    }
     const response = await API.get(`/api/channel/test/${account.id}`, {
       params: {
-        model: account.models.split(',')[0],
+        model: selectedModel,
         endpoint_type:
           account.provider === 'codex' ? 'openai-response' : 'openai',
         stream: true,
@@ -74,4 +82,14 @@ export const clientAuth = {
     result(API.post('/api/channel/client_auth/create_channel', payload)),
   status: (id, status) =>
     result(API.post(`/api/channel/${id}/status`, { status })),
+  quota: async (id, signal) => {
+    const response = await API.get(`/api/channel/client_auth/quota/${id}`, {
+      signal,
+      disableDuplicate: true,
+    });
+    if (!response.data?.success) {
+      throw new Error(response.data?.message || 'Quota query failed');
+    }
+    return response.data;
+  },
 };

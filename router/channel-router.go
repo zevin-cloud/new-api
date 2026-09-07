@@ -49,6 +49,7 @@ var channelPermissionRoutes = []permissionRoute{
 	{method: http.MethodPost, path: "/client_auth/poll", permission: authz.ChannelSensitiveWrite, handler: controller.PollClientAuth},
 	{method: http.MethodPost, path: "/client_auth/exchange", permission: authz.ChannelSensitiveWrite, handler: controller.ExchangeClientOAuth},
 	{method: http.MethodPost, path: "/client_auth/create_channel", permission: authz.ChannelSensitiveWrite, handler: controller.CreateChannelWithClientToken},
+	{method: http.MethodGet, path: "/client_auth/quota/:id", permission: authz.ChannelRead, handler: controller.GetClientChannelQuota},
 
 	{method: http.MethodGet, path: "/:id", permission: authz.ChannelRead, handler: controller.GetChannel},
 	{method: http.MethodGet, path: "/test", permission: authz.ChannelOperate, handler: controller.TestAllChannels},

@@ -65,24 +65,28 @@ type AuthInitResult struct {
 	ExpiresIn       int      `json:"expires_in"`
 	Interval        int      `json:"interval,omitempty"`
 	Instructions    string   `json:"instructions"`
+	DefaultModels   []string `json:"default_models,omitempty"`
 }
 
 // AuthSession 内部认证会话
 type AuthSession struct {
-	mu           sync.Mutex
-	OwnerID      int
-	NextPollAt   time.Time
-	ChannelID    int
-	ID           string
-	Provider     string
-	AuthType     AuthType
-	Status       AuthStatus
-	DeviceCode   string
-	UserCode     string
-	CodeVerifier string
-	ErrorMsg     string
-	TokenResult  *TokenBundle
-	CreatedAt    time.Time
-	ExpiresAt    time.Time
-	PollInterval time.Duration
+	mu            sync.Mutex
+	OwnerID       int
+	NextPollAt    time.Time
+	ChannelID     int
+	ID            string
+	Provider      string
+	AuthType      AuthType
+	Status        AuthStatus
+	DeviceCode    string
+	UserCode      string
+	CodeVerifier  string
+	ErrorMsg      string
+	TokenResult   *TokenBundle
+	DefaultName   string
+	DefaultModels []string
+	Email         string
+	CreatedAt     time.Time
+	ExpiresAt     time.Time
+	PollInterval  time.Duration
 }

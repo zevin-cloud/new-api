@@ -110,6 +110,7 @@ func (m *AuthManager) InitAuth(ctx context.Context, provider string) (*AuthInitR
 			ExpiresIn:       devResp.ExpiresIn,
 			Interval:        devResp.Interval,
 			Instructions:    "请在浏览器中打开授权链接，确认授权码并完成 Kimi 登录",
+			DefaultModels:   GetProviderDefaultModels(provider),
 		}, nil
 
 	case "codex":
@@ -144,6 +145,7 @@ func (m *AuthManager) InitAuth(ctx context.Context, provider string) (*AuthInitR
 			ExpiresIn:       900,
 			Interval:        devResp.Interval,
 			Instructions:    fmt.Sprintf("请访问 %s，输入验证码: %s 授权登录", codexDeviceVerificationURL, devResp.UserCode),
+			DefaultModels:   GetProviderDefaultModels(provider),
 		}, nil
 
 	case "antigravity":
@@ -169,12 +171,13 @@ func (m *AuthManager) InitAuth(ctx context.Context, provider string) (*AuthInitR
 		m.mu.Unlock()
 
 		return &AuthInitResult{
-			SessionID:    sessionID,
-			Provider:     provider,
-			AuthType:     AuthTypeOAuthPKCE,
-			AuthURL:      authURL,
-			ExpiresIn:    600,
-			Instructions: "请点击授权链接，在 Google 授权页面登录并获取授权码贴回",
+			SessionID:     sessionID,
+			Provider:      provider,
+			AuthType:      AuthTypeOAuthPKCE,
+			AuthURL:       authURL,
+			ExpiresIn:     600,
+			Instructions:  "请点击授权链接，在 Google 授权页面登录并获取授权码贴回",
+			DefaultModels: GetProviderDefaultModels(provider),
 		}, nil
 
 	case "claude":
@@ -200,12 +203,13 @@ func (m *AuthManager) InitAuth(ctx context.Context, provider string) (*AuthInitR
 		m.mu.Unlock()
 
 		return &AuthInitResult{
-			SessionID:    sessionID,
-			Provider:     provider,
-			AuthType:     AuthTypeOAuthPKCE,
-			AuthURL:      authURL,
-			ExpiresIn:    600,
-			Instructions: "请点击授权链接，在 Claude 官方页面登录授权后贴回授权码",
+			SessionID:     sessionID,
+			Provider:      provider,
+			AuthType:      AuthTypeOAuthPKCE,
+			AuthURL:       authURL,
+			ExpiresIn:     600,
+			Instructions:  "请点击授权链接，在 Claude 官方页面登录授权后贴回授权码",
+			DefaultModels: GetProviderDefaultModels(provider),
 		}, nil
 
 	default:
@@ -254,6 +258,8 @@ func (m *AuthManager) PollAuth(ctx context.Context, sessionID string) (*AuthSess
 			if !pending && token != nil {
 				session.Status = AuthStatusSuccess
 				session.TokenResult = token
+				session.DefaultModels = GetProviderDefaultModels("kimi")
+				session.DefaultName = "Kimi Code"
 			}
 		case "codex":
 			token, pending, err := PollCodexToken(ctx, session.DeviceCode, session.UserCode)
@@ -265,11 +271,33 @@ func (m *AuthManager) PollAuth(ctx context.Context, sessionID string) (*AuthSess
 			if !pending && token != nil {
 				session.Status = AuthStatusSuccess
 				session.TokenResult = token
+				session.DefaultModels = GetProviderDefaultModels("codex")
+				session.Email = token.Email
+				if token.Email != "" {
+					session.DefaultName = fmt.Sprintf("ChatGPT / Codex (%s)", token.Email)
+				} else {
+					session.DefaultName = "ChatGPT / Codex"
+				}
 			}
 		}
 	}
 
 	return session.snapshot(), nil
+}
+
+func providerTitle(provider string) string {
+	switch strings.ToLower(provider) {
+	case "antigravity":
+		return "Antigravity"
+	case "codex":
+		return "ChatGPT / Codex"
+	case "claude":
+		return "Claude Code"
+	case "kimi":
+		return "Kimi Code"
+	default:
+		return provider
+	}
 }
 
 // ExchangeOAuthCode 手动回填 OAuth 授权码换取 Token
@@ -290,6 +318,7 @@ func (m *AuthManager) ExchangeOAuthCode(ctx context.Context, sessionID string, c
 	if time.Now().After(session.ExpiresAt) || session.Status != AuthStatusPending {
 		return nil, fmt.Errorf("authorization session expired or already used")
 	}
+
 	callback, parseErr := url.Parse(strings.TrimSpace(code))
 	if parseErr != nil || callback.Query().Get("state") != session.ID || callback.Query().Get("code") == "" {
 		return nil, fmt.Errorf("paste the complete callback URL including code and state")
@@ -303,6 +332,7 @@ func (m *AuthManager) ExchangeOAuthCode(ctx context.Context, sessionID string, c
 		return nil, fmt.Errorf("invalid OAuth callback URL")
 	}
 	code = callback.Query().Get("code")
+
 	var token *TokenBundle
 	var err error
 
@@ -323,6 +353,30 @@ func (m *AuthManager) ExchangeOAuthCode(ctx context.Context, sessionID string, c
 
 	session.Status = AuthStatusSuccess
 	session.TokenResult = token
+	session.Email = token.Email
+
+	// Auto-discover/onboard project & fetch available models for Antigravity
+	if session.Provider == "antigravity" {
+		if token.ProjectID == "" {
+			if project, errProject := DiscoverAntigravityProject(ctx, token.AccessToken); errProject == nil && project != "" {
+				token.ProjectID = project
+			}
+		}
+		session.DefaultModels = FetchAntigravityAvailableModels(ctx, token.AccessToken)
+		if token.Email != "" {
+			session.DefaultName = fmt.Sprintf("Antigravity (%s)", token.Email)
+		} else {
+			session.DefaultName = "Antigravity"
+		}
+	} else if session.Provider == "claude" {
+		session.DefaultModels = GetProviderDefaultModels("claude")
+		if token.Email != "" {
+			session.DefaultName = fmt.Sprintf("Claude Code (%s)", token.Email)
+		} else {
+			session.DefaultName = "Claude Code"
+		}
+	}
+
 	return token, nil
 }
 
@@ -334,7 +388,19 @@ func GetProviderDefaultModels(provider string) []string {
 	case "codex":
 		return []string{"gpt-4o", "gpt-4o-mini", "o1", "o1-mini", "o3-mini", "chatgpt-4o-latest"}
 	case "antigravity":
-		return []string{"gemini-2.5-pro", "gemini-2.5-flash", "claude-3-7-sonnet", "claude-3-5-sonnet"}
+		return []string{
+			"gemini-3-flash",
+			"claude-sonnet-4-6",
+			"claude-opus-4-6-thinking",
+			"gemini-3.6-flash-high",
+			"gemini-3.7-flash-high",
+			"gemini-3.8-flash-high",
+			"gemini-3.1-flash-image",
+			"gemini-pro-agent",
+			"gemini-3.1-pro-low",
+			"gpt-oss-120b-medium",
+			"gemini-3.1-flash-lite",
+		}
 	case "claude":
 		return []string{"claude-3-7-sonnet-20250219", "claude-3-7-sonnet-thought", "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"}
 	default:
@@ -380,5 +446,13 @@ func (m *AuthManager) CreateChannel(ctx context.Context, id string, create func(
 
 // snapshot exposes progress without sharing mutable session state or credentials.
 func (s *AuthSession) snapshot() *AuthSession {
-	return &AuthSession{ID: s.ID, Provider: s.Provider, Status: s.Status, ErrorMsg: s.ErrorMsg}
+	return &AuthSession{
+		ID:            s.ID,
+		Provider:      s.Provider,
+		Status:        s.Status,
+		ErrorMsg:      s.ErrorMsg,
+		DefaultName:   s.DefaultName,
+		DefaultModels: s.DefaultModels,
+		Email:         s.Email,
+	}
 }
