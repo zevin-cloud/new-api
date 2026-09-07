@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -28,6 +29,14 @@ type ModelGrant struct {
 	QuotaScope     int    `json:"quota_scope" gorm:"type:int;not null;default:0"` // 0: shared, 1: per_member
 	GrantQuota     int64  `json:"grant_quota" gorm:"type:bigint;not null;default:0"`
 	UsedQuota      int64  `json:"used_quota" gorm:"type:bigint;not null;default:0"`
+	GrantTokens    int64  `json:"grant_tokens" gorm:"type:bigint;not null;default:0"`
+	UsedTokens     int64  `json:"used_tokens" gorm:"type:bigint;not null;default:0"`
+	GrantCalls     int64  `json:"grant_calls" gorm:"type:bigint;not null;default:0"`
+	UsedCalls      int64  `json:"used_calls" gorm:"type:bigint;not null;default:0"`
+	PeriodType     int    `json:"period_type" gorm:"type:int;not null;default:0"` // 0: none/total, 1: daily, 2: monthly, 3: interval
+	PeriodInterval int    `json:"period_interval" gorm:"type:int;not null;default:1"`
+	PeriodUnit     string `json:"period_unit" gorm:"type:varchar(16);not null;default:'day'"`
+	PeriodStart    int64  `json:"period_start" gorm:"type:bigint;not null;default:0"`
 	MaxConcurrency int    `json:"max_concurrency" gorm:"type:int;not null;default:0"`
 	ExpiredAt      int64  `json:"expired_at" gorm:"bigint;default:0"` // 0 = never expires
 	GrantedBy      int    `json:"granted_by" gorm:"type:int;default:0"`
@@ -52,6 +61,14 @@ type EffectiveGrantPolicy struct {
 	QuotaScope     int    `json:"quota_scope"`
 	GrantQuota     int64  `json:"grant_quota"`
 	UsedQuota      int64  `json:"used_quota"`
+	GrantTokens    int64  `json:"grant_tokens"`
+	UsedTokens     int64  `json:"used_tokens"`
+	GrantCalls     int64  `json:"grant_calls"`
+	UsedCalls      int64  `json:"used_calls"`
+	PeriodType     int    `json:"period_type"`
+	PeriodInterval int    `json:"period_interval"`
+	PeriodUnit     string `json:"period_unit"`
+	PeriodStart    int64  `json:"period_start"`
 	MaxConcurrency int    `json:"max_concurrency"`
 	ExpiredAt      int64  `json:"expired_at"`
 }
@@ -179,6 +196,7 @@ func filteredModelGrants(subjectType int, subjectId int, modelSetId int, status 
 	if keyword = strings.TrimSpace(keyword); keyword != "" {
 		pattern := "%" + keyword + "%"
 		matching := DB.Where("model_set_id IN (?)", DB.Model(&ModelSet{}).Select("id").Where("name LIKE ?", pattern)).
+			Or("batch_id IN (?)", DB.Model(&ModelGrantBatch{}).Select("id").Where("name LIKE ?", pattern)).
 			Or("subject_type = ? AND subject_id IN (?)", SubjectTypeUser, DB.Model(&User{}).Select("id").Where("username LIKE ? OR display_name LIKE ?", pattern, pattern)).
 			Or("subject_type = ? AND subject_id IN (?)", SubjectTypeDepartment, DB.Model(&Department{}).Select("id").Where("name LIKE ?", pattern)).
 			Or("subject_type = ? AND subject_id IN (?)", SubjectTypeUserGroup, DB.Model(&UserGroup{}).Select("id").Where("name LIKE ?", pattern))
@@ -537,16 +555,48 @@ func GetEffectiveGrantPolicyForUser(userId int, modelName string) (*EffectiveGra
 
 	grantQuota := bestGrant.GrantQuota
 	usedQuota := bestGrant.UsedQuota
+	grantTokens := bestGrant.GrantTokens
+	usedTokens := bestGrant.UsedTokens
+	grantCalls := bestGrant.GrantCalls
+	usedCalls := bestGrant.UsedCalls
+	periodType := bestGrant.PeriodType
+	periodInterval := bestGrant.PeriodInterval
+	periodUnit := bestGrant.PeriodUnit
+	periodStart := bestGrant.PeriodStart
+
 	if bestGrant.QuotaScope == 0 && bestGrant.BatchId > 0 {
 		var batch ModelGrantBatch
-		if err := DB.Select("id", "grant_quota", "used_quota").First(&batch, bestGrant.BatchId).Error; err == nil {
+		if err := DB.Select("id", "grant_quota", "used_quota", "grant_tokens", "used_tokens", "grant_calls", "used_calls", "period_type", "period_interval", "period_unit", "period_start").First(&batch, bestGrant.BatchId).Error; err == nil {
+			CheckAndResetBatchPeriod(&batch)
 			if batch.GrantQuota > 0 {
 				grantQuota = batch.GrantQuota
 			}
 			if batch.UsedQuota > usedQuota {
 				usedQuota = batch.UsedQuota
 			}
+			if batch.GrantTokens > 0 {
+				grantTokens = batch.GrantTokens
+			}
+			if batch.UsedTokens > usedTokens {
+				usedTokens = batch.UsedTokens
+			}
+			if batch.GrantCalls > 0 {
+				grantCalls = batch.GrantCalls
+			}
+			if batch.UsedCalls > usedCalls {
+				usedCalls = batch.UsedCalls
+			}
+			periodType = batch.PeriodType
+			periodInterval = batch.PeriodInterval
+			periodUnit = batch.PeriodUnit
+			periodStart = batch.PeriodStart
 		}
+	} else {
+		CheckAndResetGrantPeriod(bestGrant)
+		usedQuota = bestGrant.UsedQuota
+		usedTokens = bestGrant.UsedTokens
+		usedCalls = bestGrant.UsedCalls
+		periodStart = bestGrant.PeriodStart
 	}
 
 	return &EffectiveGrantPolicy{
@@ -559,29 +609,204 @@ func GetEffectiveGrantPolicyForUser(userId int, modelName string) (*EffectiveGra
 		QuotaScope:     bestGrant.QuotaScope,
 		GrantQuota:     grantQuota,
 		UsedQuota:      usedQuota,
+		GrantTokens:    grantTokens,
+		UsedTokens:     usedTokens,
+		GrantCalls:     grantCalls,
+		UsedCalls:      usedCalls,
+		PeriodType:     periodType,
+		PeriodInterval: periodInterval,
+		PeriodUnit:     periodUnit,
+		PeriodStart:    periodStart,
 		MaxConcurrency: bestGrant.MaxConcurrency,
 		ExpiredAt:      bestGrant.ExpiredAt,
 	}, nil
 }
 
-// IncreaseGrantUsedQuota increments the used_quota for a grant and its batch.
-func IncreaseGrantUsedQuota(grantId int, quota int64) error {
-	if grantId <= 0 || quota <= 0 {
+// CalculatePeriodStart computes the start timestamp of the current cycle.
+func CalculatePeriodStart(periodType int, periodInterval int, periodUnit string, t time.Time) int64 {
+	loc := t.Location()
+	switch periodType {
+	case 1: // Daily
+		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc).Unix()
+	case 2: // Monthly
+		return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, loc).Unix()
+	case 3: // Custom interval
+		if periodInterval <= 0 {
+			periodInterval = 1
+		}
+		switch periodUnit {
+		case "hour":
+			return t.Truncate(time.Duration(periodInterval) * time.Hour).Unix()
+		case "week":
+			weekday := int(t.Weekday())
+			if weekday == 0 {
+				weekday = 7
+			}
+			startOfWeek := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, -(weekday - 1))
+			return startOfWeek.Unix()
+		case "month":
+			return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, loc).Unix()
+		default: // "day"
+			return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc).Unix()
+		}
+	default:
+		return 0
+	}
+}
+
+// IsGrantPeriodExpired checks whether the period starting at periodStart has elapsed by now.
+func IsGrantPeriodExpired(periodType int, periodInterval int, periodUnit string, periodStart int64, now int64) bool {
+	if periodType <= 0 || periodStart <= 0 {
+		return false
+	}
+	t := time.Unix(now, 0)
+	switch periodType {
+	case 1: // Daily
+		curStart := CalculatePeriodStart(1, 1, "day", t)
+		return periodStart < curStart
+	case 2: // Monthly
+		curStart := CalculatePeriodStart(2, 1, "month", t)
+		return periodStart < curStart
+	case 3: // Interval
+		if periodInterval <= 0 {
+			periodInterval = 1
+		}
+		switch periodUnit {
+		case "hour":
+			return now >= periodStart+int64(periodInterval)*3600
+		case "week":
+			return now >= periodStart+int64(periodInterval)*7*86400
+		case "month":
+			curStart := CalculatePeriodStart(2, 1, "month", t)
+			return periodStart < curStart
+		default: // "day"
+			return now >= periodStart+int64(periodInterval)*86400
+		}
+	}
+	return false
+}
+
+// CheckAndResetGrantPeriod resets the used quota, tokens, and calls for an individual grant if expired.
+func CheckAndResetGrantPeriod(grant *ModelGrant) bool {
+	if grant == nil || grant.Id <= 0 || grant.PeriodType <= 0 {
+		return false
+	}
+	now := common.GetTimestamp()
+	if !IsGrantPeriodExpired(grant.PeriodType, grant.PeriodInterval, grant.PeriodUnit, grant.PeriodStart, now) {
+		return false
+	}
+	newStart := CalculatePeriodStart(grant.PeriodType, grant.PeriodInterval, grant.PeriodUnit, time.Unix(now, 0))
+	grant.UsedQuota = 0
+	grant.UsedTokens = 0
+	grant.UsedCalls = 0
+	grant.PeriodStart = newStart
+	_ = DB.Model(&ModelGrant{}).Where("id = ? AND period_start < ?", grant.Id, newStart).
+		Updates(map[string]interface{}{
+			"used_quota":   0,
+			"used_tokens":  0,
+			"used_calls":   0,
+			"period_start": newStart,
+		})
+	return true
+}
+
+// CheckAndResetBatchPeriod resets the used quota, tokens, and calls for a batch if expired.
+func CheckAndResetBatchPeriod(batch *ModelGrantBatch) bool {
+	if batch == nil || batch.Id <= 0 || batch.PeriodType <= 0 {
+		return false
+	}
+	now := common.GetTimestamp()
+	if !IsGrantPeriodExpired(batch.PeriodType, batch.PeriodInterval, batch.PeriodUnit, batch.PeriodStart, now) {
+		return false
+	}
+	newStart := CalculatePeriodStart(batch.PeriodType, batch.PeriodInterval, batch.PeriodUnit, time.Unix(now, 0))
+	batch.UsedQuota = 0
+	batch.UsedTokens = 0
+	batch.UsedCalls = 0
+	batch.PeriodStart = newStart
+	_ = DB.Model(&ModelGrantBatch{}).Where("id = ? AND period_start < ?", batch.Id, newStart).
+		Updates(map[string]interface{}{
+			"used_quota":   0,
+			"used_tokens":  0,
+			"used_calls":   0,
+			"period_start": newStart,
+		})
+	_ = DB.Model(&ModelGrant{}).Where("batch_id = ? AND period_start < ?", batch.Id, newStart).
+		Updates(map[string]interface{}{
+			"used_quota":   0,
+			"used_tokens":  0,
+			"used_calls":   0,
+			"period_start": newStart,
+		})
+	return true
+}
+
+// ResetGrantPeriodPolicy resets policy in-memory and in DB if expired.
+func ResetGrantPeriodPolicy(policy *EffectiveGrantPolicy) error {
+	if policy == nil || policy.PeriodType <= 0 {
+		return nil
+	}
+	now := common.GetTimestamp()
+	newStart := CalculatePeriodStart(policy.PeriodType, policy.PeriodInterval, policy.PeriodUnit, time.Unix(now, 0))
+	policy.UsedQuota = 0
+	policy.UsedTokens = 0
+	policy.UsedCalls = 0
+	policy.PeriodStart = newStart
+	if policy.GrantId > 0 {
+		_ = DB.Model(&ModelGrant{}).Where("id = ? AND period_start < ?", policy.GrantId, newStart).
+			Updates(map[string]interface{}{
+				"used_quota":   0,
+				"used_tokens":  0,
+				"used_calls":   0,
+				"period_start": newStart,
+			})
+	}
+	if policy.BatchId > 0 {
+		_ = DB.Model(&ModelGrantBatch{}).Where("id = ? AND period_start < ?", policy.BatchId, newStart).
+			Updates(map[string]interface{}{
+				"used_quota":   0,
+				"used_tokens":  0,
+				"used_calls":   0,
+				"period_start": newStart,
+			})
+	}
+	return nil
+}
+
+// IncreaseGrantUsedUsage increments used_quota, used_tokens, and used_calls for a grant and its batch.
+func IncreaseGrantUsedUsage(grantId int, quota int64, tokens int64, calls int64) error {
+	if grantId <= 0 {
 		return nil
 	}
 	var grant ModelGrant
 	if err := DB.Select("id", "batch_id").First(&grant, grantId).Error; err != nil {
 		return err
 	}
-	if err := DB.Model(&ModelGrant{}).Where("id = ?", grantId).
-		Update("used_quota", gorm.Expr("used_quota + ?", quota)).Error; err != nil {
+	updates := map[string]interface{}{}
+	if quota > 0 {
+		updates["used_quota"] = gorm.Expr("used_quota + ?", quota)
+	}
+	if tokens > 0 {
+		updates["used_tokens"] = gorm.Expr("used_tokens + ?", tokens)
+	}
+	if calls > 0 {
+		updates["used_calls"] = gorm.Expr("used_calls + ?", calls)
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+	if err := DB.Model(&ModelGrant{}).Where("id = ?", grantId).Updates(updates).Error; err != nil {
 		return err
 	}
 	if grant.BatchId > 0 {
-		_ = DB.Model(&ModelGrantBatch{}).Where("id = ?", grant.BatchId).
-			Update("used_quota", gorm.Expr("used_quota + ?", quota)).Error
+		_ = DB.Model(&ModelGrantBatch{}).Where("id = ?", grant.BatchId).Updates(updates).Error
 	}
 	return nil
+}
+
+// IncreaseGrantUsedQuota increments the used_quota for a grant and its batch.
+func IncreaseGrantUsedQuota(grantId int, quota int64) error {
+	return IncreaseGrantUsedUsage(grantId, quota, 0, 0)
 }
 
 // DecreaseGrantUsedQuota decrements the used_quota for a grant and its batch, preventing negative values.
@@ -616,8 +841,13 @@ func TryReserveGrantQuota(grantId int, batchId int, quotaScope int, quota int64)
 	}
 
 	if quotaScope == 0 && batchId > 0 {
+		var batch ModelGrantBatch
+		if err := DB.Select("id", "period_type", "period_interval", "period_unit", "period_start").First(&batch, batchId).Error; err == nil {
+			CheckAndResetBatchPeriod(&batch)
+		}
+
 		result := DB.Model(&ModelGrantBatch{}).
-			Where("id = ? AND (grant_quota = 0 OR used_quota + ? <= grant_quota)", batchId, quota).
+			Where("id = ? AND (grant_quota = 0 OR used_quota + ? <= grant_quota) AND (grant_tokens = 0 OR used_tokens < grant_tokens) AND (grant_calls = 0 OR used_calls < grant_calls)", batchId, quota).
 			Update("used_quota", gorm.Expr("used_quota + ?", quota))
 		if result.Error != nil || result.RowsAffected == 0 {
 			return false, result.Error
@@ -627,8 +857,13 @@ func TryReserveGrantQuota(grantId int, batchId int, quotaScope int, quota int64)
 		return true, nil
 	}
 
+	var grant ModelGrant
+	if err := DB.Select("id", "period_type", "period_interval", "period_unit", "period_start").First(&grant, grantId).Error; err == nil {
+		CheckAndResetGrantPeriod(&grant)
+	}
+
 	result := DB.Model(&ModelGrant{}).
-		Where("id = ? AND (grant_quota = 0 OR used_quota + ? <= grant_quota)", grantId, quota).
+		Where("id = ? AND (grant_quota = 0 OR used_quota + ? <= grant_quota) AND (grant_tokens = 0 OR used_tokens < grant_tokens) AND (grant_calls = 0 OR used_calls < grant_calls)", grantId, quota).
 		Update("used_quota", gorm.Expr("used_quota + ?", quota))
 	if result.Error != nil || result.RowsAffected == 0 {
 		return false, result.Error

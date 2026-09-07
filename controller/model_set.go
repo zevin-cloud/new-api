@@ -210,6 +210,7 @@ func DeleteModelSet(c *gin.Context) {
 }
 
 type GrantModelSetRequest struct {
+	Name           string   `json:"name"`
 	DepartmentIds  []int    `json:"department_ids"`
 	GroupIds       []int    `json:"group_ids"`
 	UserIds        []int    `json:"user_ids"`
@@ -221,6 +222,11 @@ type GrantModelSetRequest struct {
 	QuotaType      int      `json:"quota_type"`
 	QuotaScope     int      `json:"quota_scope"`
 	GrantQuota     int64    `json:"grant_quota"`
+	GrantTokens    int64    `json:"grant_tokens"`
+	GrantCalls     int64    `json:"grant_calls"`
+	PeriodType     int      `json:"period_type"`
+	PeriodInterval int      `json:"period_interval"`
+	PeriodUnit     string   `json:"period_unit"`
 	MaxConcurrency int      `json:"max_concurrency"`
 	DurationDays   int      `json:"duration_days"` // 0 = permanent
 	ExpiredAt      int64    `json:"expired_at"`
@@ -421,19 +427,25 @@ func GrantModelSet(c *gin.Context) {
 	for id := range targetUsers {
 		subjects = append(subjects, model.ModelGrantSubject{Type: model.SubjectTypeUser, Id: id})
 	}
-	batch, err := model.CreateModelGrantBatch(
-		subjects,
-		setIds,
-		req.ModelNames,
-		req.CustomSetName,
-		"",
-		req.QuotaType,
-		req.GrantQuota,
-		req.QuotaScope,
-		req.MaxConcurrency,
-		expiredAt,
-		actorId,
-	)
+	batch, err := model.CreateModelGrantBatchEx(model.CreateModelGrantBatchInput{
+		Name:           req.Name,
+		Subjects:       subjects,
+		SetIds:         setIds,
+		ModelNames:     req.ModelNames,
+		CustomSetName:  req.CustomSetName,
+		RoutingGroup:   req.RoutingGroup,
+		QuotaType:      req.QuotaType,
+		QuotaScope:     req.QuotaScope,
+		GrantQuota:     req.GrantQuota,
+		GrantTokens:    req.GrantTokens,
+		GrantCalls:     req.GrantCalls,
+		PeriodType:     req.PeriodType,
+		PeriodInterval: req.PeriodInterval,
+		PeriodUnit:     req.PeriodUnit,
+		MaxConcurrency: req.MaxConcurrency,
+		ExpiresAt:      expiredAt,
+		ActorId:        actorId,
+	})
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
 		return

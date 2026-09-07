@@ -76,4 +76,11 @@ var channelPermissionRoutes = []permissionRoute{
 	{method: http.MethodPost, path: "/upstream_updates/apply_all", permission: authz.ChannelWrite, handler: controller.ApplyAllChannelUpstreamModelUpdates},
 	{method: http.MethodPost, path: "/upstream_updates/detect", permission: authz.ChannelOperate, handler: controller.DetectChannelUpstreamModelUpdates},
 	{method: http.MethodPost, path: "/upstream_updates/detect_all", permission: authz.ChannelOperate, handler: controller.DetectAllChannelUpstreamModelUpdates},
+
+	{method: http.MethodGet, path: "/client_auth/channels", permission: authz.ChannelRead, handler: controller.GetClientChannels},
+	{method: http.MethodGet, path: "/client_auth/providers", permission: authz.ChannelRead, handler: controller.GetClientAuthProviders},
+	{method: http.MethodPost, path: "/client_auth/init", permission: authz.ChannelSensitiveWrite, handler: controller.InitClientAuth},
+	{method: http.MethodPost, path: "/client_auth/poll", permission: authz.ChannelSensitiveWrite, handler: controller.PollClientAuth},
+	{method: http.MethodPost, path: "/client_auth/exchange", permission: authz.ChannelSensitiveWrite, handler: controller.ExchangeClientOAuth},
+	{method: http.MethodPost, path: "/client_auth/create_channel", permission: authz.ChannelSensitiveWrite, handler: controller.CreateChannelWithClientToken},
 }

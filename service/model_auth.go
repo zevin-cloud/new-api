@@ -8,6 +8,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
@@ -203,8 +204,19 @@ func ValidateUserAndTokenModelAccess(c *gin.Context, userId int, requestedModel 
 		}
 	}
 	if policy != nil {
-		if policy.QuotaType == 1 && policy.GrantQuota > 0 && policy.UsedQuota >= policy.GrantQuota {
-			return false, fmt.Sprintf("当前授权单模型 %s 专项预算额度已耗尽，请联系管理员增加额度", requestedModel)
+		if policy.PeriodType > 0 && model.IsGrantPeriodExpired(policy.PeriodType, policy.PeriodInterval, policy.PeriodUnit, policy.PeriodStart, common.GetTimestamp()) {
+			_ = model.ResetGrantPeriodPolicy(policy)
+		}
+		if policy.QuotaType == 1 {
+			if policy.GrantQuota > 0 && policy.UsedQuota >= policy.GrantQuota {
+				return false, fmt.Sprintf("当前模型 %s 授权预算额度已耗尽 (已用 %s / 限额 %s)，请联系管理员增加额度", requestedModel, logger.FormatQuota(int(policy.UsedQuota)), logger.FormatQuota(int(policy.GrantQuota)))
+			}
+			if policy.GrantTokens > 0 && policy.UsedTokens >= policy.GrantTokens {
+				return false, fmt.Sprintf("当前模型 %s 授权 Token 数量已达上限 (已用 %d / 限额 %d Tokens)，请联系管理员增加额度", requestedModel, policy.UsedTokens, policy.GrantTokens)
+			}
+			if policy.GrantCalls > 0 && policy.UsedCalls >= policy.GrantCalls {
+				return false, fmt.Sprintf("当前模型 %s 授权请求调用次数已达上限 (已用 %d / 限额 %d 次)，请联系管理员增加额度", requestedModel, policy.UsedCalls, policy.GrantCalls)
+			}
 		}
 		if c != nil {
 			c.Set("effective_grant_policy", policy)

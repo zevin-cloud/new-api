@@ -83,9 +83,14 @@ it('keeps a selected individual as a direct grant when they are the only display
   fireEvent.click(member);
   fireEvent.click(screen.getByText('Select model sets...'));
   fireEvent.click(await screen.findByText('Research models'));
+  fireEvent.change(
+    screen.getByPlaceholderText(/请输入授权名称/),
+    { target: { value: '市场推广授权' } },
+  );
   fireEvent.click(screen.getByRole('button', { name: /Grant access/ }));
   await waitFor(() => expect(api.post).toHaveBeenCalled());
   expect(api.post.mock.calls[0][1]).toMatchObject({
+    name: '市场推广授权',
     department_ids: [],
     user_ids: [2],
     model_set_ids: [3],
@@ -116,4 +121,102 @@ it('shows unrestricted model access for administrators even when model metadata 
   expect(
     screen.queryByText('This user has no active model access'),
   ).not.toBeInTheDocument();
+});
+
+it('toggles advanced settings and submits multi-metric quota with custom reset period', async () => {
+  render(<CreateGrantModal visible onClose={vi.fn()} onSuccess={vi.fn()} />);
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: /Grant access/ })).toBeEnabled(),
+  );
+
+  // Select subject & model set
+  fireEvent.click(screen.getByText('Search departments or members...'));
+  const department = await screen.findByText(/^Research \(/);
+  fireEvent.click(
+    department
+      .closest('[role=treeitem]')
+      .querySelector('.semi-tree-option-expand-icon'),
+  );
+  const member = await screen.findByText('Alice (@alice)');
+  fireEvent.click(member);
+  fireEvent.click(screen.getByText('Select model sets...'));
+  fireEvent.click(await screen.findByText('Research models'));
+
+  // Open Advanced Settings (Desktop drawer)
+  const advancedTrigger = screen.getByText('向左展开');
+  fireEvent.click(advancedTrigger);
+
+  // Switch to quota limit mode
+  const quotaLimitRadio = await screen.findByText('启用多维配额限制');
+  fireEvent.click(quotaLimitRadio);
+
+  // Enable token quota
+  const tokenCheckbox = await screen.findByText('Token 数量限制 (Tokens)');
+  fireEvent.click(tokenCheckbox);
+  const tokenInput = screen.getByPlaceholderText(/1000000 Tokens/);
+  fireEvent.change(tokenInput, { target: { value: '2500000' } });
+
+  // Enable calls quota
+  const callCheckbox = screen.getByText('调用次数限制 (API 请求数)');
+  fireEvent.click(callCheckbox);
+  const callInput = screen.getByPlaceholderText(/例如 1000 次/);
+  fireEvent.change(callInput, { target: { value: '800' } });
+
+  // Select custom period
+  const customPeriodRadio = screen.getByText('自定义周期');
+  fireEvent.click(customPeriodRadio);
+
+  fireEvent.click(screen.getByRole('button', { name: /Grant access/ }));
+  await waitFor(() => expect(api.post).toHaveBeenCalled());
+  expect(api.post.mock.calls[0][1]).toMatchObject({
+    user_ids: [2],
+    model_set_ids: [3],
+    quota_type: 1,
+    grant_quota: 500000,
+    grant_tokens: 2500000,
+    grant_calls: 800,
+    period_type: 3,
+    period_interval: 1,
+    period_unit: 'day',
+  });
+});
+
+it('rejects submission when quota limit mode is enabled without selecting any metric', async () => {
+  render(<CreateGrantModal visible onClose={vi.fn()} onSuccess={vi.fn()} />);
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: /Grant access/ })).toBeEnabled(),
+  );
+
+  // Select subject & model set
+  fireEvent.click(screen.getByText('Search departments or members...'));
+  const department = await screen.findByText(/^Research \(/);
+  fireEvent.click(
+    department
+      .closest('[role=treeitem]')
+      .querySelector('.semi-tree-option-expand-icon'),
+  );
+  const member = await screen.findByText('Alice (@alice)');
+  fireEvent.click(member);
+  fireEvent.click(screen.getByText('Select model sets...'));
+  fireEvent.click(await screen.findByText('Research models'));
+
+  // Open Advanced Settings
+  fireEvent.click(screen.getByText('向左展开'));
+
+  // Switch to quota limit mode
+  fireEvent.click(await screen.findByText('启用多维配额限制'));
+
+  // Uncheck default quota checkbox
+  const quotaCheckbox = screen.getByText('价值金额限制 (Token 点数)');
+  fireEvent.click(quotaCheckbox);
+
+  api.post.mockClear();
+  showError.mockClear();
+
+  fireEvent.click(screen.getByRole('button', { name: /Grant access/ }));
+
+  expect(showError).toHaveBeenCalledWith(
+    expect.stringContaining('请至少选择一个限制维度'),
+  );
+  expect(api.post).not.toHaveBeenCalled();
 });

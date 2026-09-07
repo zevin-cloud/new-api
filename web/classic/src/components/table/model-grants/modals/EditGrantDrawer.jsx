@@ -63,10 +63,7 @@ const EditGrantDrawer = ({ visible, batchItem, onClose, onRevoke }) => {
     if (!batchItem) return null;
     if (batchItem.batch_id > 0) return batchItem.batch_id;
     if (batchItem.batchId > 0) return batchItem.batchId;
-    if (
-      typeof batchItem.id === 'string' &&
-      batchItem.id.startsWith('batch_')
-    ) {
+    if (typeof batchItem.id === 'string' && batchItem.id.startsWith('batch_')) {
       const parsed = parseInt(batchItem.id.replace('batch_', ''), 10);
       if (parsed > 0) return parsed;
     }
@@ -130,7 +127,7 @@ const EditGrantDrawer = ({ visible, batchItem, onClose, onRevoke }) => {
         u.display_name?.toLowerCase().includes(kw) ||
         u.email?.toLowerCase().includes(kw) ||
         u.department_name?.toLowerCase().includes(kw) ||
-        u.sources?.some((s) => s.toLowerCase().includes(kw))
+        u.sources?.some((s) => s.toLowerCase().includes(kw)),
     );
   }, [detail?.union_users, userKeyword]);
 
@@ -200,7 +197,8 @@ const EditGrantDrawer = ({ visible, batchItem, onClose, onRevoke }) => {
     const isExpired = detail.expired_at <= Date.now() / 1000;
     return (
       <Tag color={isExpired ? 'red' : 'orange'}>
-        {timestamp2string(detail.expired_at)} {isExpired ? `(${t('已过期')})` : ''}
+        {timestamp2string(detail.expired_at)}{' '}
+        {isExpired ? `(${t('已过期')})` : ''}
       </Tag>
     );
   }, [detail, t]);
@@ -208,6 +206,16 @@ const EditGrantDrawer = ({ visible, batchItem, onClose, onRevoke }) => {
   const overviewData = useMemo(() => {
     if (!detail) return [];
     return [
+      {
+        key: t('授权名称'),
+        value: detail.name ? (
+          <span className='font-semibold text-gray-800 dark:text-gray-200'>
+            {detail.name}
+          </span>
+        ) : (
+          <span className='text-gray-400'>-</span>
+        ),
+      },
       {
         key: t('授权编号'),
         value: `#${detail.batch_id || targetId || '-'}`,
@@ -248,7 +256,7 @@ const EditGrantDrawer = ({ visible, batchItem, onClose, onRevoke }) => {
             {t('编辑')}
           </Tag>
           <Title heading={4} className='m-0'>
-            {t('授权详情与管理')}
+            {detail?.name || t('授权详情与管理')}
             {targetId && (
               <span className='text-sm text-gray-500 font-normal ml-2 font-mono'>
                 (#{targetId})
@@ -261,12 +269,14 @@ const EditGrantDrawer = ({ visible, batchItem, onClose, onRevoke }) => {
       onCancel={onClose}
       width={isMobile ? '100%' : 660}
       footer={
-        <div className='flex justify-between items-center bg-white dark:bg-gray-900 p-3 w-full border-t border-gray-100 dark:border-gray-800'>
+        <div className='flex justify-between items-center bg-[var(--semi-color-bg-0)] p-3 w-full border-t border-[var(--semi-color-border)]'>
           <div>
             {batchItem && (
               <Popconfirm
                 title={t('确认撤销')}
-                content={t('确定撤销此次授权吗？撤销后相关成员将失去此授权的所有模型访问权限。')}
+                content={t(
+                  '确定撤销此次授权吗？撤销后相关成员将失去此授权的所有模型访问权限。',
+                )}
                 onConfirm={() => {
                   onRevoke?.(batchItem);
                   onClose();
@@ -278,7 +288,12 @@ const EditGrantDrawer = ({ visible, batchItem, onClose, onRevoke }) => {
               </Popconfirm>
             )}
           </div>
-          <Button theme='light' type='primary' onClick={onClose} icon={<IconClose />}>
+          <Button
+            theme='light'
+            type='primary'
+            onClick={onClose}
+            icon={<IconClose />}
+          >
             {t('关闭')}
           </Button>
         </div>
@@ -289,12 +304,12 @@ const EditGrantDrawer = ({ visible, batchItem, onClose, onRevoke }) => {
         {detail ? (
           <div className='p-3 space-y-4'>
             {/* 顶部指标卡片 */}
-            <Card className='!rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800'>
+            <Card className='!rounded-2xl shadow-sm border border-[var(--semi-color-border)]'>
               <Descriptions data={overviewData} row size='small' />
             </Card>
 
             {/* 1. 授权主体与覆盖成员 */}
-            <Card className='!rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800'>
+            <Card className='!rounded-2xl shadow-sm border border-[var(--semi-color-border)]'>
               <div className='flex items-center gap-2 mb-2'>
                 <IconUserGroup className='text-blue-500 text-lg' />
                 <Title heading={5} className='m-0'>
@@ -303,13 +318,19 @@ const EditGrantDrawer = ({ visible, batchItem, onClose, onRevoke }) => {
               </div>
 
               {/* 配置的主体规则 */}
-              <div className='mb-3 p-2.5 bg-gray-50 dark:bg-gray-800 rounded-xl'>
-                <Text type='secondary' className='text-xs block mb-1.5 font-medium'>
+              <div className='mb-3 p-2.5 bg-[var(--semi-color-fill-0)] rounded-xl'>
+                <Text
+                  type='secondary'
+                  className='text-xs block mb-1.5 font-medium'
+                >
                   {t('已授权主体规则')}:
                 </Text>
                 <div className='flex flex-wrap gap-1.5'>
                   {(detail.subjects || []).map((sub, idx) => {
-                    const meta = subjectTypeMeta[sub.type] || { color: 'grey', text: '' };
+                    const meta = subjectTypeMeta[sub.type] || {
+                      color: 'grey',
+                      text: '',
+                    };
                     return (
                       <Tag key={idx} color={meta.color}>
                         {meta.text}: {sub.name}
@@ -373,7 +394,7 @@ const EditGrantDrawer = ({ visible, batchItem, onClose, onRevoke }) => {
             </Card>
 
             {/* 2. 授权模型资源 */}
-            <Card className='!rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800'>
+            <Card className='!rounded-2xl shadow-sm border border-[var(--semi-color-border)]'>
               <div className='flex items-center gap-2 mb-2'>
                 <IconLayers className='text-green-500 text-lg' />
                 <Title heading={5} className='m-0'>
@@ -383,7 +404,10 @@ const EditGrantDrawer = ({ visible, batchItem, onClose, onRevoke }) => {
 
               {/* 所属模型集 */}
               <div className='mb-3'>
-                <Text type='secondary' className='text-xs block mb-1.5 font-medium'>
+                <Text
+                  type='secondary'
+                  className='text-xs block mb-1.5 font-medium'
+                >
                   {t('涵盖模型集')}:
                 </Text>
                 <div className='flex flex-wrap gap-1.5'>
@@ -419,7 +443,7 @@ const EditGrantDrawer = ({ visible, batchItem, onClose, onRevoke }) => {
                   />
                 </div>
 
-                <div className='max-h-56 overflow-y-auto p-3 border border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50 dark:bg-gray-800/50 flex flex-wrap gap-1.5'>
+                <div className='max-h-56 overflow-y-auto p-3 border border-[var(--semi-color-border)] rounded-xl bg-[var(--semi-color-fill-0)] flex flex-wrap gap-1.5'>
                   {filteredModels.length > 0 ? (
                     filteredModels.map((m, idx) => (
                       <Tag key={idx} color='green' size='large'>

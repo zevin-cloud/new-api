@@ -51,6 +51,7 @@ func TestUnifiedModelGrantAndChannelScheduling(t *testing.T) {
 	require.NoError(t, model.AddModelsToModelSet(set.Id, []string{"model-a", "model-b"}))
 
 	batch, err := model.CreateModelGrantBatch(
+		"",
 		[]model.ModelGrantSubject{{Type: model.SubjectTypeUser, Id: user.Id}},
 		[]int{set.Id},
 		nil,
@@ -138,6 +139,7 @@ func TestCappedGrantBudgetExhaustion(t *testing.T) {
 
 	// Grant 1000 quota
 	batch, err := model.CreateModelGrantBatch(
+		"",
 		[]model.ModelGrantSubject{{Type: model.SubjectTypeUser, Id: user.Id}},
 		[]int{set.Id},
 		nil,
@@ -178,5 +180,5 @@ func TestCappedGrantBudgetExhaustion(t *testing.T) {
 	c, _ = gin.CreateTestContext(httptest.NewRecorder())
 	allowed, msg = ValidateUserAndTokenModelAccess(c, user.Id, "model-x")
 	assert.False(t, allowed)
-	assert.Contains(t, msg, "专项预算额度已耗尽")
+	assert.Contains(t, msg, "预算额度已耗尽")
 }

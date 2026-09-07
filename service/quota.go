@@ -355,6 +355,10 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 		model.UpdateChannelUsedQuota(relayInfo.ChannelId, quota)
 	}
 
+	if usage != nil {
+		relayInfo.PromptTokens = usage.PromptTokens
+		relayInfo.CompletionTokens = usage.CompletionTokens
+	}
 	if err := SettleBilling(ctx, relayInfo, quota); err != nil {
 		logger.LogError(ctx, "error settling billing: "+err.Error())
 	}

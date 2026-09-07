@@ -197,6 +197,7 @@ func TestConcurrencyLimiter_GrantLimit(t *testing.T) {
 
 	// Grant with MaxConcurrency = 1
 	_, err := model.CreateModelGrantBatch(
+		"",
 		[]model.ModelGrantSubject{{Type: model.SubjectTypeUser, Id: user.Id}},
 		[]int{set.Id},
 		nil,

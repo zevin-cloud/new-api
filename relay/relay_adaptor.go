@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/baidu"
 	"github.com/QuantumNous/new-api/relay/channel/baidu_v2"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
+	"github.com/QuantumNous/new-api/relay/channel/clientoauth"
 	"github.com/QuantumNous/new-api/relay/channel/cloudflare"
 	"github.com/QuantumNous/new-api/relay/channel/codex"
 	"github.com/QuantumNous/new-api/relay/channel/cohere"
@@ -49,6 +50,8 @@ import (
 
 func GetAdaptor(apiType int) channel.Adaptor {
 	switch apiType {
+	case constant.APITypeClientOAuth:
+		return &clientoauth.Adaptor{}
 	case constant.APITypeAli:
 		return &ali.Adaptor{}
 	case constant.APITypeAnthropic:

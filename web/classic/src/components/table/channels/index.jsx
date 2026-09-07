@@ -17,8 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
-import { Banner } from '@douyinfe/semi-ui';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Banner, Tabs, TabPane } from '@douyinfe/semi-ui';
 import { IconAlertTriangle } from '@douyinfe/semi-icons';
 import CardPro from '../../common/ui/CardPro';
 import ChannelsTable from './ChannelsTable';
@@ -34,9 +35,12 @@ import EditChannelModal from './modals/EditChannelModal';
 import EditTagModal from './modals/EditTagModal';
 import MultiKeyManageModal from './modals/MultiKeyManageModal';
 import ChannelUpstreamUpdateModal from './modals/ChannelUpstreamUpdateModal';
+import ClientChannels from './ClientChannels';
 import { createCardProPagination } from '../../../helpers/utils';
 
 const ChannelsPage = () => {
+  const { t } = useTranslation();
+  const [source, setSource] = useState('api');
   const channelsData = useChannelsData();
   const isMobile = useIsMobile();
 
@@ -74,41 +78,56 @@ const ChannelsPage = () => {
         onCancel={channelsData.closeUpstreamUpdateModal}
       />
 
-      {/* Main Content */}
-      {channelsData.globalPassThroughEnabled ? (
-        <Banner
-          type='warning'
-          closeIcon={null}
-          icon={
-            <IconAlertTriangle
-              size='large'
-              style={{ color: 'var(--semi-color-warning)' }}
-            />
-          }
-          description={channelsData.t(
-            '已开启全局请求透传：参数覆写、模型重定向、渠道适配等 NewAPI 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。',
-          )}
-          style={{ marginBottom: 12 }}
-        />
-      ) : null}
-      <CardPro
-        type='type3'
-        tabsArea={<ChannelsTabs {...channelsData} />}
-        actionsArea={<ChannelsActions {...channelsData} />}
-        searchArea={<ChannelsFilters {...channelsData} />}
-        paginationArea={createCardProPagination({
-          currentPage: channelsData.activePage,
-          pageSize: channelsData.pageSize,
-          total: channelsData.channelCount,
-          onPageChange: channelsData.handlePageChange,
-          onPageSizeChange: channelsData.handlePageSizeChange,
-          isMobile: isMobile,
-          t: channelsData.t,
-        })}
-        t={channelsData.t}
+      <Tabs
+        type='line'
+        activeKey={source}
+        onChange={setSource}
+        className='mb-4'
       >
-        <ChannelsTable {...channelsData} />
-      </CardPro>
+        <TabPane itemKey='api' tab={t('API')} />
+        <TabPane itemKey='clients' tab={t('Clients')} />
+      </Tabs>
+      {source === 'clients' ? (
+        <ClientChannels groupOptions={channelsData.groupOptions} />
+      ) : (
+        <>
+          {/* Main Content */}
+          {channelsData.globalPassThroughEnabled ? (
+            <Banner
+              type='warning'
+              closeIcon={null}
+              icon={
+                <IconAlertTriangle
+                  size='large'
+                  style={{ color: 'var(--semi-color-warning)' }}
+                />
+              }
+              description={channelsData.t(
+                '已开启全局请求透传：参数覆写、模型重定向、渠道适配等 NewAPI 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。',
+              )}
+              style={{ marginBottom: 12 }}
+            />
+          ) : null}
+          <CardPro
+            type='type3'
+            tabsArea={<ChannelsTabs {...channelsData} />}
+            actionsArea={<ChannelsActions {...channelsData} />}
+            searchArea={<ChannelsFilters {...channelsData} />}
+            paginationArea={createCardProPagination({
+              currentPage: channelsData.activePage,
+              pageSize: channelsData.pageSize,
+              total: channelsData.channelCount,
+              onPageChange: channelsData.handlePageChange,
+              onPageSizeChange: channelsData.handlePageSizeChange,
+              isMobile: isMobile,
+              t: channelsData.t,
+            })}
+            t={channelsData.t}
+          >
+            <ChannelsTable {...channelsData} />
+          </CardPro>
+        </>
+      )}
     </>
   );
 };

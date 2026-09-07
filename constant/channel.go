@@ -59,6 +59,7 @@ const (
 	ChannelTypeSub2API        = 59
 	ChannelTypeNewAPI         = 60
 	ChannelTypeTaskPlugin     = 61
+	ChannelTypeClientOAuth    = 62
 	ChannelTypeDummy          // this one is only for count, do not add any channel after this
 
 )
@@ -126,6 +127,7 @@ var ChannelBaseURLs = []string{
 	"",                                          //59
 	"",                                          //60
 	"",                                          //61
+	"",                                          //62
 }
 
 func GetChannelBaseURL(channelType int) string {
@@ -136,6 +138,7 @@ func GetChannelBaseURL(channelType int) string {
 }
 
 var ChannelTypeNames = map[int]string{
+	ChannelTypeClientOAuth:    "Client OAuth",
 	ChannelTypeUnknown:        "Unknown",
 	ChannelTypeOpenAI:         "OpenAI",
 	ChannelTypeMidjourney:     "Midjourney",

@@ -209,10 +209,20 @@ const GrantDetailModal = ({ visible, batchItem, onClose, onRevoke }) => {
     if (!detail) return [];
     return [
       {
+        key: t('授权名称'),
+        value: detail.name ? (
+          <span className='font-semibold text-gray-800 dark:text-gray-200'>
+            {detail.name}
+          </span>
+        ) : (
+          <span className='text-gray-400'>-</span>
+        ),
+      },
+      {
         key: t('授权编号'),
         value: detail.is_legacy
           ? `#${detail.subjects?.[0]?.id || targetId}`
-          : `#${detail.batchId}`,
+          : `#${detail.batchId || detail.batch_id}`,
       },
       {
         key: t('授权时间'),
@@ -279,10 +289,14 @@ const GrantDetailModal = ({ visible, batchItem, onClose, onRevoke }) => {
         <div className='flex items-center gap-2'>
           <IconUserGroup className='text-blue-500 text-lg' />
           <span>
-            {t('授权详情与并集用户')}
+            {detail?.name || t('授权详情与并集用户')}
             {detail && (
               <span className='text-xs text-gray-500 font-normal ml-2'>
-                (ID: {detail.is_legacy ? `#${targetId}` : `#${detail.batchId}`})
+                (ID:{' '}
+                {detail.is_legacy
+                  ? `#${targetId}`
+                  : `#${detail.batchId || detail.batch_id}`}
+                )
               </span>
             )}
           </span>
@@ -316,7 +330,7 @@ const GrantDetailModal = ({ visible, batchItem, onClose, onRevoke }) => {
         {detail ? (
           <div className='space-y-4'>
             {/* 顶部概览 */}
-            <div className='p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700'>
+            <div className='p-3 bg-[var(--semi-color-fill-0)] rounded-xl border border-[var(--semi-color-border)]'>
               <Descriptions data={descriptionsData} row size='small' />
             </div>
 

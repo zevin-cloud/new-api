@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
@@ -18,6 +19,7 @@ import (
 // to the new batch, so revoking an older batch cannot revoke a newer grant.
 type ModelGrantBatch struct {
 	Id               int    `json:"id"`
+	Name             string `json:"name" gorm:"type:varchar(128);not null;default:''"`
 	GrantedBy        int    `json:"granted_by"`
 	CreatedAt        int64  `json:"created_at"`
 	DirectModelSetId int    `json:"direct_model_set_id"`
@@ -26,6 +28,14 @@ type ModelGrantBatch struct {
 	QuotaScope       int    `json:"quota_scope" gorm:"type:int;not null;default:0"`
 	GrantQuota       int64  `json:"grant_quota" gorm:"type:bigint;not null;default:0"`
 	UsedQuota        int64  `json:"used_quota" gorm:"type:bigint;not null;default:0"`
+	GrantTokens      int64  `json:"grant_tokens" gorm:"type:bigint;not null;default:0"`
+	UsedTokens       int64  `json:"used_tokens" gorm:"type:bigint;not null;default:0"`
+	GrantCalls       int64  `json:"grant_calls" gorm:"type:bigint;not null;default:0"`
+	UsedCalls        int64  `json:"used_calls" gorm:"type:bigint;not null;default:0"`
+	PeriodType       int    `json:"period_type" gorm:"type:int;not null;default:0"`
+	PeriodInterval   int    `json:"period_interval" gorm:"type:int;not null;default:1"`
+	PeriodUnit       string `json:"period_unit" gorm:"type:varchar(16);not null;default:'day'"`
+	PeriodStart      int64  `json:"period_start" gorm:"type:bigint;not null;default:0"`
 	MaxConcurrency   int    `json:"max_concurrency" gorm:"type:int;not null;default:0"`
 }
 
@@ -37,30 +47,80 @@ type ModelGrantSubject struct {
 type ModelGrantBatchView struct {
 	Id             string        `json:"id"`
 	BatchId        int           `json:"batch_id"`
+	Name           string        `json:"name"`
 	CreatedAt      int64         `json:"created_at"`
 	RoutingGroup   string        `json:"routing_group"`
 	QuotaType      int           `json:"quota_type"`
 	QuotaScope     int           `json:"quota_scope"`
 	GrantQuota     int64         `json:"grant_quota"`
 	UsedQuota      int64         `json:"used_quota"`
+	GrantTokens    int64         `json:"grant_tokens"`
+	UsedTokens     int64         `json:"used_tokens"`
+	GrantCalls     int64         `json:"grant_calls"`
+	UsedCalls      int64         `json:"used_calls"`
+	PeriodType     int           `json:"period_type"`
+	PeriodInterval int           `json:"period_interval"`
+	PeriodUnit     string        `json:"period_unit"`
+	PeriodStart    int64         `json:"period_start"`
 	MaxConcurrency int           `json:"max_concurrency"`
 	Grants         []*ModelGrant `json:"grants"`
 }
 
-func CreateModelGrantBatch(subjects []ModelGrantSubject, setIds []int, modelNames []string, customSetName string, routingGroup string, quotaType int, grantQuota int64, quotaScope int, maxConcurrency int, expiresAt int64, actorId int) (*ModelGrantBatch, error) {
-	if len(subjects) == 0 || len(setIds)+len(modelNames) == 0 {
+type CreateModelGrantBatchInput struct {
+	Name           string
+	Subjects       []ModelGrantSubject
+	SetIds         []int
+	ModelNames     []string
+	CustomSetName  string
+	RoutingGroup   string
+	QuotaType      int
+	QuotaScope     int
+	GrantQuota     int64
+	GrantTokens    int64
+	GrantCalls     int64
+	PeriodType     int
+	PeriodInterval int
+	PeriodUnit     string
+	MaxConcurrency int
+	ExpiresAt      int64
+	ActorId        int
+}
+
+func CreateModelGrantBatch(name string, subjects []ModelGrantSubject, setIds []int, modelNames []string, customSetName string, routingGroup string, quotaType int, grantQuota int64, quotaScope int, maxConcurrency int, expiresAt int64, actorId int) (*ModelGrantBatch, error) {
+	return CreateModelGrantBatchEx(CreateModelGrantBatchInput{
+		Name:           name,
+		Subjects:       subjects,
+		SetIds:         setIds,
+		ModelNames:     modelNames,
+		CustomSetName:  customSetName,
+		RoutingGroup:   routingGroup,
+		QuotaType:      quotaType,
+		GrantQuota:     grantQuota,
+		QuotaScope:     quotaScope,
+		MaxConcurrency: maxConcurrency,
+		ExpiresAt:      expiresAt,
+		ActorId:        actorId,
+	})
+}
+
+func CreateModelGrantBatchEx(input CreateModelGrantBatchInput) (*ModelGrantBatch, error) {
+	if len(input.Subjects) == 0 || len(input.SetIds)+len(input.ModelNames) == 0 {
 		return nil, errors.New("请选择授权主体与模型资源")
 	}
-	if expiresAt < 0 || (expiresAt != 0 && expiresAt <= common.GetTimestamp()) {
+	if input.ExpiresAt < 0 || (input.ExpiresAt != 0 && input.ExpiresAt <= common.GetTimestamp()) {
 		return nil, errors.New("过期时间必须晚于当前时间")
 	}
-	customSetName = strings.TrimSpace(customSetName)
-	if utf8.RuneCountInString(customSetName) > 64 {
+	input.Name = strings.TrimSpace(input.Name)
+	if utf8.RuneCountInString(input.Name) > 128 {
+		return nil, errors.New("授权名称不能超过 128 个字符")
+	}
+	input.CustomSetName = strings.TrimSpace(input.CustomSetName)
+	if utf8.RuneCountInString(input.CustomSetName) > 64 {
 		return nil, errors.New("模型集名称不能超过 64 个字符")
 	}
-	models := make([]string, 0, len(modelNames))
+	models := make([]string, 0, len(input.ModelNames))
 	seenModels := make(map[string]bool)
-	for _, name := range modelNames {
+	for _, name := range input.ModelNames {
 		name = strings.TrimSpace(name)
 		if name == "" || utf8.RuneCountInString(name) > 128 {
 			return nil, errors.New("模型名称不能为空且不能超过 128 个字符")
@@ -71,23 +131,45 @@ func CreateModelGrantBatch(subjects []ModelGrantSubject, setIds []int, modelName
 		}
 	}
 	// Lock shared resources in a stable order for concurrent submissions.
-	setIds = append([]int(nil), setIds...)
+	setIds := append([]int(nil), input.SetIds...)
 	sort.Ints(setIds)
-	subjects = append([]ModelGrantSubject(nil), subjects...)
+	subjects := append([]ModelGrantSubject(nil), input.Subjects...)
 	sort.Slice(subjects, func(i, j int) bool {
 		if subjects[i].Type != subjects[j].Type {
 			return subjects[i].Type < subjects[j].Type
 		}
 		return subjects[i].Id < subjects[j].Id
 	})
+
+	if input.PeriodInterval <= 0 {
+		input.PeriodInterval = 1
+	}
+	if input.PeriodUnit == "" {
+		input.PeriodUnit = "day"
+	}
+	periodStart := int64(0)
+	if input.PeriodType > 0 {
+		periodStart = CalculatePeriodStart(input.PeriodType, input.PeriodInterval, input.PeriodUnit, time.Unix(common.GetTimestamp(), 0))
+	}
+	if input.GrantQuota > 0 || input.GrantTokens > 0 || input.GrantCalls > 0 {
+		input.QuotaType = 1
+	}
+
 	batch := &ModelGrantBatch{
-		GrantedBy:      actorId,
+		Name:           input.Name,
+		GrantedBy:      input.ActorId,
 		CreatedAt:      common.GetTimestamp(),
-		RoutingGroup:   routingGroup,
-		QuotaType:      quotaType,
-		QuotaScope:     quotaScope,
-		GrantQuota:     grantQuota,
-		MaxConcurrency: maxConcurrency,
+		RoutingGroup:   input.RoutingGroup,
+		QuotaType:      input.QuotaType,
+		QuotaScope:     input.QuotaScope,
+		GrantQuota:     input.GrantQuota,
+		GrantTokens:    input.GrantTokens,
+		GrantCalls:     input.GrantCalls,
+		PeriodType:     input.PeriodType,
+		PeriodInterval: input.PeriodInterval,
+		PeriodUnit:     input.PeriodUnit,
+		PeriodStart:    periodStart,
+		MaxConcurrency: input.MaxConcurrency,
 	}
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		for _, subject := range subjects {
@@ -126,7 +208,7 @@ func CreateModelGrantBatch(subjects []ModelGrantSubject, setIds []int, modelName
 			}
 		}
 		if len(models) > 0 {
-			name := customSetName
+			name := input.CustomSetName
 			if name == "" {
 				name = "直接授权模型集-" + uuid.NewString()
 			}
@@ -137,7 +219,7 @@ func CreateModelGrantBatch(subjects []ModelGrantSubject, setIds []int, modelName
 			if count > 0 {
 				return errors.New("模型集名称已存在")
 			}
-			set := ModelSet{Name: name, Description: "由直接模型授权生成的模型集", Status: ModelSetStatusEnabled, CreatedBy: actorId, CreatedAt: batch.CreatedAt, UpdatedAt: batch.CreatedAt}
+			set := ModelSet{Name: name, Description: "由直接模型授权生成的模型集", Status: ModelSetStatusEnabled, CreatedBy: input.ActorId, CreatedAt: batch.CreatedAt, UpdatedAt: batch.CreatedAt}
 			if err := tx.Create(&set).Error; err != nil {
 				return err
 			}
@@ -156,7 +238,7 @@ func CreateModelGrantBatch(subjects []ModelGrantSubject, setIds []int, modelName
 		}
 
 		effectiveSubjects := subjects
-		if quotaScope == 1 {
+		if input.QuotaScope == 1 {
 			// Per-member cap mode: expand department and user group subjects to member users
 			userSet := make(map[int]bool)
 			for _, subject := range subjects {
@@ -207,20 +289,26 @@ func CreateModelGrantBatch(subjects []ModelGrantSubject, setIds []int, modelName
 					SubjectType:    subject.Type,
 					SubjectId:      subject.Id,
 					ModelSetId:     setId,
-					RoutingGroup:   routingGroup,
-					QuotaType:      quotaType,
-					QuotaScope:     quotaScope,
-					GrantQuota:     grantQuota,
-					MaxConcurrency: maxConcurrency,
-					ExpiredAt:      expiresAt,
-					GrantedBy:      actorId,
+					RoutingGroup:   input.RoutingGroup,
+					QuotaType:      input.QuotaType,
+					QuotaScope:     input.QuotaScope,
+					GrantQuota:     input.GrantQuota,
+					GrantTokens:    input.GrantTokens,
+					GrantCalls:     input.GrantCalls,
+					PeriodType:     input.PeriodType,
+					PeriodInterval: input.PeriodInterval,
+					PeriodUnit:     input.PeriodUnit,
+					PeriodStart:    periodStart,
+					MaxConcurrency: input.MaxConcurrency,
+					ExpiredAt:      input.ExpiresAt,
+					GrantedBy:      input.ActorId,
 					CreatedAt:      batch.CreatedAt,
 					UpdatedAt:      batch.CreatedAt,
 				}
 				if err := tx.Clauses(clause.OnConflict{
 					Columns: []clause.Column{{Name: "subject_type"}, {Name: "subject_id"}, {Name: "model_set_id"}},
 					DoUpdates: clause.AssignmentColumns([]string{
-						"batch_id", "routing_group", "quota_type", "quota_scope", "grant_quota", "max_concurrency", "expired_at", "granted_by", "updated_at",
+						"batch_id", "routing_group", "quota_type", "quota_scope", "grant_quota", "grant_tokens", "grant_calls", "period_type", "period_interval", "period_unit", "period_start", "max_concurrency", "expired_at", "granted_by", "updated_at",
 					}),
 				}).Create(&grant).Error; err != nil {
 					return err
@@ -303,16 +391,34 @@ func GetModelGrantBatches(page, pageSize, subjectType, subjectId, modelSetId, st
 		quotaScope := 0
 		grantQuota := int64(0)
 		usedQuota := int64(0)
+		grantTokens := int64(0)
+		usedTokens := int64(0)
+		grantCalls := int64(0)
+		usedCalls := int64(0)
+		periodType := 0
+		periodInterval := 1
+		periodUnit := "day"
+		periodStart := int64(0)
 		maxConcurrency := 0
+		name := ""
 		if group.BatchId > 0 {
 			key = fmt.Sprintf("batch_%d", group.BatchId)
 			b := metadata[group.BatchId]
+			name = b.Name
 			createdAt = b.CreatedAt
 			routingGroup = b.RoutingGroup
 			quotaType = b.QuotaType
 			quotaScope = b.QuotaScope
 			grantQuota = b.GrantQuota
 			usedQuota = b.UsedQuota
+			grantTokens = b.GrantTokens
+			usedTokens = b.UsedTokens
+			grantCalls = b.GrantCalls
+			usedCalls = b.UsedCalls
+			periodType = b.PeriodType
+			periodInterval = b.PeriodInterval
+			periodUnit = b.PeriodUnit
+			periodStart = b.PeriodStart
 			maxConcurrency = b.MaxConcurrency
 		}
 		if routingGroup == "" && len(byKey[key]) > 0 {
@@ -321,22 +427,41 @@ func GetModelGrantBatches(page, pageSize, subjectType, subjectId, modelSetId, st
 			quotaScope = byKey[key][0].QuotaScope
 			grantQuota = byKey[key][0].GrantQuota
 			usedQuota = byKey[key][0].UsedQuota
+			grantTokens = byKey[key][0].GrantTokens
+			usedTokens = byKey[key][0].UsedTokens
+			grantCalls = byKey[key][0].GrantCalls
+			usedCalls = byKey[key][0].UsedCalls
+			periodType = byKey[key][0].PeriodType
+			periodInterval = byKey[key][0].PeriodInterval
+			periodUnit = byKey[key][0].PeriodUnit
+			periodStart = byKey[key][0].PeriodStart
 			maxConcurrency = byKey[key][0].MaxConcurrency
 		}
 		if usedQuota == 0 && len(byKey[key]) > 0 {
 			for _, g := range byKey[key] {
 				usedQuota += g.UsedQuota
+				usedTokens += g.UsedTokens
+				usedCalls += g.UsedCalls
 			}
 		}
 		views = append(views, ModelGrantBatchView{
 			Id:             key,
 			BatchId:        group.BatchId,
+			Name:           name,
 			CreatedAt:      createdAt,
 			RoutingGroup:   routingGroup,
 			QuotaType:      quotaType,
 			QuotaScope:     quotaScope,
 			GrantQuota:     grantQuota,
 			UsedQuota:      usedQuota,
+			GrantTokens:    grantTokens,
+			UsedTokens:     usedTokens,
+			GrantCalls:     grantCalls,
+			UsedCalls:      usedCalls,
+			PeriodType:     periodType,
+			PeriodInterval: periodInterval,
+			PeriodUnit:     periodUnit,
+			PeriodStart:    periodStart,
 			MaxConcurrency: maxConcurrency,
 			Grants:         byKey[key],
 		})
@@ -371,6 +496,7 @@ func RevokeModelGrantBatch(id int) ([]ModelGrant, error) {
 
 type ModelGrantBatchDetail struct {
 	BatchId        int                       `json:"batch_id"`
+	Name           string                    `json:"name"`
 	IsLegacy       bool                      `json:"is_legacy"`
 	CreatedAt      int64                     `json:"created_at"`
 	GrantedBy      int                       `json:"granted_by"`
@@ -380,6 +506,14 @@ type ModelGrantBatchDetail struct {
 	QuotaScope     int                       `json:"quota_scope"`
 	GrantQuota     int64                     `json:"grant_quota"`
 	UsedQuota      int64                     `json:"used_quota"`
+	GrantTokens    int64                     `json:"grant_tokens"`
+	UsedTokens     int64                     `json:"used_tokens"`
+	GrantCalls     int64                     `json:"grant_calls"`
+	UsedCalls      int64                     `json:"used_calls"`
+	PeriodType     int                       `json:"period_type"`
+	PeriodInterval int                       `json:"period_interval"`
+	PeriodUnit     string                    `json:"period_unit"`
+	PeriodStart    int64                     `json:"period_start"`
 	MaxConcurrency int                       `json:"max_concurrency"`
 	Subjects       []ModelGrantSubjectDetail `json:"subjects"`
 	ModelSets      []ModelSetBrief           `json:"model_sets"`
@@ -552,15 +686,33 @@ func GetModelGrantBatchDetail(id int, isLegacy bool) (*ModelGrantBatchDetail, er
 	quotaScope := 0
 	grantQuota := int64(0)
 	usedQuota := int64(0)
+	grantTokens := int64(0)
+	usedTokens := int64(0)
+	grantCalls := int64(0)
+	usedCalls := int64(0)
+	periodType := 0
+	periodInterval := 1
+	periodUnit := "day"
+	periodStart := int64(0)
 	maxConcurrency := 0
+	name := ""
 	if !isLegacy {
 		var batch ModelGrantBatch
-		if err := DB.Select("id", "routing_group", "quota_type", "quota_scope", "grant_quota", "used_quota", "max_concurrency").First(&batch, id).Error; err == nil {
+		if err := DB.Select("id", "name", "routing_group", "quota_type", "quota_scope", "grant_quota", "used_quota", "grant_tokens", "used_tokens", "grant_calls", "used_calls", "period_type", "period_interval", "period_unit", "period_start", "max_concurrency").First(&batch, id).Error; err == nil {
+			name = batch.Name
 			routingGroup = batch.RoutingGroup
 			quotaType = batch.QuotaType
 			quotaScope = batch.QuotaScope
 			grantQuota = batch.GrantQuota
 			usedQuota = batch.UsedQuota
+			grantTokens = batch.GrantTokens
+			usedTokens = batch.UsedTokens
+			grantCalls = batch.GrantCalls
+			usedCalls = batch.UsedCalls
+			periodType = batch.PeriodType
+			periodInterval = batch.PeriodInterval
+			periodUnit = batch.PeriodUnit
+			periodStart = batch.PeriodStart
 			maxConcurrency = batch.MaxConcurrency
 		}
 	}
@@ -577,9 +729,23 @@ func GetModelGrantBatchDetail(id int, isLegacy bool) (*ModelGrantBatchDetail, er
 		if grantQuota == 0 {
 			grantQuota = grants[0].GrantQuota
 		}
+		if grantTokens == 0 {
+			grantTokens = grants[0].GrantTokens
+		}
+		if grantCalls == 0 {
+			grantCalls = grants[0].GrantCalls
+		}
+		if periodType == 0 {
+			periodType = grants[0].PeriodType
+			periodInterval = grants[0].PeriodInterval
+			periodUnit = grants[0].PeriodUnit
+			periodStart = grants[0].PeriodStart
+		}
 		if usedQuota == 0 {
 			for _, g := range grants {
 				usedQuota += g.UsedQuota
+				usedTokens += g.UsedTokens
+				usedCalls += g.UsedCalls
 			}
 		}
 		if maxConcurrency == 0 {
@@ -588,6 +754,7 @@ func GetModelGrantBatchDetail(id int, isLegacy bool) (*ModelGrantBatchDetail, er
 	}
 	return &ModelGrantBatchDetail{
 		BatchId:        batchId,
+		Name:           name,
 		IsLegacy:       isLegacy,
 		CreatedAt:      createdAt,
 		GrantedBy:      grantedBy,
@@ -597,6 +764,14 @@ func GetModelGrantBatchDetail(id int, isLegacy bool) (*ModelGrantBatchDetail, er
 		QuotaScope:     quotaScope,
 		GrantQuota:     grantQuota,
 		UsedQuota:      usedQuota,
+		GrantTokens:    grantTokens,
+		UsedTokens:     usedTokens,
+		GrantCalls:     grantCalls,
+		UsedCalls:      usedCalls,
+		PeriodType:     periodType,
+		PeriodInterval: periodInterval,
+		PeriodUnit:     periodUnit,
+		PeriodStart:    periodStart,
 		MaxConcurrency: maxConcurrency,
 		Subjects:       subjects,
 		ModelSets:      modelSets,

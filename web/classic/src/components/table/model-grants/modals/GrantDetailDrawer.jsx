@@ -46,7 +46,7 @@ import {
   IllustrationNoResultDark,
 } from '@douyinfe/semi-illustrations';
 import { getGrantBatchDetail } from '../../../../services/modelGrants';
-import { timestamp2string, showError } from '../../../../helpers';
+import { timestamp2string, showError, renderQuota } from '../../../../helpers';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 
 const { Title, Text } = Typography;
@@ -69,10 +69,7 @@ const GrantDetailDrawer = ({
     if (!batchItem) return null;
     if (batchItem.batch_id > 0) return batchItem.batch_id;
     if (batchItem.batchId > 0) return batchItem.batchId;
-    if (
-      typeof batchItem.id === 'string' &&
-      batchItem.id.startsWith('batch_')
-    ) {
+    if (typeof batchItem.id === 'string' && batchItem.id.startsWith('batch_')) {
       const parsed = parseInt(batchItem.id.replace('batch_', ''), 10);
       if (parsed > 0) return parsed;
     }
@@ -144,7 +141,7 @@ const GrantDetailDrawer = ({
         u.display_name?.toLowerCase().includes(kw) ||
         u.email?.toLowerCase().includes(kw) ||
         u.department_name?.toLowerCase().includes(kw) ||
-        (u.employee_id && String(u.employee_id).toLowerCase().includes(kw))
+        (u.employee_id && String(u.employee_id).toLowerCase().includes(kw)),
     );
   }, [detail?.union_users, userKeyword]);
 
@@ -156,14 +153,44 @@ const GrantDetailDrawer = ({
     const isExpired = detail.expired_at <= Date.now() / 1000;
     return (
       <Tag color={isExpired ? 'red' : 'orange'}>
-        {timestamp2string(detail.expired_at)} {isExpired ? `(${t('已过期')})` : ''}
+        {timestamp2string(detail.expired_at)}{' '}
+        {isExpired ? `(${t('已过期')})` : ''}
       </Tag>
     );
   }, [detail, t]);
 
   const overviewData = useMemo(() => {
     if (!detail) return [];
-    return [
+
+    const unitMap = {
+      hour: t('小时'),
+      day: t('天'),
+      week: t('周'),
+      month: t('月'),
+    };
+
+    let periodDesc = t('一次性 (耗尽即止)');
+    if (detail.period_type === 1) periodDesc = t('每天 00:00 自动重置');
+    else if (detail.period_type === 2) periodDesc = t('每月 1 日自动重置');
+    else if (detail.period_type === 3) {
+      const u = unitMap[detail.period_unit] || detail.period_unit || t('天');
+      periodDesc = t('每{{n}}{{u}}循环重置', {
+        n: detail.period_interval || 1,
+        u,
+      });
+    }
+
+    const items = [
+      {
+        key: t('授权名称'),
+        value: detail.name ? (
+          <span className='font-semibold text-gray-800 dark:text-gray-200'>
+            {detail.name}
+          </span>
+        ) : (
+          <span className='text-gray-400'>-</span>
+        ),
+      },
       {
         key: t('授权编号'),
         value: `#${detail.batch_id || targetId || '-'}`,
@@ -175,6 +202,14 @@ const GrantDetailDrawer = ({
       {
         key: t('有效期状态'),
         value: expiryTag,
+      },
+      {
+        key: t('生效周期'),
+        value: (
+          <Tag color='purple' size='small'>
+            {periodDesc}
+          </Tag>
+        ),
       },
       {
         key: t('授权模型'),
@@ -193,6 +228,71 @@ const GrantDetailDrawer = ({
         ),
       },
     ];
+
+    if (
+      detail.quota_type === 1 ||
+      detail.grant_tokens > 0 ||
+      detail.grant_calls > 0
+    ) {
+      if (detail.grant_quota > 0) {
+        items.push({
+          key: t('金额配额限制'),
+          value: (
+            <span className='font-mono text-xs'>
+              {renderQuota(detail.used_quota || 0)} /{' '}
+              {renderQuota(detail.grant_quota || 0)}
+              <Tag
+                size='small'
+                color={detail.quota_scope === 1 ? 'blue' : 'cyan'}
+                className='ml-1.5'
+              >
+                {detail.quota_scope === 1 ? t('每人独立') : t('团队共享')}
+              </Tag>
+            </span>
+          ),
+        });
+      }
+      if (detail.grant_tokens > 0) {
+        items.push({
+          key: t('Token 数量限制'),
+          value: (
+            <span className='font-mono text-xs text-cyan-600'>
+              {(detail.used_tokens || 0).toLocaleString()} /{' '}
+              {(detail.grant_tokens || 0).toLocaleString()} Tokens
+            </span>
+          ),
+        });
+      }
+      if (detail.grant_calls > 0) {
+        items.push({
+          key: t('调用次数限制'),
+          value: (
+            <span className='font-mono text-xs text-purple-600'>
+              {(detail.used_calls || 0).toLocaleString()} /{' '}
+              {(detail.grant_calls || 0).toLocaleString()} 次
+            </span>
+          ),
+        });
+      }
+    } else {
+      items.push({
+        key: t('预算额度模式'),
+        value: <Tag color='green'>{t('企业免充值不限预算')}</Tag>,
+      });
+    }
+
+    if (detail.max_concurrency > 0) {
+      items.push({
+        key: t('最大并发限制'),
+        value: (
+          <span className='font-mono font-medium'>
+            {detail.max_concurrency}
+          </span>
+        ),
+      });
+    }
+
+    return items;
   }, [detail, expiryTag, targetId, t]);
 
   const userColumns = [
@@ -207,7 +307,9 @@ const GrantDetailDrawer = ({
             <span className='font-medium text-gray-800 dark:text-gray-200 truncate'>
               {u.display_name || u.username}
             </span>
-            <span className='text-xs text-gray-400 truncate'>@{u.username}</span>
+            <span className='text-xs text-gray-400 truncate'>
+              @{u.username}
+            </span>
           </div>
         </div>
       ),
@@ -230,7 +332,9 @@ const GrantDetailDrawer = ({
         <div className='flex flex-col text-xs text-gray-500 dark:text-gray-400'>
           {u.email ? <span>{u.email}</span> : null}
           {u.employee_id ? <span>工号: {u.employee_id}</span> : null}
-          {!u.email && !u.employee_id ? <span className='text-gray-400'>-</span> : null}
+          {!u.email && !u.employee_id ? (
+            <span className='text-gray-400'>-</span>
+          ) : null}
         </div>
       ),
     },
@@ -245,7 +349,7 @@ const GrantDetailDrawer = ({
             {t('详情')}
           </Tag>
           <Title heading={4} className='m-0'>
-            {t('授权详情')}
+            {detail?.name || t('授权详情')}
             {targetId && (
               <span className='text-sm text-gray-500 font-normal ml-2 font-mono'>
                 (#{targetId})
@@ -258,7 +362,7 @@ const GrantDetailDrawer = ({
       onCancel={onClose}
       width={isMobile ? '100%' : 680}
       footer={
-        <div className='flex justify-between items-center bg-white dark:bg-gray-900 px-4 py-3 w-full border-t border-gray-100 dark:border-gray-800'>
+        <div className='flex justify-between items-center bg-[var(--semi-color-bg-0)] px-4 py-3 w-full border-t border-[var(--semi-color-border)]'>
           <Space>
             {batchItem && (
               <Button
@@ -276,7 +380,9 @@ const GrantDetailDrawer = ({
             {batchItem && (
               <Popconfirm
                 title={t('确认撤销')}
-                content={t('确定撤销此次授权吗？撤销后所有成员将失去本次授予的模型访问权限。')}
+                content={t(
+                  '确定撤销此次授权吗？撤销后所有成员将失去本次授予的模型访问权限。',
+                )}
                 onConfirm={() => {
                   onRevoke?.(batchItem);
                   onClose();
@@ -288,7 +394,12 @@ const GrantDetailDrawer = ({
               </Popconfirm>
             )}
           </Space>
-          <Button theme='light' type='tertiary' onClick={onClose} icon={<IconClose />}>
+          <Button
+            theme='light'
+            type='tertiary'
+            onClick={onClose}
+            icon={<IconClose />}
+          >
             {t('关闭')}
           </Button>
         </div>
@@ -299,12 +410,18 @@ const GrantDetailDrawer = ({
         {detail ? (
           <div className='p-4 space-y-4'>
             {/* 1. 基本信息概要 */}
-            <Card className='!rounded-xl shadow-sm border border-gray-100 dark:border-gray-800' bodyStyle={{ padding: '12px 16px' }}>
+            <Card
+              className='!rounded-xl shadow-sm border border-[var(--semi-color-border)]'
+              bodyStyle={{ padding: '12px 16px' }}
+            >
               <Descriptions data={overviewData} row size='small' />
             </Card>
 
             {/* 2. 授权的模型列表 */}
-            <Card className='!rounded-xl shadow-sm border border-gray-100 dark:border-gray-800' bodyStyle={{ padding: '14px 16px' }}>
+            <Card
+              className='!rounded-xl shadow-sm border border-[var(--semi-color-border)]'
+              bodyStyle={{ padding: '14px 16px' }}
+            >
               <div className='flex justify-between items-center mb-3'>
                 <div className='flex items-center gap-2'>
                   <Title heading={5} className='m-0'>
@@ -328,7 +445,7 @@ const GrantDetailDrawer = ({
               </div>
 
               {filteredModels.length > 0 ? (
-                <div className='flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1 bg-gray-50 dark:bg-gray-800/40 rounded-lg'>
+                <div className='flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1 bg-[var(--semi-color-fill-0)] rounded-lg'>
                   {filteredModels.map((m, idx) => (
                     <Tag
                       key={idx}
@@ -348,7 +465,10 @@ const GrantDetailDrawer = ({
             </Card>
 
             {/* 3. 被授权的用户列表 */}
-            <Card className='!rounded-xl shadow-sm border border-gray-100 dark:border-gray-800' bodyStyle={{ padding: '14px 16px' }}>
+            <Card
+              className='!rounded-xl shadow-sm border border-[var(--semi-color-border)]'
+              bodyStyle={{ padding: '14px 16px' }}
+            >
               <div className='flex justify-between items-center mb-3'>
                 <div className='flex items-center gap-2'>
                   <Title heading={5} className='m-0'>
@@ -382,9 +502,7 @@ const GrantDetailDrawer = ({
                 empty={
                   <Empty
                     image={
-                      <IllustrationNoResult
-                        style={{ width: 80, height: 80 }}
-                      />
+                      <IllustrationNoResult style={{ width: 80, height: 80 }} />
                     }
                     darkModeImage={
                       <IllustrationNoResultDark

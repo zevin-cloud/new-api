@@ -136,6 +136,14 @@ const ModelGrantsTable = ({
       const quotaScope = item.quota_scope ?? grantList[0]?.quota_scope ?? 0;
       const grantQuota = item.grant_quota ?? grantList[0]?.grant_quota ?? 0;
       const usedQuota = item.used_quota ?? grantList[0]?.used_quota ?? 0;
+      const grantTokens = item.grant_tokens ?? grantList[0]?.grant_tokens ?? 0;
+      const usedTokens = item.used_tokens ?? grantList[0]?.used_tokens ?? 0;
+      const grantCalls = item.grant_calls ?? grantList[0]?.grant_calls ?? 0;
+      const usedCalls = item.used_calls ?? grantList[0]?.used_calls ?? 0;
+      const periodType = item.period_type ?? grantList[0]?.period_type ?? 0;
+      const periodInterval =
+        item.period_interval ?? grantList[0]?.period_interval ?? 0;
+      const periodUnit = item.period_unit ?? grantList[0]?.period_unit ?? '';
       const maxConcurrency =
         item.max_concurrency ?? grantList[0]?.max_concurrency ?? 0;
 
@@ -156,6 +164,13 @@ const ModelGrantsTable = ({
         quotaScope,
         grantQuota,
         usedQuota,
+        grantTokens,
+        usedTokens,
+        grantCalls,
+        usedCalls,
+        periodType,
+        periodInterval,
+        periodUnit,
         maxConcurrency,
         expiredAt: expTimes.length === 1 ? expTimes[0] : null,
         expTimes,
@@ -173,6 +188,23 @@ const ModelGrantsTable = ({
         <span className='font-mono font-semibold text-gray-700 dark:text-gray-300'>
           {text}
         </span>
+      ),
+    },
+    {
+      title: t('授权名称'),
+      dataIndex: 'name',
+      width: 170,
+      render: (text) => (
+        text ? (
+          <span
+            className='font-medium text-gray-800 dark:text-gray-200 truncate block max-w-[160px]'
+            title={text}
+          >
+            {text}
+          </span>
+        ) : (
+          <span className='text-gray-400'>-</span>
+        )
       ),
     },
     {
@@ -256,20 +288,90 @@ const ModelGrantsTable = ({
     },
     {
       title: t('预算配额'),
-      width: 170,
+      width: 190,
       render: (_, record) => {
-        if (record.quotaType === 1) {
-          const isPerMember = record.quotaScope === 1;
+        const hasQuota = record.quotaType === 1 && record.grantQuota > 0;
+        const hasTokens = record.grantTokens > 0;
+        const hasCalls = record.grantCalls > 0;
+        const isPerMember = record.quotaScope === 1;
+
+        const unitMap = {
+          hour: t('小时'),
+          day: t('天'),
+          week: t('周'),
+          month: t('月'),
+        };
+
+        const renderPeriodTag = () => {
+          if (!record.periodType || record.periodType === 0) return null;
+          if (record.periodType === 1) {
+            return (
+              <Tag size='small' color='purple'>
+                {t('每天重置')}
+              </Tag>
+            );
+          }
+          if (record.periodType === 2) {
+            return (
+              <Tag size='small' color='purple'>
+                {t('每月重置')}
+              </Tag>
+            );
+          }
+          if (record.periodType === 3) {
+            const unit = unitMap[record.periodUnit] || record.periodUnit || t('天');
+            return (
+              <Tag size='small' color='purple'>
+                {t('每{{n}}{{u}}重置', {
+                  n: record.periodInterval || 1,
+                  u: unit,
+                })}
+              </Tag>
+            );
+          }
+          return null;
+        };
+
+        if (record.quotaType === 1 || hasTokens || hasCalls) {
           return (
-            <div className='flex flex-col gap-0.5'>
-              <span className='font-mono text-xs'>
-                {renderQuota(record.usedQuota || 0)} /{' '}
-                {renderQuota(record.grantQuota || 0)}
-              </span>
-              <div>
-                <Tag size='small' color={isPerMember ? 'blue' : 'cyan'}>
-                  {isPerMember ? t('每人独立') : t('团队共享')}
-                </Tag>
+            <div className='flex flex-col gap-1 py-0.5'>
+              {hasQuota && (
+                <div className='flex items-center gap-1 font-mono text-xs'>
+                  <span className='text-gray-500 font-sans text-[11px]'>{t('额度')}:</span>
+                  <span>
+                    {renderQuota(record.usedQuota || 0)} /{' '}
+                    {renderQuota(record.grantQuota || 0)}
+                  </span>
+                </div>
+              )}
+              {hasTokens && (
+                <div className='flex items-center gap-1 font-mono text-xs text-cyan-700 dark:text-cyan-400'>
+                  <span className='text-gray-500 font-sans text-[11px]'>{t('Token')}:</span>
+                  <span>
+                    {(record.usedTokens || 0).toLocaleString()} /{' '}
+                    {(record.grantTokens || 0).toLocaleString()}
+                  </span>
+                </div>
+              )}
+              {hasCalls && (
+                <div className='flex items-center gap-1 font-mono text-xs text-purple-700 dark:text-purple-400'>
+                  <span className='text-gray-500 font-sans text-[11px]'>{t('次数')}:</span>
+                  <span>
+                    {(record.usedCalls || 0).toLocaleString()} /{' '}
+                    {(record.grantCalls || 0).toLocaleString()}
+                  </span>
+                </div>
+              )}
+              {!hasQuota && !hasTokens && !hasCalls && (
+                <span className='font-mono text-xs text-gray-400'>-</span>
+              )}
+              <div className='flex flex-wrap gap-1 mt-0.5'>
+                {record.quotaType === 1 && (
+                  <Tag size='small' color={isPerMember ? 'blue' : 'cyan'}>
+                    {isPerMember ? t('每人独立') : t('团队共享')}
+                  </Tag>
+                )}
+                {renderPeriodTag()}
               </div>
             </div>
           );
@@ -330,6 +432,7 @@ const ModelGrantsTable = ({
           </Button>
 
           <Popconfirm
+            motion={false}
             position='bottomRight'
             autoAdjustOverflow
             style={{ maxWidth: 'min(320px, calc(100vw - 32px))' }}

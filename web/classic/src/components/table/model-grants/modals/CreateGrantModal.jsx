@@ -37,6 +37,8 @@ import {
   RadioGroup,
   Radio,
   InputNumber,
+  Checkbox,
+  Collapse,
 } from '@douyinfe/semi-ui';
 import {
   IconSave,
@@ -45,6 +47,9 @@ import {
   IconLayers,
   IconClock,
   IconServer,
+  IconEdit,
+  IconSetting,
+  IconChevronDown,
 } from '@douyinfe/semi-icons';
 import { showError, showSuccess, timestamp2string } from '../../../../helpers';
 import {
@@ -62,6 +67,9 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
   const isMobile = useIsMobile();
   const isEdit = Boolean(batchItem);
 
+  // 0. Grant basic info
+  const [name, setName] = useState('');
+
   // 1. Organization tree selection (Depts and Dept Users)
   const [deptTreeData, setDeptTreeData] = useState([]);
   const [selectedOrgKeys, setSelectedOrgKeys] = useState([]);
@@ -78,11 +86,22 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
   const [selectedModelNames, setSelectedModelNames] = useState([]);
   const [customSetName, setCustomSetName] = useState('');
 
-  // 4. QoS and quota
+  // 4. QoS and multi-metric quotas
   const [quotaType, setQuotaType] = useState(0);
   const [quotaScope, setQuotaScope] = useState(0);
+  const [enableQuota, setEnableQuota] = useState(true);
   const [grantQuota, setGrantQuota] = useState(500000);
+  const [enableTokens, setEnableTokens] = useState(false);
+  const [grantTokens, setGrantTokens] = useState(0);
+  const [enableCalls, setEnableCalls] = useState(false);
+  const [grantCalls, setGrantCalls] = useState(0);
+  const [periodType, setPeriodType] = useState(0);
+  const [periodInterval, setPeriodInterval] = useState(1);
+  const [periodUnit, setPeriodUnit] = useState('day');
   const [maxConcurrency, setMaxConcurrency] = useState(0);
+
+  // Advanced settings drawer toggle
+  const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
 
   // 5. Expiration time (DateTime string or -1 for never)
   const [expiredTime, setExpiredTime] = useState(-1);
@@ -143,9 +162,24 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
             setExpiredTime(-1);
           }
 
+          setName(detail.name || batchItem?.name || '');
           setQuotaType(detail.quota_type ?? 0);
           setQuotaScope(detail.quota_scope ?? 0);
-          setGrantQuota(detail.grant_quota ?? 500000);
+          const quota = detail.grant_quota ?? 0;
+          const tokens = detail.grant_tokens ?? 0;
+          const calls = detail.grant_calls ?? 0;
+          setGrantQuota(quota > 0 ? quota : 500000);
+          setEnableQuota(
+            quota > 0 ||
+              (detail.quota_type === 1 && tokens === 0 && calls === 0),
+          );
+          setGrantTokens(tokens);
+          setEnableTokens(tokens > 0);
+          setGrantCalls(calls);
+          setEnableCalls(calls > 0);
+          setPeriodType(detail.period_type ?? 0);
+          setPeriodInterval(detail.period_interval || 1);
+          setPeriodUnit(detail.period_unit || 'day');
           setMaxConcurrency(detail.max_concurrency ?? 0);
         } catch {
           // ignore
@@ -157,6 +191,7 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
   }, [visible, batchItem]);
 
   const resetForm = () => {
+    setName('');
     setSelectedOrgKeys([]);
     setSelectedGroupIds([]);
     setSelectedModelSetIds([]);
@@ -165,8 +200,17 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
     setExpiredTime(-1);
     setQuotaType(0);
     setQuotaScope(0);
+    setEnableQuota(true);
     setGrantQuota(500000);
+    setEnableTokens(false);
+    setGrantTokens(0);
+    setEnableCalls(false);
+    setGrantCalls(0);
+    setPeriodType(0);
+    setPeriodInterval(1);
+    setPeriodUnit('day');
     setMaxConcurrency(0);
+    setAdvancedSettingsOpen(false);
   };
 
   const handleQuickExpire = (days, months = 0, years = 0) => {
@@ -315,6 +359,15 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
       return;
     }
 
+    if (quotaType === 1 && !enableQuota && !enableTokens && !enableCalls) {
+      showError(
+        t(
+          '启用配额限制时，请至少选择一个限制维度（价值金额、Token 数量或调用次数）',
+        ),
+      );
+      return;
+    }
+
     let expiredAt = 0;
     if (expiredTime !== -1 && expiredTime) {
       const parsed = Date.parse(expiredTime);
@@ -331,6 +384,7 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
 
     setLoading(true);
     const request = {
+      name: name.trim(),
       department_ids: parsedDeptIds,
       group_ids: selectedGroupIds,
       user_ids: parsedUserIds,
@@ -340,7 +394,25 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
       expired_at: expiredAt,
       quota_type: quotaType,
       quota_scope: quotaType === 1 ? quotaScope : 0,
-      grant_quota: quotaType === 1 ? Number(grantQuota) || 0 : 0,
+      grant_quota: quotaType === 1 && enableQuota ? Number(grantQuota) || 0 : 0,
+      grant_tokens:
+        quotaType === 1 && enableTokens ? Number(grantTokens) || 0 : 0,
+      grant_calls: quotaType === 1 && enableCalls ? Number(grantCalls) || 0 : 0,
+      period_type: periodType,
+      period_interval:
+        periodType === 3
+          ? Number(periodInterval) || 1
+          : periodType === 1 || periodType === 2
+            ? 1
+            : 0,
+      period_unit:
+        periodType === 3
+          ? periodUnit
+          : periodType === 1
+            ? 'day'
+            : periodType === 2
+              ? 'month'
+              : '',
       max_concurrency: Number(maxConcurrency) || 0,
     };
 
@@ -352,6 +424,7 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
         await createGrantBatch(request);
         showSuccess(t('授权创建成功！'));
       }
+      setAdvancedSettingsOpen(false);
       onSuccess?.();
       onClose();
     } catch (error) {
@@ -359,6 +432,278 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const advancedSettingsContent = (
+    <div className='space-y-4'>
+      {/* 1. 多维配额与额度模式 */}
+      <div>
+        <Text strong className='block mb-1.5'>
+          {t('预算额度模式')}
+        </Text>
+        <RadioGroup
+          value={quotaType}
+          onChange={(e) => setQuotaType(e.target.value)}
+          type='button'
+          className='mb-2'
+        >
+          <Radio value={0}>{t('免充值不限配额')}</Radio>
+          <Radio value={1}>{t('启用多维配额限制')}</Radio>
+        </RadioGroup>
+        <Text type='secondary' className='text-xs block'>
+          {quotaType === 0
+            ? t(
+                '企业免充值模式：直接放行模型调用，不设配额上限，便于全员公共算力赋能。',
+              )
+            : t(
+                '配额限制模式：可按价值金额、Token数量或调用次数灵活约束，任一指标耗尽即熔断。',
+              )}
+        </Text>
+      </div>
+
+      {quotaType === 1 && (
+        <div className='p-3 bg-[var(--semi-color-fill-0)] rounded-xl space-y-3 border border-[var(--semi-color-border)]'>
+          <div>
+            <div className='flex items-center justify-between mb-1'>
+              <Text strong className='text-sm'>
+                {t('配额限制维度')}
+              </Text>
+              <Text type='tertiary' className='text-xs'>
+                {t('支持多选组合，任意指标达到上限即暂停调用')}
+              </Text>
+            </div>
+          </div>
+
+          {/* 维度1：价值金额配额 */}
+          <div className='p-2.5 bg-[var(--semi-color-bg-0)] rounded-lg border border-[var(--semi-color-border)] space-y-2'>
+            <div className='flex items-center justify-between'>
+              <Checkbox
+                checked={enableQuota}
+                onChange={(e) => setEnableQuota(e.target.checked)}
+              >
+                <span className='font-medium text-sm'>
+                  {t('价值金额限制 (Token 点数)')}
+                </span>
+              </Checkbox>
+              {enableQuota && (
+                <Tag size='small' color='blue'>
+                  {t('折算约 ${{amount}}', {
+                    amount: ((grantQuota || 0) / 500000).toFixed(2),
+                  })}
+                </Tag>
+              )}
+            </div>
+            {enableQuota && (
+              <div className='pl-6 space-y-1'>
+                <InputNumber
+                  value={grantQuota}
+                  onChange={(v) => setGrantQuota(v)}
+                  min={0}
+                  step={100000}
+                  className='!rounded-lg'
+                  style={{ width: '100%' }}
+                  placeholder={t('例如 500000 点 (等值 $1)')}
+                />
+                <Text type='secondary' className='text-xs block'>
+                  {t('标准算力点数。默认 500,000 点基准等值 $1 美元。')}
+                </Text>
+              </div>
+            )}
+          </div>
+
+          {/* 维度2：Token 数量限制 */}
+          <div className='p-2.5 bg-[var(--semi-color-bg-0)] rounded-lg border border-[var(--semi-color-border)] space-y-2'>
+            <div className='flex items-center justify-between'>
+              <Checkbox
+                checked={enableTokens}
+                onChange={(e) => setEnableTokens(e.target.checked)}
+              >
+                <span className='font-medium text-sm'>
+                  {t('Token 数量限制 (Tokens)')}
+                </span>
+              </Checkbox>
+              {enableTokens && grantTokens > 0 && (
+                <Tag size='small' color='cyan'>
+                  {t('{{count}}k Tokens', {
+                    count: (grantTokens / 1000).toFixed(0),
+                  })}
+                </Tag>
+              )}
+            </div>
+            {enableTokens && (
+              <div className='pl-6 space-y-1'>
+                <InputNumber
+                  value={grantTokens}
+                  onChange={(v) => setGrantTokens(v)}
+                  min={0}
+                  step={10000}
+                  className='!rounded-lg'
+                  style={{ width: '100%' }}
+                  placeholder={t('例如 1000000 Tokens (1M)')}
+                />
+                <Text type='secondary' className='text-xs block'>
+                  {t('按实际 Prompt + Completion 的 Token 消耗总量限制。')}
+                </Text>
+              </div>
+            )}
+          </div>
+
+          {/* 维度3：调用次数限制 */}
+          <div className='p-2.5 bg-[var(--semi-color-bg-0)] rounded-lg border border-[var(--semi-color-border)] space-y-2'>
+            <div className='flex items-center justify-between'>
+              <Checkbox
+                checked={enableCalls}
+                onChange={(e) => setEnableCalls(e.target.checked)}
+              >
+                <span className='font-medium text-sm'>
+                  {t('调用次数限制 (API 请求数)')}
+                </span>
+              </Checkbox>
+              {enableCalls && grantCalls > 0 && (
+                <Tag size='small' color='purple'>
+                  {t('{{count}} 次', { count: grantCalls })}
+                </Tag>
+              )}
+            </div>
+            {enableCalls && (
+              <div className='pl-6 space-y-1'>
+                <InputNumber
+                  value={grantCalls}
+                  onChange={(v) => setGrantCalls(v)}
+                  min={0}
+                  step={100}
+                  className='!rounded-lg'
+                  style={{ width: '100%' }}
+                  placeholder={t('例如 1000 次')}
+                />
+                <Text type='secondary' className='text-xs block'>
+                  {t('限制该授权策略下的 API 调用请求总次数。')}
+                </Text>
+              </div>
+            )}
+          </div>
+
+          {/* 额度分配模式 */}
+          <div className='pt-1'>
+            <Text strong className='block mb-1.5'>
+              {t('额度分配模式')}
+            </Text>
+            <RadioGroup
+              value={quotaScope}
+              onChange={(e) => setQuotaScope(e.target.value)}
+              type='button'
+              className='mb-1.5'
+            >
+              <Radio value={0}>{t('团队共享总额度')}</Radio>
+              <Radio value={1}>{t('成员独立额度上限')}</Radio>
+            </RadioGroup>
+            <Text type='secondary' className='text-xs block'>
+              {quotaScope === 0
+                ? t(
+                    '团队共享：所有选中的主体共用该额度池，适合项目组公共预算。',
+                  )
+                : t('成员独立：为每个成员分配独立上限，每人享有完整额度。')}
+            </Text>
+          </div>
+        </div>
+      )}
+
+      {/* 2. 生效周期与重置策略 */}
+      <div className='p-3 bg-[var(--semi-color-fill-0)] rounded-xl space-y-3 border border-[var(--semi-color-border)]'>
+        <div>
+          <Text strong className='block mb-1'>
+            {t('生效周期与重置规则')}
+          </Text>
+          <Text type='tertiary' className='text-xs block mb-2'>
+            {t('周期到达时将自动刷新重置已消耗量，开启新一轮配额')}
+          </Text>
+          <RadioGroup
+            value={periodType}
+            onChange={(e) => setPeriodType(e.target.value)}
+            type='button'
+            className='mb-2'
+          >
+            <Radio value={0}>{t('一次性 (耗尽即止)')}</Radio>
+            <Radio value={1}>{t('每天自动重置')}</Radio>
+            <Radio value={2}>{t('每月 1 日重置')}</Radio>
+            <Radio value={3}>{t('自定义周期')}</Radio>
+          </RadioGroup>
+        </div>
+
+        {periodType === 3 && (
+          <div className='p-2.5 bg-[var(--semi-color-bg-0)] rounded-lg border border-[var(--semi-color-border)] space-y-2'>
+            <Text strong className='text-xs'>
+              {t('自定义重置周期步长')}
+            </Text>
+            <Row gutter={8} align='middle'>
+              <Col span={13}>
+                <InputNumber
+                  value={periodInterval}
+                  onChange={(v) => setPeriodInterval(v)}
+                  min={1}
+                  step={1}
+                  prefix={t('每')}
+                  className='!rounded-lg'
+                  style={{ width: '100%' }}
+                />
+              </Col>
+              <Col span={11}>
+                <Select
+                  value={periodUnit}
+                  onChange={(v) => setPeriodUnit(v)}
+                  className='!rounded-lg'
+                  style={{ width: '100%' }}
+                >
+                  <Select.Option value='hour'>{t('小时')}</Select.Option>
+                  <Select.Option value='day'>{t('天')}</Select.Option>
+                  <Select.Option value='week'>{t('周')}</Select.Option>
+                  <Select.Option value='month'>{t('月')}</Select.Option>
+                </Select>
+              </Col>
+            </Row>
+            <Text type='secondary' className='text-xs block'>
+              {t('例如：每 2 周、每 12 小时、每 3 个月自动重置一次已用量。')}
+            </Text>
+          </div>
+        )}
+
+        <Text type='secondary' className='text-xs block'>
+          {periodType === 0 &&
+            t(
+              '单次生效，额度或次数消耗完毕后授权将暂停，直到管理员追加额度或重置。',
+            )}
+          {periodType === 1 &&
+            t('每日 00:00 自动将已消耗金额、Token 及调用次数清零。')}
+          {periodType === 2 &&
+            t('自然月每月 1 日 00:00 自动将已消耗用量清零。')}
+          {periodType === 3 && t('按设定的自定义时间步长循环重置已用量。')}
+        </Text>
+      </div>
+
+      {/* 3. QoS 并发限制 */}
+      <div className='p-3 bg-[var(--semi-color-fill-0)] rounded-xl space-y-2 border border-[var(--semi-color-border)]'>
+        <Text strong className='block'>
+          {t('最大并发限制')}
+        </Text>
+        <InputNumber
+          value={maxConcurrency}
+          onChange={(v) => setMaxConcurrency(v)}
+          min={0}
+          step={1}
+          className='!rounded-lg'
+          style={{ width: '100%' }}
+          placeholder={t('0 表示无限制')}
+        />
+        <Text type='secondary' className='text-xs block'>
+          {t('限制该授权策略下的同时在飞请求数。设置为 0 表示不单独限制并发。')}
+        </Text>
+      </div>
+    </div>
+  );
+
+  const handleClose = () => {
+    setAdvancedSettingsOpen(false);
+    onClose();
   };
 
   return (
@@ -380,7 +725,7 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
       visible={visible}
       width={isMobile ? '100%' : 640}
       footer={
-        <div className='flex justify-between items-center bg-white dark:bg-gray-900 p-3 border-t border-gray-100 dark:border-gray-800'>
+        <div className='flex justify-between items-center bg-[var(--semi-color-bg-0)] p-3 border-t border-[var(--semi-color-border)]'>
           <Text type='secondary' className='text-xs'>
             {totalSubjectCount > 0
               ? t('{{count}} subjects · {{res}} resources selected', {
@@ -404,7 +749,7 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
               theme='light'
               className='!rounded-lg'
               type='primary'
-              onClick={onClose}
+              onClick={handleClose}
               icon={<IconClose />}
             >
               {t('取消')}
@@ -413,10 +758,45 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
         </div>
       }
       closeIcon={null}
-      onCancel={onClose}
+      onCancel={handleClose}
     >
       <Spin spinning={fetchingData}>
         <div className='p-2 space-y-3'>
+          {/* 0. 基本信息卡片 */}
+          <Card className='!rounded-2xl shadow-sm border-0'>
+            <div className='flex items-center mb-3'>
+              <Avatar size='small' color='teal' className='mr-2 shadow-md'>
+                <IconEdit size={16} />
+              </Avatar>
+              <div>
+                <Text className='text-lg font-medium'>{t('基本信息')}</Text>
+                <div className='text-xs text-[var(--semi-color-text-2)]'>
+                  {t(
+                    '设置本次授权的业务标识名称，方便后续检索、审计与权限对账。',
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <Row gutter={12}>
+              <Col span={24}>
+                <div className='flex flex-col gap-1.5'>
+                  <Text strong>{t('授权名称')}</Text>
+                  <Input
+                    placeholder={t(
+                      '请输入授权名称（选填，如：市场部营销文案生成授权）',
+                    )}
+                    value={name}
+                    onChange={(v) => setName(v)}
+                    maxLength={128}
+                    showClear
+                    className='!rounded-lg'
+                  />
+                </div>
+              </Col>
+            </Row>
+          </Card>
+
           {/* 1. 授权主体卡片 */}
           <Card className='!rounded-2xl shadow-sm border-0'>
             <div className='flex items-center mb-3'>
@@ -425,7 +805,7 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
               </Avatar>
               <div>
                 <Text className='text-lg font-medium'>{t('Subjects')}</Text>
-                <div className='text-xs text-gray-600'>
+                <div className='text-xs text-[var(--semi-color-text-2)]'>
                   {t(
                     'Select departments or users from the organization tree and optionally add user groups.',
                   )}
@@ -440,9 +820,9 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
                   <TreeSelect
                     multiple
                     checkRelation='unRelated'
-                    autoMergeValue={false}
                     maxTagCount={4}
                     filterTreeNode
+                    showClear
                     placeholder={t('Search departments or members...')}
                     treeData={deptTreeData}
                     value={selectedOrgKeys}
@@ -566,116 +946,7 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
             </Row>
           </Card>
 
-          {/* 3. 渠道池与服务质量 QoS 卡片 */}
-          <Card className='!rounded-2xl shadow-sm border-0'>
-            <div className='flex items-center mb-3'>
-              <Avatar size='small' color='amber' className='mr-2 shadow-md'>
-                <IconServer size={16} />
-              </Avatar>
-              <div>
-                <Text className='text-lg font-medium'>
-                  {t('Budget and concurrency')}
-                </Text>
-                <div className='text-xs text-gray-600'>
-                  {t(
-                    'Each model uses its own routing policy. Configure pools in Model Management.',
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <Row gutter={12}>
-              <Col span={24}>
-                <div className='flex flex-col gap-1.5 mb-3'>
-                  <Text strong>{t('预算额度模式')}</Text>
-                  <RadioGroup
-                    value={quotaType}
-                    onChange={(e) => setQuotaType(e.target.value)}
-                    type='button'
-                  >
-                    <Radio value={0}>{t('No authorization budget cap')}</Radio>
-                    <Radio value={1}>{t('指定预算额度')}</Radio>
-                  </RadioGroup>
-                  <Text type='secondary' className='text-xs'>
-                    {quotaType === 0
-                      ? t(
-                          '企业免充值不限预算：直接放行并记录消耗，不再要求个人账户充值。',
-                        )
-                      : t(
-                          '指定预算模式下，该项授权累计消耗达到预算上限后将暂停调用。',
-                        )}
-                  </Text>
-                </div>
-              </Col>
-
-              {quotaType === 1 && (
-                <>
-                  <Col span={24}>
-                    <div className='flex flex-col gap-1.5 mb-3'>
-                      <Text strong>{t('授权预算配额 (Token 点数)')}</Text>
-                      <InputNumber
-                        value={grantQuota}
-                        onChange={(v) => setGrantQuota(v)}
-                        min={0}
-                        step={100000}
-                        className='!rounded-lg'
-                        style={{ width: '100%' }}
-                        placeholder={t('例如 500000 点 (等值 $1)')}
-                      />
-                      <Text type='secondary' className='text-xs'>
-                        {t('500,000 点额度基准等值约 $1 美元算力配额。')}
-                      </Text>
-                    </div>
-                  </Col>
-
-                  <Col span={24}>
-                    <div className='flex flex-col gap-1.5 mb-3'>
-                      <Text strong>{t('额度分配模式')}</Text>
-                      <RadioGroup
-                        value={quotaScope}
-                        onChange={(e) => setQuotaScope(e.target.value)}
-                        type='button'
-                      >
-                        <Radio value={0}>{t('团队共享总额度')}</Radio>
-                        <Radio value={1}>{t('成员独立额度上限')}</Radio>
-                      </RadioGroup>
-                      <Text type='secondary' className='text-xs'>
-                        {quotaScope === 0
-                          ? t(
-                              '团队共享模式：所有选中的主体共同消耗此总预算池，适合部门整体项目制预算。',
-                            )
-                          : t(
-                              '成员独立模式：为所选主体下的每一位成员分配独立的预算上限（每人均可使用该数额）。',
-                            )}
-                      </Text>
-                    </div>
-                  </Col>
-                </>
-              )}
-
-              <Col span={24}>
-                <div className='flex flex-col gap-1.5'>
-                  <Text strong>{t('最大并发限制')}</Text>
-                  <InputNumber
-                    value={maxConcurrency}
-                    onChange={(v) => setMaxConcurrency(v)}
-                    min={0}
-                    step={1}
-                    className='!rounded-lg'
-                    style={{ width: '100%' }}
-                    placeholder={t('0 表示无限制')}
-                  />
-                  <Text type='secondary' className='text-xs'>
-                    {t(
-                      '限制该授权策略下的同时在飞请求数。设置为 0 表示不单独限制并发。',
-                    )}
-                  </Text>
-                </div>
-              </Col>
-            </Row>
-          </Card>
-
-          {/* 4. 过期时间卡片 */}
+          {/* 3. 过期时间卡片 */}
           <Card className='!rounded-2xl shadow-sm border-0'>
             <div className='flex items-center mb-3'>
               <Avatar size='small' color='green' className='mr-2 shadow-md'>
@@ -772,8 +1043,125 @@ const CreateGrantModal = ({ visible, batchItem, onClose, onSuccess }) => {
               </Col>
             </Row>
           </Card>
+
+          {/* 4. 高级设置入口：移动端手风琴折叠，桌面端向左滑出副抽屉 */}
+          {isMobile ? (
+            <Collapse
+              activeKey={advancedSettingsOpen ? ['advanced'] : []}
+              onChange={(keys) =>
+                setAdvancedSettingsOpen(keys.includes('advanced'))
+              }
+              className='!border-0 !shadow-sm !rounded-2xl bg-[var(--semi-color-bg-0)] overflow-hidden'
+            >
+              <Collapse.Panel
+                header={
+                  <div className='flex items-center gap-2'>
+                    <IconSetting size={16} />
+                    <Text className='font-medium'>{t('高级设置')}</Text>
+                  </div>
+                }
+                itemKey='advanced'
+              >
+                {advancedSettingsContent}
+              </Collapse.Panel>
+            </Collapse>
+          ) : (
+            <div
+              className='flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors hover:bg-[var(--semi-color-fill-1)]'
+              style={{
+                backgroundColor: advancedSettingsOpen
+                  ? 'var(--semi-color-primary-light-default)'
+                  : 'var(--semi-color-fill-0)',
+                border: '1px solid var(--semi-color-fill-2)',
+              }}
+              onClick={() => setAdvancedSettingsOpen(!advancedSettingsOpen)}
+            >
+              <div className='flex items-center gap-2'>
+                <IconSetting size={16} />
+                <Text className='font-medium'>{t('高级设置')}</Text>
+              </div>
+              <div
+                className='flex items-center gap-1 text-sm'
+                style={{ color: 'var(--semi-color-primary)' }}
+              >
+                <Text
+                  size='small'
+                  style={{ color: 'var(--semi-color-primary)' }}
+                >
+                  {advancedSettingsOpen ? t('收起') : t('向左展开')}
+                </Text>
+                <IconChevronDown
+                  size={14}
+                  style={{
+                    transform: advancedSettingsOpen
+                      ? 'rotate(180deg)'
+                      : 'rotate(90deg)',
+                    transition: 'transform 0.2s',
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </Spin>
+
+      {/* Desktop: Advanced Settings Side Panel (Side-by-Side Drawer) */}
+      {!isMobile && advancedSettingsOpen && (
+        <div
+          className='fixed top-0 h-full overflow-y-auto z-[999] semi-sidesheet-inner'
+          style={{
+            width: 600,
+            right: 640,
+            backgroundColor: 'var(--semi-color-bg-0)',
+            borderRight: '1px solid var(--semi-color-border)',
+            boxShadow: '-4px 0 16px rgba(0, 0, 0, 0.08)',
+            animation: 'slideInLeft 0.3s ease-out',
+          }}
+        >
+          <div className='semi-sidesheet-header'>
+            <div className='semi-sidesheet-title'>
+              <Space>
+                <Tag color='cyan' shape='circle'>
+                  {t('高级')}
+                </Tag>
+                <Title heading={4} className='m-0'>
+                  {t('高级设置')}
+                </Title>
+              </Space>
+            </div>
+            <Button
+              className='semi-sidesheet-close'
+              type='tertiary'
+              theme='borderless'
+              icon={<IconClose />}
+              size='small'
+              onClick={() => setAdvancedSettingsOpen(false)}
+            />
+          </div>
+          <div className='semi-sidesheet-body' style={{ padding: 0 }}>
+            <div className='p-2 space-y-3'>
+              <Card className='!rounded-2xl shadow-sm border-0'>
+                <div className='flex items-center mb-4'>
+                  <Avatar
+                    size='small'
+                    color='orange'
+                    className='mr-2 shadow-md'
+                  >
+                    <IconSetting size={16} />
+                  </Avatar>
+                  <div>
+                    <Text className='text-lg font-medium'>{t('高级设置')}</Text>
+                    <div className='text-xs text-[var(--semi-color-text-2)]'>
+                      {t('授权的高级配额、生效周期与流控规则')}
+                    </div>
+                  </div>
+                </div>
+                {advancedSettingsContent}
+              </Card>
+            </div>
+          </div>
+        </div>
+      )}
     </SideSheet>
   );
 };

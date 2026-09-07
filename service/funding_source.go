@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/model"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 )
 
 // ---------------------------------------------------------------------------
@@ -162,6 +163,7 @@ type GrantFunding struct {
 	quotaScope int // 0: shared pool, 1: per member
 	grantQuota int64
 	consumed   int // 实际预扣的授权单额度
+	relayInfo  *relaycommon.RelayInfo
 }
 
 func (g *GrantFunding) Source() string { return BillingSourceGrant }
@@ -189,13 +191,19 @@ func (g *GrantFunding) PreConsume(amount int) error {
 }
 
 func (g *GrantFunding) Settle(delta int) error {
-	if delta == 0 {
+	totalTokens := int64(0)
+	calls := int64(1)
+	if g.relayInfo != nil {
+		totalTokens = int64(g.relayInfo.PromptTokens + g.relayInfo.CompletionTokens)
+	}
+	if delta < 0 {
+		_ = model.DecreaseGrantUsedQuota(g.grantId, -int64(delta))
+		if totalTokens > 0 || calls > 0 {
+			_ = model.IncreaseGrantUsedUsage(g.grantId, 0, totalTokens, calls)
+		}
 		return nil
 	}
-	if delta > 0 {
-		return model.IncreaseGrantUsedQuota(g.grantId, int64(delta))
-	}
-	return model.DecreaseGrantUsedQuota(g.grantId, -int64(delta))
+	return model.IncreaseGrantUsedUsage(g.grantId, int64(delta), totalTokens, calls)
 }
 
 func (g *GrantFunding) Refund() error {

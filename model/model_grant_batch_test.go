@@ -70,12 +70,13 @@ func TestModelGrantBatchSubmissionRegrantAndRevocation(t *testing.T) {
 	require.NoError(t, set.Insert())
 	require.NoError(t, AddModelsToModelSet(set.Id, []string{"shared-model", "other-model"}))
 	subjects := []ModelGrantSubject{{SubjectTypeDepartment, dept.Id}, {SubjectTypeUserGroup, group.Id}, {SubjectTypeUser, user.Id}}
-	batch, err := CreateModelGrantBatch(subjects, []int{set.Id}, []string{"shared-model"}, "", "vip", 1, 100000, 0, 5, 0, 1)
+	batch, err := CreateModelGrantBatch("研发模型专属授权", subjects, []int{set.Id}, []string{"shared-model"}, "", "vip", 1, 100000, 0, 5, 0, 1)
 	require.NoError(t, err)
 	views, total, err := GetModelGrantBatches(1, 10, 0, 0, 0, 0, "")
 	require.NoError(t, err)
 	require.Len(t, views, 1)
 	assert.EqualValues(t, 1, total)
+	assert.Equal(t, "研发模型专属授权", views[0].Name)
 	assert.Equal(t, "vip", views[0].RoutingGroup)
 	assert.Equal(t, 5, views[0].MaxConcurrency)
 	assert.Equal(t, 1, views[0].QuotaType)
@@ -94,7 +95,17 @@ func TestModelGrantBatchSubmissionRegrantAndRevocation(t *testing.T) {
 	require.Len(t, views, 1)
 	assert.EqualValues(t, 1, total)
 	assert.Len(t, views[0].Grants, 6)
-	second, err := CreateModelGrantBatch(subjects[2:], []int{set.Id}, nil, "", "", 0, 0, 0, 0, 0, 1)
+	// Search by grant batch name keyword
+	viewsByName, totalByName, err := GetModelGrantBatches(1, 10, 0, 0, 0, 0, "专属授权")
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, totalByName)
+	assert.Equal(t, "研发模型专属授权", viewsByName[0].Name)
+
+	detail, err := GetModelGrantBatchDetail(batch.Id, false)
+	require.NoError(t, err)
+	assert.Equal(t, "研发模型专属授权", detail.Name)
+
+	second, err := CreateModelGrantBatch("", subjects[2:], []int{set.Id}, nil, "", "", 0, 0, 0, 0, 0, 1)
 	require.NoError(t, err)
 	require.NotEqual(t, batch.Id, second.Id)
 	removed, err := RevokeModelGrantBatch(batch.Id)
@@ -116,7 +127,7 @@ func TestModelGrantBatchRollbackAndLegacyPagination(t *testing.T) {
 	require.NoError(t, DB.Create(&user).Error)
 	set := ModelSet{Name: "Research models"}
 	require.NoError(t, set.Insert())
-	_, err := CreateModelGrantBatch([]ModelGrantSubject{{SubjectTypeUser, user.Id}}, []int{set.Id, 99999}, []string{"direct-model"}, "temporary", "", 0, 0, 0, 0, 0, 1)
+	_, err := CreateModelGrantBatch("", []ModelGrantSubject{{SubjectTypeUser, user.Id}}, []int{set.Id, 99999}, []string{"direct-model"}, "temporary", "", 0, 0, 0, 0, 0, 1)
 	require.Error(t, err)
 	for _, table := range []any{&ModelGrant{}, &ModelGrantBatch{}} {
 		var count int64
@@ -158,7 +169,7 @@ func TestModelGrantBatchDetailUnionUsers(t *testing.T) {
 	require.NoError(t, AddModelsToModelSet(set.Id, []string{"gpt-4o"}))
 
 	// Batch grants to department and user2
-	batch, err := CreateModelGrantBatch([]ModelGrantSubject{
+	batch, err := CreateModelGrantBatch("部门与个人授权", []ModelGrantSubject{
 		{Type: SubjectTypeDepartment, Id: dept.Id},
 		{Type: SubjectTypeUser, Id: user2.Id},
 	}, []int{set.Id}, []string{"claude-3-5-sonnet"}, "Adhoc", "dedicated", 0, 0, 0, 10, 0, 1)
@@ -167,6 +178,7 @@ func TestModelGrantBatchDetailUnionUsers(t *testing.T) {
 	detail, err := GetModelGrantBatchDetail(batch.Id, false)
 	require.NoError(t, err)
 	assert.Equal(t, batch.Id, detail.BatchId)
+	assert.Equal(t, "部门与个人授权", detail.Name)
 	assert.Equal(t, "dedicated", detail.RoutingGroup)
 	assert.Equal(t, 10, detail.MaxConcurrency)
 	assert.Len(t, detail.Subjects, 2)
@@ -206,7 +218,7 @@ func TestGetEffectiveGrantPolicyForUser(t *testing.T) {
 	require.NoError(t, AddModelsToModelSet(setUser.Id, []string{"gpt-4o", "claude-3-5-sonnet"}))
 
 	// 1. Dept grant has routing_group="dept_pool", max_concurrency=2
-	_, err := CreateModelGrantBatch([]ModelGrantSubject{{Type: SubjectTypeDepartment, Id: dept.Id}}, []int{setDept.Id}, nil, "", "dept_pool", 0, 0, 0, 2, 0, 1)
+	_, err := CreateModelGrantBatch("", []ModelGrantSubject{{Type: SubjectTypeDepartment, Id: dept.Id}}, []int{setDept.Id}, nil, "", "dept_pool", 0, 0, 0, 2, 0, 1)
 	require.NoError(t, err)
 
 	policy, err := GetEffectiveGrantPolicyForUser(user.Id, "gpt-4o")
@@ -216,7 +228,7 @@ func TestGetEffectiveGrantPolicyForUser(t *testing.T) {
 	assert.Equal(t, 2, policy.MaxConcurrency)
 
 	// 2. User direct grant has routing_group="vip_direct", max_concurrency=10
-	_, err = CreateModelGrantBatch([]ModelGrantSubject{{Type: SubjectTypeUser, Id: user.Id}}, []int{setUser.Id}, nil, "", "vip_direct", 1, 50000, 0, 10, 0, 1)
+	_, err = CreateModelGrantBatch("", []ModelGrantSubject{{Type: SubjectTypeUser, Id: user.Id}}, []int{setUser.Id}, nil, "", "vip_direct", 1, 50000, 0, 10, 0, 1)
 	require.NoError(t, err)
 
 	// Direct user grant must take priority over dept grant
@@ -255,6 +267,7 @@ func TestModelGrantBatchQuotaScope(t *testing.T) {
 
 	// 1. QuotaScope = 0 (Shared Pool): dept gets 1 grant, members share it
 	batchShared, err := CreateModelGrantBatch(
+		"",
 		[]ModelGrantSubject{{Type: SubjectTypeDepartment, Id: dept.Id}},
 		[]int{set.Id},
 		nil,
@@ -296,6 +309,7 @@ func TestModelGrantBatchQuotaScope(t *testing.T) {
 
 	// 2. QuotaScope = 1 (Per-Member Cap): dept is expanded to user1 and user2
 	batchPerMember, err := CreateModelGrantBatch(
+		"",
 		[]ModelGrantSubject{{Type: SubjectTypeDepartment, Id: dept.Id}},
 		[]int{set.Id},
 		nil,

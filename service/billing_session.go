@@ -418,6 +418,7 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 						quotaType:  policy.QuotaType,
 						quotaScope: policy.QuotaScope,
 						grantQuota: policy.GrantQuota,
+						relayInfo:  relayInfo,
 					},
 				}
 				if apiErr := session.preConsume(c, preConsumedQuota); apiErr != nil {
