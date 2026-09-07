@@ -1,6 +1,50 @@
 # 企业级 AI 网关改造实施记录
 
-本文档完整记录从商业 Relay 代理站转型为**企业级内部统一 AI 网关 / 算力治理平台**的改造全过程，涵盖第一阶段的商业转售元素净化、第二阶段的在途并发流控，以及第三阶段的**【授权管理】企业权限、渠道、模型与预算全面统一治理**。
+本文档完整记录从商业 Relay 代理站转型为**企业级内部统一 AI 网关 / 算力治理平台**的改造全过程，涵盖商业转售元素净化、在途并发流控、【授权管理】企业权限/模型/预算全面统一治理，以及**彻底解耦与移除渠道分组标签、将渠道调度全面归纳为状态/优先级/权重控制**。
+
+---
+
+## 零、 渠道分组标签彻底移除与调度纯粹化（最新）
+
+### 1. 架构目标与重构原则
+- **彻底消除“渠道分组/标签”的冗余与混淆**：
+  - “渠道分组”此前与优先级、权重、授权池功能重叠，造成创建渠道、授权管理及运营设置中的心智负担。
+  - 系统自此**仅保留一个“组”的概念：【用户组】（User Group）**，100% 专用于企业组织架构（研发组、产品组、部门等）的模型授权与预算配额分配。
+- **渠道调度的纯粹化法则**：
+  - 渠道作为纯粹的上游连接基础设施，其调度完全由以下 3 个固有属性决定：
+    1. **启用/禁用状态 (`Status`)**：决定渠道是否提供服务。
+    2. **优先级 (`Priority`)**：降序排列。主备故障切换（Failover）完全由优先级驱动（高优先级故障时无缝顺延至次高优先级）。
+    3. **权重 (`Weight`)**：同优先级渠道之间，通过加权随机算法进行加权轮询（Weighted Round-Robin）负载均衡。
+- **数据库兼容底座保持稳定**：
+  - 底层数据库 `abilities` 复合主键包含 `group` 列，后台创建渠道或更新渠道时自动回退为 `'default'`，屏蔽底层表结构差异，确保 SQLite / MySQL / PostgreSQL 跨库零迁移隐患。
+
+### 2. 代码改造清单
+
+#### 前端交互层 (`web/classic/`)
+- [EditChannelModal.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/channels/modals/EditChannelModal.jsx)：
+  - 移除 `<Form.Select field='groups' ... />`，管理员新增/编辑渠道时不再需要挑选或感知任何渠道分组/标签。
+  - 提交数据时默认保障写入 `'default'`。
+- [EditTagModal.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/channels/modals/EditTagModal.jsx)：
+  - 移除标签批量编辑抽屉中的“分组设置”卡片。
+- [ChannelsColumnDefs.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/channels/ChannelsColumnDefs.jsx)：
+  - 移除渠道表格中的【分组】数据列定义。
+- [ChannelsFilters.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/channels/ChannelsFilters.jsx)：
+  - 移除渠道筛选工具条中的【选择分组】下拉筛选器。
+- [useChannelsData.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/hooks/channels/useChannelsData.jsx)：
+  - 默认列可见性配置中关闭 `COLUMN_KEYS.GROUP`。
+- [RatioSetting.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/settings/RatioSetting.jsx)：
+  - 完全移除【渠道池与调度设置】Tab 页及 `GroupRatioSettings` 关联引用。
+
+#### 后端模型与调度层
+- [model/channel_cache.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/model/channel_cache.go)：
+  - `GetRandomSatisfiedChannelForModel` 遍历 `group2model2channels` 汇总所有支持该模型的已启用渠道候选集，去除之前仅查 `usableGroups` 的限制，让所有启用渠道按 `Priority DESC, Weight` 统一参与调度。
+  - 修复 `GetRandomSatisfiedChannelFromAnyGroup` 在禁用内存缓存时的无限自递归问题，委托给 `GetChannelForModel` 直接查询 DB。
+- [model/ability.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/model/ability.go)：
+  - 新增 `GetChannelForModel(model string, retry int, filters []dto.ChannelFilter) (*Channel, error)`，提供跨渠道直查数据库能力的降级支持。
+- [controller/channel.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/controller/channel.go)：
+  - `AddChannel` 和 `UpdateChannel` 增加自动默认回退 `channel.Group = "default"`，保障接口无论是否传递 `group` 均具备健壮的数据库兼容性。
+- [service/model_auth.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/service/model_auth.go)：
+  - 确保管理员或具备全部权限的用户在鉴权通过时均挂载 `EffectiveGrantPolicy`，统一进入跨渠道调度机制。
 
 ---
 
