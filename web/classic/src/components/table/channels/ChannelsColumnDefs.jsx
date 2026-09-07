@@ -327,6 +327,7 @@ export const getChannelsColumns = ({
   setCurrentMultiKeyChannel,
   openUpstreamUpdateModal,
   detectChannelUpstreamUpdates,
+  openClientQuotaModal,
 }) => {
   return [
     {
@@ -754,6 +755,16 @@ export const getChannelsColumns = ({
             });
           }
 
+          if (record.type === 62) {
+            moreMenuItems.unshift({
+              node: 'item',
+              name: t('额度 / 流量'),
+              type: 'tertiary',
+              onClick: () =>
+                openClientQuotaModal && openClientQuotaModal(record),
+            });
+          }
+
           return (
             <Space wrap>
               <SplitButtonGroup
@@ -777,6 +788,18 @@ export const getChannelsColumns = ({
                   }}
                 />
               </SplitButtonGroup>
+
+              {record.type === 62 && (
+                <Button
+                  size='small'
+                  type='tertiary'
+                  onClick={() =>
+                    openClientQuotaModal && openClientQuotaModal(record)
+                  }
+                >
+                  {t('额度')}
+                </Button>
+              )}
 
               {record.status === 1 ? (
                 <Button

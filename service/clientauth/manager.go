@@ -444,6 +444,26 @@ func (m *AuthManager) CreateChannel(ctx context.Context, id string, create func(
 	return channelID, nil
 }
 
+// GetSessionToken retrieves the token result of a completed session for its owner.
+func (m *AuthManager) GetSessionToken(ctx context.Context, id string) (*TokenBundle, error) {
+	m.mu.RLock()
+	session := m.sessions[id]
+	m.mu.RUnlock()
+	if session == nil {
+		return nil, fmt.Errorf("authorization session not found")
+	}
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	if session.OwnerID != ownerID(ctx) || time.Now().After(session.ExpiresAt) {
+		return nil, fmt.Errorf("authorization session not found or expired")
+	}
+	if session.Status != AuthStatusSuccess || session.TokenResult == nil {
+		return nil, fmt.Errorf("authorization is not complete")
+	}
+	return session.TokenResult, nil
+}
+
+
 // snapshot exposes progress without sharing mutable session state or credentials.
 func (s *AuthSession) snapshot() *AuthSession {
 	return &AuthSession{

@@ -416,6 +416,8 @@ export function getChannelIcon(channelType) {
     case 8: // 自定义渠道
     case 22: // 知识库：FastGPT
       return <FastGPT.Color size={iconSize} />;
+    case 62: // 客户端 OAuth
+      return <TerminalSquare size={iconSize} />;
     case 21: // 知识库：AI Proxy
     case 44: // 嵌入模型：MokaAI M3E
     default:

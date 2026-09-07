@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 package controller
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -74,6 +75,30 @@ func InitClientAuth(c *gin.Context) {
 	c.JSON(200, gin.H{"success": true, "data": result})
 }
 
+func buildClientCredentialKey(ctx context.Context, token *clientauth.TokenBundle) (string, string, error) {
+	baseURL, err := clientauth.ProviderBaseURL(token.Provider)
+	if err != nil {
+		return "", "", err
+	}
+	credential := *token
+	credential.RawPayload = ""
+	if credential.AccessToken == "" {
+		return "", "", fmt.Errorf("missing access token")
+	}
+	if credential.Provider == "antigravity" && credential.ProjectID == "" {
+		project, err := clientauth.DiscoverAntigravityProject(ctx, credential.AccessToken)
+		if err != nil {
+			return "", "", err
+		}
+		credential.ProjectID = project
+	}
+	key, err := common.Marshal(&credential)
+	if err != nil {
+		return "", "", err
+	}
+	return string(key), baseURL, nil
+}
+
 func PollClientAuth(c *gin.Context) {
 	var payload ClientAuthPollPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
@@ -85,8 +110,7 @@ func PollClientAuth(c *gin.Context) {
 		c.JSON(400, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	c.Header("Cache-Control", "no-store")
-	c.JSON(200, gin.H{"success": true, "data": gin.H{
+	respData := gin.H{
 		"session_id":     session.ID,
 		"provider":       session.Provider,
 		"status":         session.Status,
@@ -94,7 +118,18 @@ func PollClientAuth(c *gin.Context) {
 		"default_name":   session.DefaultName,
 		"default_models": session.DefaultModels,
 		"email":          session.Email,
-	}})
+	}
+	if session.Status == clientauth.AuthStatusSuccess {
+		ctx := clientauth.WithOwner(c.Request.Context(), c.GetInt("id"))
+		if token, err := clientauth.DefaultManager.GetSessionToken(ctx, session.ID); err == nil && token != nil {
+			if keyStr, baseURL, err := buildClientCredentialKey(c.Request.Context(), token); err == nil {
+				respData["key"] = keyStr
+				respData["base_url"] = baseURL
+			}
+		}
+	}
+	c.Header("Cache-Control", "no-store")
+	c.JSON(200, gin.H{"success": true, "data": respData})
 }
 
 func ExchangeClientOAuth(c *gin.Context) {
@@ -112,9 +147,17 @@ func ExchangeClientOAuth(c *gin.Context) {
 	session, _ := clientauth.DefaultManager.PollAuth(ctx, payload.SessionID)
 	data := gin.H{"status": "success"}
 	if session != nil {
+		data["session_id"] = session.ID
+		data["provider"] = session.Provider
 		data["default_name"] = session.DefaultName
 		data["default_models"] = session.DefaultModels
 		data["email"] = session.Email
+		if token, err := clientauth.DefaultManager.GetSessionToken(ctx, session.ID); err == nil && token != nil {
+			if keyStr, baseURL, err := buildClientCredentialKey(c.Request.Context(), token); err == nil {
+				data["key"] = keyStr
+				data["base_url"] = baseURL
+			}
+		}
 	}
 	c.Header("Cache-Control", "no-store")
 	c.JSON(200, gin.H{"success": true, "data": data})
@@ -201,28 +244,12 @@ func CreateChannelWithClientToken(c *gin.Context) {
 		payload.Models[i] = value
 	}
 	id, err := clientauth.DefaultManager.CreateChannel(clientauth.WithOwner(c.Request.Context(), c.GetInt("id")), payload.SessionID, func(token *clientauth.TokenBundle) (int, error) {
-		baseURL, err := clientauth.ProviderBaseURL(token.Provider)
-		if err != nil {
-			return 0, err
-		}
-		credential := *token
-		credential.RawPayload = ""
-		if credential.AccessToken == "" {
-			return 0, fmt.Errorf("missing access token")
-		}
-		if credential.Provider == "antigravity" && credential.ProjectID == "" {
-			project, err := clientauth.DiscoverAntigravityProject(c.Request.Context(), credential.AccessToken)
-			if err != nil {
-				return 0, err
-			}
-			credential.ProjectID = project
-		}
-		key, err := common.Marshal(&credential)
+		keyStr, baseURL, err := buildClientCredentialKey(c.Request.Context(), token)
 		if err != nil {
 			return 0, err
 		}
 		priority, weight := int64(0), uint(1)
-		channel := &model.Channel{Type: constant.ChannelTypeClientOAuth, Name: name, Key: string(key), BaseURL: &baseURL, Group: group, Models: strings.Join(payload.Models, ","), Priority: &priority, Weight: &weight, Status: common.ChannelStatusEnabled, CreatedTime: common.GetTimestamp()}
+		channel := &model.Channel{Type: constant.ChannelTypeClientOAuth, Name: name, Key: keyStr, BaseURL: &baseURL, Group: group, Models: strings.Join(payload.Models, ","), Priority: &priority, Weight: &weight, Status: common.ChannelStatusEnabled, CreatedTime: common.GetTimestamp()}
 		if err := channel.Insert(); err != nil {
 			return 0, err
 		}

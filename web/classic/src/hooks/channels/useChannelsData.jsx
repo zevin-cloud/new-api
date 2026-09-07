@@ -93,6 +93,20 @@ export const useChannelsData = () => {
   const [globalPassThroughEnabled, setGlobalPassThroughEnabled] =
     useState(false);
 
+  // Client quota modal states
+  const [clientQuotaChannel, setClientQuotaChannel] = useState(null);
+  const [showClientQuotaModal, setShowClientQuotaModal] = useState(false);
+
+  const openClientQuotaModal = (channel) => {
+    setClientQuotaChannel(channel);
+    setShowClientQuotaModal(true);
+  };
+
+  const closeClientQuotaModal = () => {
+    setShowClientQuotaModal(false);
+    setClientQuotaChannel(null);
+  };
+
   const fetchGlobalPassThroughEnabled = async () => {
     try {
       const res = await API.get('/api/option/');
@@ -347,7 +361,7 @@ export const useChannelsData = () => {
     const typeParam = typeKey !== 'all' ? `&type=${typeKey}` : '';
     const statusParam = statusF !== 'all' ? `&status=${statusF}` : '';
     const res = await API.get(
-      `/api/channel/?source=api&p=${page}&page_size=${pageSize}&id_sort=${idSort}&tag_mode=${enableTagMode}${typeParam}${statusParam}`,
+      `/api/channel/?p=${page}&page_size=${pageSize}&id_sort=${idSort}&tag_mode=${enableTagMode}${typeParam}${statusParam}`,
     );
 
     if (res === undefined || reqId !== requestCounter.current) {
@@ -399,7 +413,7 @@ export const useChannelsData = () => {
       const typeParam = typeKey !== 'all' ? `&type=${typeKey}` : '';
       const statusParam = statusF !== 'all' ? `&status=${statusF}` : '';
       const res = await API.get(
-        `/api/channel/search?source=api&keyword=${searchKeyword}&group=${searchGroup}&model=${searchModel}&id_sort=${sortFlag}&tag_mode=${enableTagMode}&p=${page}&page_size=${pageSz}${typeParam}${statusParam}`,
+        `/api/channel/search?keyword=${searchKeyword}&group=${searchGroup}&model=${searchModel}&id_sort=${sortFlag}&tag_mode=${enableTagMode}&p=${page}&page_size=${pageSz}${typeParam}${statusParam}`,
       );
       const { success, message, data } = res.data;
       if (success) {
@@ -1245,6 +1259,12 @@ export const useChannelsData = () => {
     handleSelectAll,
     initDefaultColumns,
     getDefaultColumnVisibility,
+
+    // Client quota modal
+    clientQuotaChannel,
+    showClientQuotaModal,
+    openClientQuotaModal,
+    closeClientQuotaModal,
 
     // Setters
     setIdSort,

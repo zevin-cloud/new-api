@@ -61,6 +61,7 @@ import ModelSelectModal from './ModelSelectModal';
 import SingleModelSelectModal from './SingleModelSelectModal';
 import OllamaModelModal from './OllamaModelModal';
 import ParamOverrideEditorModal from './ParamOverrideEditorModal';
+import ClientDrawerAuth from './ClientDrawerAuth';
 import JSONEditor from '../../../common/ui/JSONEditor';
 import SecureVerificationModal from '../../../common/modals/SecureVerificationModal';
 import StatusCodeRiskGuardModal from './StatusCodeRiskGuardModal';
@@ -154,6 +155,8 @@ function type2secretPrompt(type) {
       return '按照如下格式输入: AccessKey|SecretAccessKey';
     case 57:
       return '请输入 JSON 格式的 OAuth 凭据（必须包含 access_token 和 account_id）';
+    case 62:
+      return '可通过上方客户端授权自动填充，或直接输入 TokenBundle JSON 凭据';
     default:
       return '请输入渠道对应的鉴权密钥';
   }
@@ -672,6 +675,25 @@ const EditChannelModal = (props) => {
             base_url: 'https://ark.cn-beijing.volces.com',
           }));
           break;
+        case 62:
+          localModels = [
+            'gemini-3-flash',
+            'claude-sonnet-4-6',
+            'claude-opus-4-6-thinking',
+            'gemini-3.6-flash-high',
+            'gemini-3.7-flash-high',
+            'gemini-3.8-flash-high',
+            'gemini-3.1-flash-image',
+            'gemini-pro-agent',
+            'gemini-3.1-pro-low',
+            'gpt-oss-120b-medium',
+            'gemini-3.1-flash-lite',
+          ];
+          setInputs((prevInputs) => ({
+            ...prevInputs,
+            base_url: 'https://daily-cloudcode-pa.googleapis.com',
+          }));
+          break;
         default:
           localModels = getChannelModels(value);
           break;
@@ -684,7 +706,7 @@ const EditChannelModal = (props) => {
       // 重置手动输入模式状态
       setUseManualInput(false);
 
-      if (value === 57) {
+      if (value === 57 || value === 62) {
         setBatch(false);
         setMultiToSingle(false);
         setMultiKeyMode('random');
@@ -697,6 +719,39 @@ const EditChannelModal = (props) => {
       }
     }
     //setAutoBan
+  };
+
+  const handleClientAuthSuccess = (data) => {
+    if (!data) return;
+    const nameToSet = data.default_name || '';
+    const modelsToSet = data.default_models || [];
+    const keyToSet = data.key || '';
+    const baseUrlToSet = data.base_url || '';
+
+    if (nameToSet) {
+      handleInputChange('name', nameToSet);
+      if (formApiRef.current) {
+        formApiRef.current.setValue('name', nameToSet);
+      }
+    }
+    if (keyToSet) {
+      handleInputChange('key', keyToSet);
+      if (formApiRef.current) {
+        formApiRef.current.setValue('key', keyToSet);
+      }
+    }
+    if (baseUrlToSet) {
+      handleInputChange('base_url', baseUrlToSet);
+      if (formApiRef.current) {
+        formApiRef.current.setValue('base_url', baseUrlToSet);
+      }
+    }
+    if (modelsToSet && modelsToSet.length > 0) {
+      handleInputChange('models', modelsToSet);
+      if (formApiRef.current) {
+        formApiRef.current.setValue('models', modelsToSet);
+      }
+    }
   };
 
   const formatJsonField = (fieldName) => {
@@ -1538,6 +1593,41 @@ const EditChannelModal = (props) => {
     const formValues = formApiRef.current ? formApiRef.current.getValues() : {};
     let localInputs = { ...formValues };
     localInputs.param_override = inputs.param_override;
+
+    if (localInputs.type === 62) {
+      if (batch) {
+        showInfo(t('客户端渠道不支持批量创建'));
+        return;
+      }
+
+      const rawKey = (localInputs.key || '').trim();
+      if (!isEdit && rawKey === '') {
+        showInfo(t('请先完成客户端授权或填入客户端凭据！'));
+        return;
+      }
+
+      if (rawKey !== '') {
+        if (!verifyJSON(rawKey)) {
+          showInfo(t('客户端凭据必须是合法的 JSON 格式！'));
+          return;
+        }
+        try {
+          const parsed = JSON.parse(rawKey);
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            showInfo(t('客户端凭据必须是 JSON 对象'));
+            return;
+          }
+          if (!parsed.access_token) {
+            showInfo(t('客户端凭据 JSON 必须包含 access_token'));
+            return;
+          }
+          localInputs.key = JSON.stringify(parsed);
+        } catch (error) {
+          showInfo(t('客户端凭据必须是合法的 JSON 格式！'));
+          return;
+        }
+      }
+    }
 
     if (localInputs.type === 57) {
       if (batch) {
@@ -2628,6 +2718,14 @@ const EditChannelModal = (props) => {
                       disabled={isIonetLocked}
                     />
 
+                    {inputs.type === 62 && (
+                      <ClientDrawerAuth
+                        isEdit={isEdit}
+                        channel={props.editingChannel}
+                        onAuthSuccess={handleClientAuthSuccess}
+                      />
+                    )}
+
                     {inputs.type === 57 && (
                       <Banner
                         type='warning'
@@ -2811,7 +2909,70 @@ const EditChannelModal = (props) => {
                       )
                     ) : (
                       <>
-                        {inputs.type === 57 ? (
+                        {inputs.type === 62 ? (
+                          <>
+                            <Form.TextArea
+                              field='key'
+                              label={
+                                isEdit
+                                  ? t('密钥（编辑模式下，保存的凭据不会显示）')
+                                  : t('客户端凭据 (TokenBundle JSON)')
+                              }
+                              placeholder={t(
+                                '可通过上方客户端授权自动填充，或直接输入 JSON 格式的客户端凭据',
+                              )}
+                              rules={
+                                isEdit
+                                  ? []
+                                  : [
+                                      {
+                                        required: true,
+                                        message: t('请先完成客户端授权或填入客户端凭据'),
+                                      },
+                                    ]
+                              }
+                              autoComplete='new-password'
+                              onChange={(value) =>
+                                handleInputChange('key', value)
+                              }
+                              disabled={isIonetLocked}
+                              extraText={
+                                <div className='flex flex-col gap-2'>
+                                  <Text type='tertiary' size='small'>
+                                    {t(
+                                      '客户端凭据为包含 access_token 等信息的 JSON 格式',
+                                    )}
+                                  </Text>
+                                  <Space wrap spacing='tight'>
+                                    <Button
+                                      size='small'
+                                      type='primary'
+                                      theme='outline'
+                                      onClick={() => formatJsonField('key')}
+                                      disabled={isIonetLocked}
+                                    >
+                                      {t('格式化')}
+                                    </Button>
+                                    {isEdit && (
+                                      <Button
+                                        size='small'
+                                        type='primary'
+                                        theme='outline'
+                                        onClick={handleShow2FAModal}
+                                        disabled={isIonetLocked}
+                                      >
+                                        {t('查看密钥')}
+                                      </Button>
+                                    )}
+                                    {batchExtra}
+                                  </Space>
+                                </div>
+                              }
+                              autosize
+                              showClear
+                            />
+                          </>
+                        ) : inputs.type === 57 ? (
                           <>
                             <Form.TextArea
                               field='key'
