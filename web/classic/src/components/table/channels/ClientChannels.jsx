@@ -47,6 +47,7 @@ export default function ClientChannels({ groupOptions = [] }) {
   const [testResult, setTestResult] = useState('');
 
   useEffect(() => {
+    let active = true;
     const controller = new AbortController();
     setLoading(true);
     setError('');
@@ -55,17 +56,30 @@ export default function ClientChannels({ groupOptions = [] }) {
       clientAuth.accounts(page, controller.signal),
     ])
       .then(([available, list]) => {
-        setProviders(available);
-        setAccounts(list);
+        if (!active) return;
+        setProviders(Array.isArray(available) ? available : []);
+        setAccounts(
+          list && Array.isArray(list.items) ? list : { items: [], total: 0 },
+        );
       })
       .catch((err) => {
-        if (!controller.signal.aborted)
+        if (!active) return;
+        if (
+          !controller.signal.aborted &&
+          err?.name !== 'CanceledError' &&
+          err?.message !== 'canceled' &&
+          err?.code !== 'ERR_CANCELED'
+        ) {
           setError(err.response?.data?.message || err.message);
+        }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (active) setLoading(false);
       });
-    return () => controller.abort();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [page, revision]);
 
   async function toggle(account) {
@@ -232,7 +246,12 @@ export function ClientAuthorization({
         setStatus('pending');
       })
       .catch((err) => {
-        if (!controller.signal.aborted) {
+        if (
+          !controller.signal.aborted &&
+          err?.name !== 'CanceledError' &&
+          err?.message !== 'canceled' &&
+          err?.code !== 'ERR_CANCELED'
+        ) {
           setError(err.response?.data?.message || err.message);
           setStatus('failed');
         }
@@ -410,16 +429,6 @@ export function ClientAuthorization({
                 'Use model IDs available to this account. API access still requires a New API token.',
               )}
             </p>
-            <Select
-              aria-label={t('Group')}
-              value={group}
-              onChange={setGroup}
-              optionList={
-                groupOptions.length
-                  ? groupOptions
-                  : [{ label: 'default', value: 'default' }]
-              }
-            />
             <Button
               theme='solid'
               onClick={create}

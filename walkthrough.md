@@ -198,4 +198,39 @@
 #### 授权管理：支持【团队共享总额度】与【成员独立额度上限】
 ![授权分配模式切换](/Users/zevin/.gemini/antigravity-ide/brain/fb258509-f602-416f-9f4b-dd76fea42234/grant_modal_quota_allocation_1788686739504.png)
 
+---
+
+## 六、 客户端账号（CLI Proxy API / OAuth 凭证复用）修复与上线
+
+### 1. 背景与核心价值
+- **复用官方 OAuth 凭证**：通过登录本地 CLI（如 Claude Code、ChatGPT/Codex、Antigravity/Gemini CLI、Kimi Code）获得的 OAuth 凭据，无缝转变为 New API 的上游渠道。
+- **向下游暴露统一 OpenAI 兼容接口**：下游程序与业务服务无需关心 Claude / Codex 私有协议，通过标准 `/v1/chat/completions` 或 `/v1/responses` 统一调用。
+
+### 2. 问题排查与关键修复
+1. **Gin 路由通配符遮蔽修复 (`router/channel-router.go`)**：
+   - 之前 `/client_auth/*` 系列路由定义在 `/:id` 之后，导致请求 `/api/channel/client_auth/providers` 时被 Gin 字典树直接匹配进 `/:id` 通配符分支并报 404 / RelayNotFound。
+   - **修复**：将 `/client_auth/*` 全部子路由优先提升至 `/:id` 通配符之前注册。
+2. **前端取消错误过滤与状态保护 (`ClientChannels.jsx`)**：
+   - React 严格模式和组件重新挂载时 `AbortController.abort()` 触发 Axios 抛出 `CanceledError`，导致之前显示红色全局报错条 `! canceled`。
+   - **修复**：在 catch 块中显式过滤 `CanceledError`、`err.message === 'canceled'` 以及 `err.code === 'ERR_CANCELED'`，同时引入 `active` 挂载守卫。
+3. **并发缓存陷阱修复 (`services/clientAuth.js`)**：
+   - 全局 `patchAPIInstance` 会在内存缓存并发中的 GET 请求 Promise。当 StrictMode 中第一个请求因取消被中止时，共享 Promise 被标记为 rejected，后续非取消请求直接复用了被中止的 Promise。
+   - **修复**：在 `clientAuth.providers`、`clientAuth.accounts` 及 `clientAuth.test` 请求中显式传入 `disableDuplicate: true`，彻底消除并发请求共享导致的数据空置。
+4. **统一分组规范对齐 (`ClientChannels.jsx`)**：
+   - 按照全站渠道分组解耦原则，移除客户端授权弹窗中的渠道分组选择器，默认归入 `'default'`。
+
+### 3. 验证与实机效果
+- **后端单测**：`go test -count=1 ./service/clientauth ./relay/channel/clientoauth ./router ./controller` 全部通过。
+- **relaykit 独立构建**：`cd relaykit && GOWORK=off go build ./...` 成功。
+- **前端单测**：`bunx vitest run src/components/table/channels/__tests__/client-auth.test.jsx` (4/4 passed)，全套测试 (13/13 passed)。
+- **端到端浏览器实机效果**：
+  - 客户端渠道列表页正常渲染 4 款客户端（Kimi Code、ChatGPT / Codex、Claude Code、Antigravity）卡片及已接入账号表格。
+  - 点击“授权账号”弹窗正常呼出，展示回调网址输入与 OAuth 快捷登录链接。
+
+#### 客户端账号主页（4 款客户端卡片全量正常渲染）
+![客户端账号主页](/Users/zevin/.gemini/antigravity-ide/brain/fb258509-f602-416f-9f4b-dd76fea42234/clients_tab_overview_1788783173179.png)
+
+#### 客户端账号授权弹窗（Claude Code 授权指引与回调链接）
+![客户端授权弹窗](/Users/zevin/.gemini/antigravity-ide/brain/fb258509-f602-416f-9f4b-dd76fea42234/claude_code_auth_modal_1788783291862.png)
+
 

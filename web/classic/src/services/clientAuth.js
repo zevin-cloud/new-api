@@ -35,18 +35,25 @@ export const clientAuth = {
           account.provider === 'codex' ? 'openai-response' : 'openai',
         stream: true,
       },
+      disableDuplicate: true,
     });
     if (!response.data?.success)
       throw new Error(response.data?.message || 'Request failed');
     return response.data;
   },
   providers: (signal) =>
-    result(API.get('/api/channel/client_auth/providers', { signal })),
+    result(
+      API.get('/api/channel/client_auth/providers', {
+        signal,
+        disableDuplicate: true,
+      }),
+    ),
   accounts: (page, signal) =>
     result(
       API.get('/api/channel/client_auth/channels', {
         params: { p: page, page_size: 20 },
         signal,
+        disableDuplicate: true,
       }),
     ),
   start: (provider, signal) =>
