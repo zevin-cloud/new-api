@@ -604,3 +604,46 @@ func TestDetectAllChannelUpstreamModelUpdatesRejectsExistingActiveTask(t *testin
 	require.Contains(t, recorder.Body.String(), existing.TaskID)
 	require.Contains(t, recorder.Body.String(), "已有模型更新任务正在运行或等待中")
 }
+
+func TestFetchClientOAuthUpstreamModelIDsRejectsInvalidCredential(t *testing.T) {
+	ch := &model.Channel{
+		Type: constant.ChannelTypeClientOAuth,
+		Key:  "invalid-json",
+	}
+	models, err := fetchChannelUpstreamModelIDs(ch)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "解析客户端凭据失败")
+	require.Nil(t, models)
+}
+
+func TestFetchClientOAuthUpstreamModelIDsAntigravityFallback(t *testing.T) {
+	ch := &model.Channel{
+		Type: constant.ChannelTypeClientOAuth,
+		Key:  `{"provider":"antigravity","access_token":"mock-token"}`,
+	}
+	models, err := fetchChannelUpstreamModelIDs(ch)
+	require.NoError(t, err)
+	require.NotEmpty(t, models)
+	require.Contains(t, models, "gemini-3-flash")
+}
+
+func TestFetchClientOAuthUpstreamModelIDsCodex(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "Bearer test-access-token", r.Header.Get("Authorization"))
+		require.Equal(t, "test-account-id", r.Header.Get("ChatGPT-Account-Id"))
+		_, _ = w.Write([]byte(`{"models":[{"slug":"gpt-5.5","title":"GPT-5.5"}]}`))
+	}))
+	defer server.Close()
+
+	ch := &model.Channel{
+		Type:    constant.ChannelTypeClientOAuth,
+		Key:     `{"provider":"codex","access_token":"test-access-token","account_id":"test-account-id"}`,
+		BaseURL: &server.URL,
+	}
+	models, err := fetchChannelUpstreamModelIDs(ch)
+	require.NoError(t, err)
+	require.Equal(t, []string{"gpt-5.5"}, models)
+}
+
+
+

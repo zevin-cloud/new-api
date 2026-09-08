@@ -3,6 +3,7 @@ package clientoauth
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -341,4 +342,32 @@ func readCodexResponse(body io.Reader) ([]byte, error) {
 	return nil, errors.New("Codex stream ended without a terminal response")
 }
 
-func (a *Adaptor) GetModelList() []string { return nil }
+func (a *Adaptor) GetModelList() []string {
+	switch a.credential.Provider {
+	case "antigravity":
+		if a.credential.AccessToken != "" {
+			models := clientauth.FetchAntigravityAvailableModels(context.Background(), a.credential.AccessToken)
+			if len(models) > 0 {
+				return models
+			}
+		}
+		return []string{
+			"gemini-3-flash",
+			"gemini-3.6-flash-high",
+			"gemini-3.7-flash-high",
+			"gemini-3.8-flash-high",
+			"claude-sonnet-4-6",
+			"claude-opus-4-6-thinking",
+			"gemini-pro-agent",
+			"gemini-3.1-pro-low",
+			"gemini-3.1-flash-image",
+			"gemini-3.1-flash-lite",
+			"gpt-oss-120b-medium",
+		}
+	default:
+		if a.Adaptor != nil {
+			return a.Adaptor.GetModelList()
+		}
+		return nil
+	}
+}

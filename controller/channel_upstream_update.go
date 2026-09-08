@@ -25,6 +25,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/service/clientauth"
 
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
@@ -406,6 +407,10 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 		return service.FetchCodexChannelModels(channel)
 	}
 
+	if channel.Type == constant.ChannelTypeClientOAuth {
+		return fetchClientOAuthUpstreamModelIDs(channel)
+	}
+
 	var url string
 	switch channel.Type {
 	case constant.ChannelTypeAli:
@@ -459,6 +464,99 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 		return item.ID
 	})
 	return normalizeModelNames(ids), nil
+}
+
+func fetchClientOAuthUpstreamModelIDs(channel *model.Channel) ([]string, error) {
+	ctx := context.Background()
+	var credential *clientauth.TokenBundle
+	var err error
+	if channel.Id > 0 {
+		credential, err = service.ResolveClientCredential(ctx, channel.Id)
+	}
+	if credential == nil || err != nil {
+		var bundle clientauth.TokenBundle
+		if unmarshalErr := common.Unmarshal([]byte(channel.Key), &bundle); unmarshalErr != nil {
+			return nil, fmt.Errorf("解析客户端凭据失败: %w", unmarshalErr)
+		}
+		credential = &bundle
+	}
+
+	switch credential.Provider {
+	case "antigravity":
+		models := clientauth.FetchAntigravityAvailableModels(ctx, credential.AccessToken)
+		if len(models) == 0 {
+			return nil, fmt.Errorf("未能从 Antigravity 上游获取到模型")
+		}
+		return normalizeModelNames(models), nil
+	case "codex":
+		return fetchCodexClientOAuthUpstreamModelIDs(ctx, channel, credential)
+	case "kimi":
+		baseURL := channel.GetBaseURL()
+		if baseURL == "" {
+			baseURL = "https://api.kimi.com/coding"
+		}
+		url := fmt.Sprintf("%s/v1/models", baseURL)
+		headers := make(http.Header)
+		headers.Set("Authorization", "Bearer "+credential.AccessToken)
+		body, err := getFetchModelsResponseBody(http.MethodGet, url, channel, headers)
+		if err != nil {
+			return nil, err
+		}
+		var result OpenAIModelsResponse
+		if err := common.Unmarshal(body, &result); err != nil {
+			return nil, err
+		}
+		ids := lo.Map(result.Data, func(item OpenAIModel, _ int) string {
+			return item.ID
+		})
+		return normalizeModelNames(ids), nil
+	default:
+		return nil, fmt.Errorf("不支持的客户端提供方: %s", credential.Provider)
+	}
+}
+
+func fetchCodexClientOAuthUpstreamModelIDs(ctx context.Context, channel *model.Channel, credential *clientauth.TokenBundle) ([]string, error) {
+	client, err := service.NewProxyHttpClient(channel.GetSetting().Proxy)
+	if err != nil {
+		return nil, err
+	}
+	clientCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+
+	clientVersion, err := service.GetLatestCodexClientVersion(clientCtx, client)
+	if err != nil || clientVersion == "" {
+		clientVersion = "0.153.4"
+	}
+
+	baseURL := channel.GetBaseURL()
+	if baseURL == "" {
+		baseURL = constant.GetChannelBaseURL(constant.ChannelTypeCodex)
+	}
+
+	oauthKey := &service.CodexOAuthKey{
+		AccessToken: strings.TrimSpace(credential.AccessToken),
+		AccountID:   strings.TrimSpace(credential.AccountID),
+	}
+
+	statusCode, models, err := service.FetchCodexModels(clientCtx, client, baseURL, oauthKey, clientVersion)
+	if err != nil {
+		return nil, err
+	}
+	if statusCode == http.StatusUnauthorized && channel.Id > 0 {
+		refreshed, refreshErr := service.ResolveClientCredential(ctx, channel.Id)
+		if refreshErr == nil && refreshed != nil {
+			oauthKey.AccessToken = strings.TrimSpace(refreshed.AccessToken)
+			oauthKey.AccountID = strings.TrimSpace(refreshed.AccountID)
+			statusCode, models, err = service.FetchCodexModels(clientCtx, client, baseURL, oauthKey, clientVersion)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	if statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("upstream status: %d", statusCode)
+	}
+	return normalizeModelNames(models), nil
 }
 
 func fetchAdvancedCustomUpstreamModelIDs(channel *model.Channel, baseURL string) ([]string, error) {
