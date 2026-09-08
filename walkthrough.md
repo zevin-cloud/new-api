@@ -4,6 +4,38 @@
 
 ---
 
+## 零、 Codex 客户端模式支持图片生成模型（`gpt-image-2`）与测试自动分流（最新）
+
+### 1. 问题背景与根本原因
+* **痛点**：在 New-API 中使用 Codex 客户端渠道或 OpenAI 代理（如 CPA）测试 `gpt-image-2` 等生图模型时，报错：
+  `model gpt-image-2 is only supported on /v1/images/generations and /v1/images/edits`
+* **根因**：
+  1. **Codex 适配器不支持生图**：[relay/channel/codex/adaptor.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/relay/channel/codex/adaptor.go) 原代码将 `ConvertImageRequest` 直接写死报错 `endpoint not supported`，且未配置生图上游路由。
+  2. **测试未识别生图模型**：[controller/channel-test.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/controller/channel-test.go) 默认将 Codex 渠道测试强转为 `/v1/responses`，且缺少生图模型的自动检测，导致 `gpt-image-2` 兜底走 Chat 请求被打向 `/v1/chat/completions`。
+  3. **模型规则库未收录新模型**：[common/model.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/common/model.go) 仅包含 `gpt-image-1`，未收录 `gpt-image-2` 及其系列前缀。
+
+### 2. 改造内容
+1. **Codex 渠道适配器完整支持生图**（[relay/channel/codex/adaptor.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/relay/channel/codex/adaptor.go)）：
+   - `ConvertImageRequest`：接收并透传 `dto.ImageRequest`。
+   - `GetRequestURL`：`RelayModeImagesGenerations` 路由至 `/backend-api/codex/images/generations`（若配置第三方代理地址则自适应 `/v1/images/generations`）。
+   - `SetupRequestHeader`：自动注入 `User-Agent: codex-cli/0.153.4`，防止触发 Cloudflare 1010 拦截。
+   - `DoResponse`：接入 `openai.OpenaiImageHandler` / `openai.OpenaiImageStreamHandler` 完成图像结果解析与额度扣费。
+2. **规则库模型扩充**（[common/model.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/common/model.go)）：
+   - `ImageGenerationModels` 增加 `gpt-image-2`、`gpt-image-`、`chatgpt-image-`，`IsImageGenerationModel` 自动识别所有生图模型。
+3. **测试自动识别与路由修正**（[controller/channel-test.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/controller/channel-test.go)）：
+   - `normalizeChannelTestEndpoint` 传入当前测试模型，遇生图模型优先保留为 `image-generation` 端点。
+   - `buildTestRequest` 自动为生图模型构造标准 `dto.ImageRequest`，不再错误回退到 Chat。
+4. **模型列表同步更新**：
+   - [relay/channel/codex/constants.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/relay/channel/codex/constants.go) 与 [service/clientauth/manager.go](file:///Users/zevin/Desktop/fit2cloud/code/new-api/service/clientauth/manager.go) 增加 `gpt-image-2`，确保客户端授权与渠道配置均有一键选项。
+
+### 3. 验证情况
+- 单元测试：`go test -v -count=1 ./relay/channel/codex` 全部通过（包含生图 URL 路由与请求转换）。
+- 单元测试：`go test -v -count=1 ./controller -run "TestNormalizeChannelTestEndpointImageModel|TestBuildTestRequestImageModel"` 全部通过。
+- 模块独立性：`cd relaykit && GOWORK=off go build ./...` 校验通过。
+- 服务构建与运行：主二进制成功编译，后台服务正常对外提供健康服务。
+
+---
+
 ## 零、 渠道分组标签彻底移除与调度纯粹化（最新）
 
 ### 1. 架构目标与重构原则

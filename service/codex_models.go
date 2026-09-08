@@ -150,6 +150,57 @@ func FetchCodexModels(
 	if err != nil {
 		return resp.StatusCode, nil, err
 	}
+	if resp.StatusCode == http.StatusNotFound {
+		v1ModelsURL, parseErr := url.Parse(baseURL + "/v1/models")
+		if parseErr == nil {
+			v1Req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, v1ModelsURL.String(), nil)
+			if reqErr == nil {
+				v1Req.Header.Set("Authorization", "Bearer "+accessToken)
+				if accountID != "" {
+					v1Req.Header.Set("ChatGPT-Account-Id", accountID)
+				}
+				v1Req.Header.Set("User-Agent", "codex-cli/"+clientVersion)
+				v1Req.Header.Set("Accept", "application/json")
+
+				v1Resp, doErr := client.Do(v1Req)
+				if doErr == nil {
+					defer v1Resp.Body.Close()
+					if v1Resp.StatusCode == http.StatusOK {
+						v1Body, readErr := io.ReadAll(v1Resp.Body)
+						if readErr == nil {
+							var oaiResult struct {
+								Data []struct {
+									ID string `json:"id"`
+								} `json:"data"`
+							}
+							if unmarshalErr := common.Unmarshal(v1Body, &oaiResult); unmarshalErr == nil && len(oaiResult.Data) > 0 {
+								seen := make(map[string]struct{}, len(oaiResult.Data)+2)
+								models = make([]string, 0, len(oaiResult.Data)+2)
+								for _, item := range oaiResult.Data {
+									id := strings.TrimSpace(item.ID)
+									if id == "" {
+										continue
+									}
+									if _, ok := seen[id]; ok {
+										continue
+									}
+									seen[id] = struct{}{}
+									models = append(models, id)
+								}
+								for _, imageModel := range []string{"gpt-image-2", "gpt-image-1"} {
+									if _, ok := seen[imageModel]; !ok {
+										seen[imageModel] = struct{}{}
+										models = append(models, imageModel)
+									}
+								}
+								return v1Resp.StatusCode, models, nil
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return resp.StatusCode, nil, nil
 	}
@@ -163,8 +214,8 @@ func FetchCodexModels(
 		return resp.StatusCode, nil, err
 	}
 
-	seen := make(map[string]struct{}, len(result.Models))
-	models = make([]string, 0, len(result.Models))
+	seen := make(map[string]struct{}, len(result.Models)+2)
+	models = make([]string, 0, len(result.Models)+2)
 	for _, item := range result.Models {
 		slug := strings.TrimSpace(item.Slug)
 		if slug == "" {
@@ -175,6 +226,12 @@ func FetchCodexModels(
 		}
 		seen[slug] = struct{}{}
 		models = append(models, slug)
+	}
+	for _, imageModel := range []string{"gpt-image-2", "gpt-image-1"} {
+		if _, ok := seen[imageModel]; !ok {
+			seen[imageModel] = struct{}{}
+			models = append(models, imageModel)
+		}
 	}
 	return resp.StatusCode, models, nil
 }

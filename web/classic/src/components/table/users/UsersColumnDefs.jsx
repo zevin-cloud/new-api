@@ -183,8 +183,7 @@ const renderOperations = (
   return (
     <Space>
       <Button
-        type='primary'
-        theme='light'
+        type='tertiary'
         size='small'
         onClick={() => showUserDetail && showUserDetail(record.id)}
       >

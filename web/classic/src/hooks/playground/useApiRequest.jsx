@@ -30,6 +30,7 @@ import {
   handleApiError,
   processThinkTags,
   processIncompleteThinkTags,
+  getFreshAuthHeaders,
 } from '../../helpers';
 
 export const useApiRequest = (
@@ -185,11 +186,13 @@ export const useApiRequest = (
       setActiveDebugTab(DEBUG_TABS.REQUEST);
 
       try {
+        const authHeaders = await getFreshAuthHeaders();
         const response = await fetch(API_ENDPOINTS.CHAT_COMPLETIONS, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'New-Api-User': getUserIdFromLocalStorage(),
+            ...authHeaders,
           },
           body: JSON.stringify(payload),
         });
@@ -302,7 +305,7 @@ export const useApiRequest = (
 
   // SSE请求
   const handleSSE = useCallback(
-    (payload) => {
+    async (payload) => {
       setDebugData((prev) => ({
         ...prev,
         request: payload,
@@ -313,16 +316,32 @@ export const useApiRequest = (
       }));
       setActiveDebugTab(DEBUG_TABS.REQUEST);
 
-      const source = new SSE(API_ENDPOINTS.CHAT_COMPLETIONS, {
-        headers: {
-          'Content-Type': 'application/json',
-          'New-Api-User': getUserIdFromLocalStorage(),
-        },
-        method: 'POST',
-        payload: JSON.stringify(payload),
-      });
-
-      sseSourceRef.current = source;
+      let source;
+      try {
+        const authHeaders = await getFreshAuthHeaders();
+        source = new SSE(API_ENDPOINTS.CHAT_COMPLETIONS, {
+          headers: {
+            'Content-Type': 'application/json',
+            'New-Api-User': getUserIdFromLocalStorage(),
+            ...authHeaders,
+          },
+          method: 'POST',
+          payload: JSON.stringify(payload),
+        });
+        sseSourceRef.current = source;
+      } catch (error) {
+        console.error('Failed to initialize SSE stream:', error);
+        const errorInfo = handleApiError(error);
+        setDebugData((prev) => ({
+          ...prev,
+          response: 'Stream启动失败:\n' + JSON.stringify(errorInfo, null, 2),
+          isStreaming: false,
+        }));
+        setActiveDebugTab(DEBUG_TABS.RESPONSE);
+        streamMessageUpdate(t('建立连接时发生错误: ') + error.message, 'content');
+        completeMessage(MESSAGE_STATUS.ERROR);
+        return;
+      }
 
       let responseData = '';
       let hasReceivedFirstResponse = false;
@@ -400,6 +419,9 @@ export const useApiRequest = (
               if (errorJson?.error) {
                 errorMessage = errorJson.error.message || errorMessage;
                 errorCode = errorJson.error.code || null;
+              } else if (errorJson?.message) {
+                errorMessage = errorJson.message;
+                errorCode = errorJson.code || null;
               }
             } catch (_) {
               // not JSON, use raw data as error message

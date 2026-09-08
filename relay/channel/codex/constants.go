@@ -1,6 +1,8 @@
 package codex
 
 var ModelList = []string{
+	"gpt-6-astra",
+	"gpt-reserve",
 	"gpt-5.6-sol",
 	"gpt-5.6-terra",
 	"gpt-5.6-luna",
@@ -9,6 +11,8 @@ var ModelList = []string{
 	"gpt-5.4-mini",
 	"gpt-5.3-codex-spark",
 	"codex-auto-review",
+	"gpt-image-2",
+	"gpt-image-1",
 }
 
 const ChannelName = "codex"

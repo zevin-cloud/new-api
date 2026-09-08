@@ -463,3 +463,28 @@ func TestTestAllChannelsRejectsExistingActiveTask(t *testing.T) {
 	require.Contains(t, recorder.Body.String(), existing.TaskID)
 	require.Contains(t, recorder.Body.String(), "已有通道测试任务正在运行或等待中")
 }
+
+func TestNormalizeChannelTestEndpointImageModel(t *testing.T) {
+	// Codex channel with gpt-image-2 should normalize to image-generation, not responses
+	codexChannel := &model.Channel{Type: constant.ChannelTypeCodex}
+	assert.Equal(t, string(constant.EndpointTypeImageGeneration), normalizeChannelTestEndpoint(codexChannel, "", "gpt-image-2"))
+
+	// Codex channel with standard codex model should normalize to openai-response
+	assert.Equal(t, string(constant.EndpointTypeOpenAIResponse), normalizeChannelTestEndpoint(codexChannel, "", "gpt-5-codex"))
+
+	// OpenAI channel with gpt-image-2 should normalize to image-generation
+	openaiChannel := &model.Channel{Type: constant.ChannelTypeOpenAI}
+	assert.Equal(t, string(constant.EndpointTypeImageGeneration), normalizeChannelTestEndpoint(openaiChannel, "", "gpt-image-2"))
+
+	// Explicit endpoint_type should always be preserved
+	assert.Equal(t, "custom-endpoint", normalizeChannelTestEndpoint(openaiChannel, "custom-endpoint", "gpt-image-2"))
+}
+
+func TestBuildTestRequestImageModel(t *testing.T) {
+	channel := &model.Channel{Type: constant.ChannelTypeOpenAI}
+	req := buildTestRequest("gpt-image-2", "", channel, false)
+	imgReq, ok := req.(*dto.ImageRequest)
+	require.True(t, ok)
+	assert.Equal(t, "gpt-image-2", imgReq.Model)
+	assert.Equal(t, "a cute cat", imgReq.Prompt)
+}

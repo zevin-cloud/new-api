@@ -13,6 +13,9 @@ var (
 		"dall-e-3",
 		"dall-e-2",
 		"gpt-image-1",
+		"gpt-image-2",
+		"gpt-image-",
+		"chatgpt-image-",
 		"prefix:imagen-",
 		"flux-",
 		"flux.1-",
@@ -37,6 +40,9 @@ func IsOpenAIResponseOnlyModel(modelName string) bool {
 
 func IsImageGenerationModel(modelName string) bool {
 	modelName = strings.ToLower(modelName)
+	if strings.Contains(modelName, "gpt-image") || strings.Contains(modelName, "chatgpt-image") {
+		return true
+	}
 	for _, m := range ImageGenerationModels {
 		if strings.Contains(modelName, m) {
 			return true

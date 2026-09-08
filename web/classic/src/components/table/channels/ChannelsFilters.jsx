@@ -22,6 +22,7 @@ import { Button, Form } from '@douyinfe/semi-ui';
 import { IconSearch } from '@douyinfe/semi-icons';
 
 const ChannelsFilters = ({
+  activeTypeKey,
   setEditingChannel,
   setShowEdit,
   refresh,
@@ -47,6 +48,10 @@ const ChannelsFilters = ({
           onClick={() => {
             setEditingChannel({
               id: undefined,
+              type:
+                activeTypeKey && activeTypeKey !== 'all'
+                  ? Number(activeTypeKey)
+                  : undefined,
             });
             setShowEdit(true);
           }}

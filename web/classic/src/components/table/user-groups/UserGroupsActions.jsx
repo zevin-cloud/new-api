@@ -19,16 +19,16 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Button } from '@douyinfe/semi-ui';
-import { IconPlus } from '@douyinfe/semi-icons';
 
 const UserGroupsActions = ({ onAdd, t }) => {
   return (
     <div className='flex flex-wrap gap-2 w-full md:w-auto order-2 md:order-1'>
       <Button
-        icon={<IconPlus />}
-        type='primary'
-        onClick={onAdd}
         size='small'
+        theme='light'
+        type='primary'
+        className='w-full md:w-auto'
+        onClick={onAdd}
       >
         {t('新建用户组')}
       </Button>

@@ -70,6 +70,24 @@ export function getAccessToken() {
   return authBundle?.access_token || null;
 }
 
+export async function getFreshAccessToken() {
+  const refreshBefore = Math.floor(Date.now() / 1000) + 60;
+  if (
+    authBundle?.access_token &&
+    authBundle?.access_expires_at &&
+    authBundle.access_expires_at > refreshBefore
+  ) {
+    return authBundle.access_token;
+  }
+
+  const outcome = await refreshAuthSession();
+  if (outcome?.access_token) {
+    return outcome.access_token;
+  }
+
+  return authBundle?.access_token || null;
+}
+
 async function requestRefresh(raceAttempt = 0, allowMismatchRetry = true) {
   try {
     const response = await authClient.post(

@@ -9,7 +9,7 @@ License, or (at your option) any later version.
 
 import React from 'react';
 import { Table, Button, Space, Tag, Popconfirm, Popover } from '@douyinfe/semi-ui';
-import { IconEdit, IconDelete, IconUserGroup, IconList } from '@douyinfe/semi-icons';
+import { IconList } from '@douyinfe/semi-icons';
 import { timestamp2string } from '../../../helpers';
 
 const ModelSetsTable = ({
@@ -94,10 +94,8 @@ const ModelSetsTable = ({
       render: (_, record) => (
         <Space>
           <Button
-            theme='light'
             type='tertiary'
             size='small'
-            icon={<IconEdit />}
             onClick={() => onEdit(record)}
           >
             {t('编辑')}
@@ -106,14 +104,17 @@ const ModelSetsTable = ({
           <Popconfirm
             title={t('确认删除模型集')}
             content={t('确定要删除模型集 {{name}} 吗？若存在生效中的授权将无法直接删除。', { name: record?.name })}
+            okText={t('删除')}
+            cancelText={t('取消')}
+            okType='danger'
             onConfirm={() => onDelete(record)}
           >
             <Button
-              theme='borderless'
               type='danger'
               size='small'
-              icon={<IconDelete />}
-            />
+            >
+              {t('删除')}
+            </Button>
           </Popconfirm>
         </Space>
       ),

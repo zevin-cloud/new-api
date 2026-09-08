@@ -34,7 +34,7 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
-	return nil, errors.New("codex channel: endpoint not supported")
+	return request, nil
 }
 
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
@@ -125,6 +125,11 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 			return openai.OaiResponsesStreamHandler(c, info, resp)
 		}
 		return openai.OaiResponsesHandler(c, info, resp)
+	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
+		if info.IsStream {
+			return openai.OpenaiImageStreamHandler(c, info, resp)
+		}
+		return openai.OpenaiImageHandler(c, info, resp)
 	default:
 		return nil, types.NewError(errors.New("codex channel: endpoint not supported"), types.ErrorCodeInvalidRequest)
 	}
@@ -147,8 +152,20 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		path = "/backend-api/codex/responses/compact"
 	case relayconstant.RelayModeAlphaSearch:
 		path = "/backend-api/codex/alpha/search"
+	case relayconstant.RelayModeImagesGenerations:
+		if !strings.Contains(info.ChannelBaseUrl, "chatgpt.com") && !strings.Contains(info.ChannelBaseUrl, "openai.com") {
+			path = "/v1/images/generations"
+		} else {
+			path = "/backend-api/codex/images/generations"
+		}
+	case relayconstant.RelayModeImagesEdits:
+		if !strings.Contains(info.ChannelBaseUrl, "chatgpt.com") && !strings.Contains(info.ChannelBaseUrl, "openai.com") {
+			path = "/v1/images/edits"
+		} else {
+			path = "/backend-api/codex/images/edits"
+		}
 	default:
-		return "", errors.New("codex channel: only /v1/responses, /v1/responses/compact and /v1/alpha/search are supported")
+		return "", errors.New("codex channel: only /v1/responses, /v1/responses/compact, /v1/alpha/search and /v1/images/generations are supported")
 	}
 	return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, path, info.ChannelType), nil
 }
@@ -184,6 +201,11 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 	}
 	if req.Get("originator") == "" {
 		req.Set("originator", "codex_cli_rs")
+	}
+
+	ua := req.Get("User-Agent")
+	if ua == "" || strings.HasPrefix(ua, "curl") || strings.HasPrefix(ua, "python") || strings.HasPrefix(ua, "Go-http-client") {
+		req.Set("User-Agent", "codex-cli/0.153.4")
 	}
 
 	// chatgpt.com/backend-api/codex/responses is strict about Content-Type.

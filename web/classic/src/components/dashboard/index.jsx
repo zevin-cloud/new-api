@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useContext, useEffect } from 'react';
-import { getRelativeTime } from '../../helpers';
+import { getRelativeTime, API } from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 
@@ -95,7 +95,20 @@ const Dashboard = () => {
     }
   };
 
+  const loadStatus = async () => {
+    try {
+      const res = await API.get('/api/status');
+      const { success, data } = res.data;
+      if (success && statusDispatch) {
+        statusDispatch({ type: 'set', payload: data });
+      }
+    } catch (error) {
+      console.error('Failed to load status:', error);
+    }
+  };
+
   const initChart = async () => {
+    loadStatus().catch(console.error);
     await dashboardData.loadQuotaData().then((data) => {
       if (data && data.length > 0) {
         dashboardCharts.updateChartData(data);
@@ -106,6 +119,7 @@ const Dashboard = () => {
   };
 
   const handleRefresh = async () => {
+    loadStatus().catch(console.error);
     const data = await dashboardData.refresh();
     if (data && data.length > 0) {
       dashboardCharts.updateChartData(data);

@@ -18,8 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Button, Space } from '@douyinfe/semi-ui';
-import { IconPlus, IconUpload, IconUserGroup } from '@douyinfe/semi-icons';
+import { Button } from '@douyinfe/semi-ui';
 
 const UsersActions = ({
   onAddUser,
@@ -32,32 +31,31 @@ const UsersActions = ({
   return (
     <div className='flex flex-wrap gap-2 w-full md:w-auto order-2 md:order-1'>
       <Button
-        icon={<IconPlus />}
-        theme='solid'
-        type='primary'
-        onClick={() => (onAddUser ? onAddUser() : setShowAddUser(true))}
         size='small'
+        theme='light'
+        type='primary'
+        className='w-full md:w-auto'
+        onClick={() => (onAddUser ? onAddUser() : setShowAddUser(true))}
       >
         {t('添加用户')}
       </Button>
 
       <Button
-        icon={<IconUpload />}
-        theme='light'
-        type='primary'
-        onClick={() => setShowImportModal(true)}
         size='small'
+        type='tertiary'
+        className='w-full md:w-auto'
+        onClick={() => setShowImportModal(true)}
       >
         {t('批量导入')}
       </Button>
 
       {selectedRowKeys.length > 0 && (
         <Button
-          icon={<IconUserGroup />}
+          size='small'
           theme='light'
           type='warning'
+          className='w-full md:w-auto'
           onClick={() => setShowBatchGroupModal(true)}
-          size='small'
         >
           {t('批量操作用户组 ({{count}})', { count: selectedRowKeys.length })}
         </Button>

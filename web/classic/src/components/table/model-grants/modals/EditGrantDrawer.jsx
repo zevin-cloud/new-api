@@ -277,12 +277,15 @@ const EditGrantDrawer = ({ visible, batchItem, onClose, onRevoke }) => {
                 content={t(
                   '确定撤销此次授权吗？撤销后相关成员将失去此授权的所有模型访问权限。',
                 )}
+                okText={t('撤销')}
+                cancelText={t('取消')}
+                okType='danger'
                 onConfirm={() => {
                   onRevoke?.(batchItem);
                   onClose();
                 }}
               >
-                <Button type='danger' theme='light' icon={<IconDelete />}>
+                <Button type='danger' size='small'>
                   {t('撤销本次授权')}
                 </Button>
               </Popconfirm>

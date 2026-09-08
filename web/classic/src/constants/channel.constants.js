@@ -18,6 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 export const CHANNEL_OPTIONS = [
+  {
+    value: 62,
+    color: 'cyan',
+    label: '客户端',
+  },
   { value: 1, color: 'green', label: 'OpenAI' },
   {
     value: 2,
@@ -188,11 +193,6 @@ export const CHANNEL_OPTIONS = [
     value: 57,
     color: 'blue',
     label: 'ChatGPT Subscription (Codex)',
-  },
-  {
-    value: 62,
-    color: 'cyan',
-    label: '客户端',
   },
 ];
 

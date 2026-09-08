@@ -20,10 +20,15 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { history } from './history';
-import { getAccessToken } from './auth-session';
+import { getAccessToken, getFreshAccessToken } from './auth-session';
 
 export function authHeader() {
   const accessToken = getAccessToken();
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+}
+
+export async function getFreshAuthHeaders() {
+  const accessToken = await getFreshAccessToken();
   return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 

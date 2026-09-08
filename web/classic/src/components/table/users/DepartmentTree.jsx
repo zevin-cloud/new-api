@@ -9,7 +9,7 @@ License, or (at your option) any later version.
 
 import React, { useState, useEffect } from 'react';
 import { Tree, Button, Modal, Typography, Dropdown, Space } from '@douyinfe/semi-ui';
-import { IconPlus, IconMore, IconEdit, IconDelete, IconFolder, IconFolderOpen } from '@douyinfe/semi-icons';
+import { IconMore, IconEdit, IconDelete, IconFolder, IconFolderOpen, IconPlus } from '@douyinfe/semi-icons';
 import { API, showError, showSuccess } from '../../../helpers';
 import DepartmentModal from './modals/DepartmentModal';
 
@@ -62,10 +62,10 @@ const DepartmentTree = ({ selectedDeptId, onSelectDept, t }) => {
         };
         setExpandedKeys(collectKeys(allNodes));
       } else {
-        showError(res.data?.message || '获取部门树失败');
+        showError(res.data?.message || t('获取部门树失败'));
       }
     } catch (e) {
-      showError('获取部门树失败: ' + e.message);
+      showError(t('获取部门树失败') + ': ' + e.message);
     } finally {
       setLoading(false);
     }
@@ -107,10 +107,10 @@ const DepartmentTree = ({ selectedDeptId, onSelectDept, t }) => {
             }
             loadTree();
           } else {
-            showError(res.data?.message || '删除失败');
+            showError(res.data?.message || t('删除失败'));
           }
         } catch (e) {
-          showError('删除失败: ' + e.message);
+          showError(t('删除失败') + ': ' + e.message);
         }
       },
     });
@@ -169,7 +169,6 @@ const DepartmentTree = ({ selectedDeptId, onSelectDept, t }) => {
       <div className='flex items-center justify-between pb-2 mb-2 border-b border-[var(--semi-color-border)]'>
         <Text strong>{t('组织架构')}</Text>
         <Button
-          icon={<IconPlus />}
           size='small'
           theme='light'
           type='primary'

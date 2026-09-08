@@ -1358,15 +1358,18 @@ const EditChannelModal = (props) => {
     fetchGroups().then();
     if (!isEdit) {
       initialBaseUrlRef.current = '';
-      setInputs(originInputs);
+      const initialType =
+        Number(props.editingChannel?.type) || originInputs.type;
+      const initialData = { ...originInputs, type: initialType };
+      setInputs(initialData);
       if (formApiRef.current) {
-        formApiRef.current.setValues(originInputs);
+        formApiRef.current.setValues(initialData);
       }
-      let localModels = getChannelModels(inputs.type);
+      let localModels = getChannelModels(initialType);
       setBasicModels(localModels);
       setInputs((inputs) => ({ ...inputs, models: localModels }));
     }
-  }, [props.editingChannel.id]);
+  }, [props.editingChannel.id, props.editingChannel?.type]);
 
   useEffect(() => {
     if (formApiRef.current) {
@@ -2198,6 +2201,10 @@ const EditChannelModal = (props) => {
       focused && 'bg-blue-50 shadow-sm',
       selected &&
         'bg-blue-100 text-blue-700 shadow-lg ring-2 ring-blue-200 ring-opacity-50',
+      value === 62 &&
+        !selected &&
+        !focused &&
+        'bg-cyan-50/60 border border-cyan-200/60 dark:bg-cyan-950/20 dark:border-cyan-800/40',
       disabled && 'opacity-50 cursor-not-allowed',
       !disabled && 'hover:bg-gray-50 hover:shadow-md cursor-pointer',
       className,
@@ -2216,12 +2223,17 @@ const EditChannelModal = (props) => {
           <div className='flex-shrink-0 w-5 h-5 flex items-center justify-center'>
             {getChannelIcon(value)}
           </div>
-          <div className='flex-1 min-w-0'>
+          <div className='flex-1 min-w-0 flex items-center gap-2'>
             <Highlight
               sourceString={label}
               searchWords={searchWords}
               className='text-sm font-medium truncate'
             />
+            {value === 62 && (
+              <Tag color='cyan' size='small' shape='circle'>
+                {t('快捷接入')}
+              </Tag>
+            )}
           </div>
           {selected && (
             <div className='flex-shrink-0 text-blue-600'>
@@ -2700,6 +2712,38 @@ const EditChannelModal = (props) => {
                           )}
                         </Space>
                       </Banner>
+                    )}
+
+                    {!isEdit && (
+                      <div className='flex items-center gap-2 mb-2 flex-wrap'>
+                        <span className='text-xs text-gray-500 font-medium'>
+                          {t('快捷推荐')}:
+                        </span>
+                        <Tag
+                          color={inputs.type === 62 ? 'cyan' : 'grey'}
+                          type={inputs.type === 62 ? 'solid' : 'light'}
+                          className='cursor-pointer font-medium'
+                          onClick={() => handleInputChange('type', 62)}
+                        >
+                          {t('客户端')}
+                        </Tag>
+                        <Tag
+                          color={inputs.type === 1 ? 'blue' : 'grey'}
+                          type={inputs.type === 1 ? 'solid' : 'light'}
+                          className='cursor-pointer font-medium'
+                          onClick={() => handleInputChange('type', 1)}
+                        >
+                          OpenAI
+                        </Tag>
+                        <Tag
+                          color={inputs.type === 14 ? 'indigo' : 'grey'}
+                          type={inputs.type === 14 ? 'solid' : 'light'}
+                          className='cursor-pointer font-medium'
+                          onClick={() => handleInputChange('type', 14)}
+                        >
+                          Claude
+                        </Tag>
+                      </div>
                     )}
 
                     <Form.Select

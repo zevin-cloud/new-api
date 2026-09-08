@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Table, Button, Space, Tag, Popconfirm, Dropdown } from '@douyinfe/semi-ui';
-import { IconMore, IconEdit, IconDelete, IconUserGroup, IconLock } from '@douyinfe/semi-icons';
+import { IconLock } from '@douyinfe/semi-icons';
 import { timestamp2string } from '../../../helpers';
 
 const UserGroupsTable = ({
@@ -82,20 +82,16 @@ const UserGroupsTable = ({
       render: (_, record) => (
         <Space>
           <Button
-            theme='light'
-            type='primary'
+            type='tertiary'
             size='small'
-            icon={<IconUserGroup />}
             onClick={() => onManageMembers(record)}
           >
             {t('成员')}
           </Button>
 
           <Button
-            theme='light'
             type='tertiary'
             size='small'
-            icon={<IconEdit />}
             onClick={() => onEdit(record)}
           >
             {t('编辑')}
@@ -104,14 +100,17 @@ const UserGroupsTable = ({
           <Popconfirm
             title={t('确认删除用户组')}
             content={t('确定删除用户组 {{name}} 吗？若存在生效中的模型集授权将无法直接删除。', { name: record?.name })}
+            okText={t('删除')}
+            cancelText={t('取消')}
+            okType='danger'
             onConfirm={() => onDelete(record)}
           >
             <Button
-              theme='borderless'
               type='danger'
               size='small'
-              icon={<IconDelete />}
-            />
+            >
+              {t('删除')}
+            </Button>
           </Popconfirm>
         </Space>
       ),

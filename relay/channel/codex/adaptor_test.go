@@ -54,3 +54,44 @@ func TestConvertOpenAIResponsesRequestDropsPenalties(t *testing.T) {
 	assert.Nil(t, request.FrequencyPenalty)
 	assert.Nil(t, request.PresencePenalty)
 }
+
+func TestGetRequestURLImageGeneration(t *testing.T) {
+	adaptor := &Adaptor{}
+
+	// Official chatgpt.com base URL
+	infoOfficial := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeCodex,
+			ChannelBaseUrl: "https://chatgpt.com",
+		},
+		RelayMode: relayconstant.RelayModeImagesGenerations,
+	}
+	url, err := adaptor.GetRequestURL(infoOfficial)
+	require.NoError(t, err)
+	assert.Equal(t, "https://chatgpt.com/backend-api/codex/images/generations", url)
+
+	// Third-party proxy base URL
+	infoProxy := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeCodex,
+			ChannelBaseUrl: "http://192.168.123.183:8317",
+		},
+		RelayMode: relayconstant.RelayModeImagesGenerations,
+	}
+	urlProxy, err := adaptor.GetRequestURL(infoProxy)
+	require.NoError(t, err)
+	assert.Equal(t, "http://192.168.123.183:8317/v1/images/generations", urlProxy)
+}
+
+func TestConvertImageRequest(t *testing.T) {
+	adaptor := &Adaptor{}
+	req := dto.ImageRequest{
+		Model:  "gpt-image-2",
+		Prompt: "a cute cat",
+		Size:   "1024x1024",
+		N:      lo.ToPtr(uint(1)),
+	}
+	converted, err := adaptor.ConvertImageRequest(nil, nil, req)
+	require.NoError(t, err)
+	assert.Equal(t, req, converted)
+}

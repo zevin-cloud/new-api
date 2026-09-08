@@ -20,7 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Table, Tag, Button, Popconfirm, Popover } from '@douyinfe/semi-ui';
-import { IconEdit } from '@douyinfe/semi-icons';
+
 import { timestamp2string, renderQuota } from '../../../helpers';
 
 function GrantTags({ values, color = 'blue', maxWidth = 210 }) {
@@ -414,7 +414,6 @@ const ModelGrantsTable = ({
         <div className='flex flex-wrap items-center gap-1'>
           <Button
             size='small'
-            theme='light'
             type='tertiary'
             onClick={() => onViewDetail?.(record)}
           >
@@ -423,9 +422,7 @@ const ModelGrantsTable = ({
 
           <Button
             size='small'
-            theme='light'
-            type='primary'
-            icon={<IconEdit />}
+            type='tertiary'
             onClick={() => onEdit?.(record)}
           >
             {t('编辑')}
@@ -442,9 +439,12 @@ const ModelGrantsTable = ({
                 {t('确定撤销此次授权吗？将收回该授权包含的全部权限。')}
               </div>
             }
+            okText={t('撤销')}
+            cancelText={t('取消')}
+            okType='danger'
             onConfirm={() => onRevoke?.(record)}
           >
-            <Button size='small' type='danger' theme='borderless'>
+            <Button size='small' type='danger'>
               {t('撤销')}
             </Button>
           </Popconfirm>

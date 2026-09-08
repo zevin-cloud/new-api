@@ -386,7 +386,18 @@ func GetProviderDefaultModels(provider string) []string {
 	case "kimi":
 		return []string{"kimi-k3", "kimi-k2.7-code", "moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"}
 	case "codex":
-		return []string{"gpt-4o", "gpt-4o-mini", "o1", "o1-mini", "o3-mini", "chatgpt-4o-latest"}
+		return []string{
+			"gpt-6-astra",
+			"gpt-reserve",
+			"gpt-5.6-sol",
+			"gpt-5.6-terra",
+			"gpt-5.6-luna",
+			"gpt-5.5",
+			"gpt-5.4-mini",
+			"codex-auto-review",
+			"gpt-image-2",
+			"gpt-image-1",
+		}
 	case "antigravity":
 		return []string{
 			"gemini-3-flash",

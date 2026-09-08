@@ -207,10 +207,16 @@ func GetClientChannelQuota(c *gin.Context) {
 		}
 		var parsed any
 		_ = common.Unmarshal(body, &parsed)
+		email := credential.Email
+		if m, ok := parsed.(map[string]any); ok {
+			if e, ok := m["email"].(string); ok && e != "" && email == "" {
+				email = e
+			}
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"success":  true,
 			"provider": credential.Provider,
-			"email":    credential.Email,
+			"email":    email,
 			"data":     parsed,
 		})
 		return

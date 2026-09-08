@@ -17,9 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useContext } from 'react';
 import { Card, Spin, Button, Modal } from '@douyinfe/semi-ui';
 import { API, showError, showSuccess, toBoolean } from '../../helpers';
+import { StatusContext } from '../../context/Status';
 import SettingsAPIInfo from '../../pages/Setting/Dashboard/SettingsAPIInfo';
 import SettingsAnnouncements from '../../pages/Setting/Dashboard/SettingsAnnouncements';
 import SettingsFAQ from '../../pages/Setting/Dashboard/SettingsFAQ';
@@ -27,6 +28,7 @@ import SettingsUptimeKuma from '../../pages/Setting/Dashboard/SettingsUptimeKuma
 import SettingsDataDashboard from '../../pages/Setting/Dashboard/SettingsDataDashboard';
 
 const DashboardSetting = () => {
+  const [, statusDispatch] = useContext(StatusContext);
   let [inputs, setInputs] = useState({
     'console_setting.api_info': '',
     'console_setting.announcements': '',
@@ -72,10 +74,22 @@ const DashboardSetting = () => {
     }
   };
 
+  const refreshStatus = async () => {
+    try {
+      const res = await API.get('/api/status');
+      const { success, data } = res.data;
+      if (success && statusDispatch) {
+        statusDispatch({ type: 'set', payload: data });
+      }
+    } catch (e) {
+      console.error('Failed to refresh status:', e);
+    }
+  };
+
   async function onRefresh() {
     try {
       setLoading(true);
-      await getOptions();
+      await Promise.all([getOptions(), refreshStatus()]);
     } catch (error) {
       showError('刷新失败');
       console.error(error);

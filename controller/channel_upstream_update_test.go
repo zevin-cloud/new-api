@@ -642,7 +642,7 @@ func TestFetchClientOAuthUpstreamModelIDsCodex(t *testing.T) {
 	}
 	models, err := fetchChannelUpstreamModelIDs(ch)
 	require.NoError(t, err)
-	require.Equal(t, []string{"gpt-5.5"}, models)
+	require.Equal(t, []string{"gpt-5.5", "gpt-image-2", "gpt-image-1"}, models)
 }
 
 

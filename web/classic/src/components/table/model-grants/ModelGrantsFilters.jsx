@@ -20,7 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Select, Input } from '@douyinfe/semi-ui';
-import { IconSearch, IconPlus, IconRefresh } from '@douyinfe/semi-icons';
+import { IconSearch } from '@douyinfe/semi-icons';
 
 const ModelGrantsFilters = ({
   onOpenCreate,
@@ -38,9 +38,8 @@ const ModelGrantsFilters = ({
       <div className='flex items-center gap-2 w-full md:w-auto order-2 md:order-1'>
         <Button
           size='small'
-          theme='solid'
+          theme='light'
           type='primary'
-          icon={<IconPlus />}
           className='w-full md:w-auto'
           onClick={onOpenCreate}
         >
@@ -50,7 +49,6 @@ const ModelGrantsFilters = ({
         <Button
           size='small'
           type='tertiary'
-          icon={<IconSearch />}
           className='w-full md:w-auto'
           onClick={onOpenInspect}
         >
@@ -60,7 +58,6 @@ const ModelGrantsFilters = ({
         <Button
           size='small'
           type='tertiary'
-          icon={<IconRefresh />}
           className='w-full md:w-auto'
           onClick={onRefresh}
         >

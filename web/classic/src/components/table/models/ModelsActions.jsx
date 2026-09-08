@@ -108,6 +108,7 @@ const ModelsActions = ({
       <div className='flex flex-wrap gap-2 w-full md:w-auto order-2 md:order-1'>
         <Button
           type='primary'
+          theme='light'
           className='flex-1 md:flex-initial'
           onClick={() => {
             setEditingModel({
@@ -121,7 +122,7 @@ const ModelsActions = ({
         </Button>
 
         <Button
-          type='secondary'
+          type='tertiary'
           className='flex-1 md:flex-initial'
           size='small'
           onClick={() => setShowMissingModal(true)}
@@ -151,7 +152,7 @@ const ModelsActions = ({
           }
         >
           <Button
-            type='secondary'
+            type='tertiary'
             className='flex-1 md:flex-initial'
             size='small'
             loading={syncing || previewing}
@@ -165,7 +166,7 @@ const ModelsActions = ({
         </Popover>
 
         <Button
-          type='secondary'
+          type='tertiary'
           className='flex-1 md:flex-initial'
           size='small'
           onClick={() => setShowGroupManagement(true)}

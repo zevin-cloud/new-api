@@ -136,7 +136,7 @@ const UserGroupModal = ({ visible, editingGroup, onClose, onSuccess, t }) => {
 
       if (unassignedUsers.length > 0) {
         tree.push({
-          label: `${t('未分配部门')} (${unassignedUsers.length} 人)`,
+          label: `${t('未分配部门')} (${t('{{count}} members', { count: unassignedUsers.length })})`,
           value: 'dept_unassigned',
           key: 'dept_unassigned',
           disabled: true,
