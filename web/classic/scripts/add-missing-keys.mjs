@@ -1,12 +1,98 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+
 const LOCALES_DIR = path.resolve('src/i18n/locales');
-const newKeys = {"en": {"Clients": "Clients", "Client accounts": "Client accounts", "Authorize client accounts to provide APIs directly from New API.": "Authorize client accounts to provide APIs directly from New API.", "Authorize account": "Authorize account", "No client accounts connected": "No client accounts connected", "Client": "Client", "Starting authorization": "Starting authorization", "Authorization expired. Close this dialog and try again.": "Authorization expired. Close this dialog and try again.", "Open the authorization page and sign in to your account.": "Open the authorization page and sign in to your account.", "Open authorization page": "Open authorization page", "After signing in, copy the complete callback URL from the address bar, even if the local page cannot open.": "After signing in, copy the complete callback URL from the address bar, even if the local page cannot open.", "Callback URL": "Callback URL", "Complete authorization": "Complete authorization", "Account authorized. Choose the channel name and available models.": "Account authorized. Choose the channel name and available models.", "Enter model IDs separated by commas": "Enter model IDs separated by commas", "Use model IDs available to this account. API access still requires a New API token.": "Use model IDs available to this account. API access still requires a New API token.", "Create client channel": "Create client channel", "API": "API", "Refresh": "Refresh", "Name": "Name", "Models": "Models", "Status": "Status", "Enabled": "Enabled", "Disabled": "Disabled", "Actions": "Actions", "Enable": "Enable", "Disable": "Disable", "Channel name": "Channel name", "Group": "Group", "Close": "Close", "Test": "Test", "Connection successful": "Connection successful"}, "zh-CN": {"Clients": "客户端", "Client accounts": "客户端账号", "Authorize client accounts to provide APIs directly from New API.": "授权客户端账号，由 New API 直接提供 API。", "Authorize account": "授权账号", "No client accounts connected": "尚未接入客户端账号", "Client": "客户端", "Starting authorization": "正在发起授权", "Authorization expired. Close this dialog and try again.": "授权已过期，请关闭弹窗后重试。", "Open the authorization page and sign in to your account.": "打开授权页面并登录账号。", "Open authorization page": "打开授权页面", "After signing in, copy the complete callback URL from the address bar, even if the local page cannot open.": "登录后，复制地址栏中的完整回调网址，即使本地页面无法打开也可以。", "Callback URL": "回调网址", "Complete authorization": "完成授权", "Account authorized. Choose the channel name and available models.": "账号已授权，请设置渠道名称和可用模型。", "Enter model IDs separated by commas": "输入模型 ID，以逗号分隔", "Use model IDs available to this account. API access still requires a New API token.": "请填写该账号可用的模型 ID，调用 API 时仍需使用 New API 令牌。", "Create client channel": "创建客户端渠道", "API": "API", "Refresh": "刷新", "Name": "名称", "Models": "模型", "Status": "状态", "Enabled": "已启用", "Disabled": "已禁用", "Actions": "操作", "Enable": "启用", "Disable": "禁用", "Channel name": "渠道名称", "Group": "分组", "Close": "关闭", "Test": "测试", "Connection successful": "连接成功"}, "zh-TW": {"Clients": "用戶端", "Client accounts": "用戶端帳號", "Authorize client accounts to provide APIs directly from New API.": "授權用戶端帳號，由 New API 直接提供 API。", "Authorize account": "授權帳號", "No client accounts connected": "尚未連接用戶端帳號", "Client": "用戶端", "Starting authorization": "正在啟動授權", "Authorization expired. Close this dialog and try again.": "授權已過期，請關閉視窗後重試。", "Open the authorization page and sign in to your account.": "開啟授權頁面並登入帳號。", "Open authorization page": "開啟授權頁面", "After signing in, copy the complete callback URL from the address bar, even if the local page cannot open.": "登入後，複製網址列中的完整回呼網址，即使本機頁面無法開啟也可以。", "Callback URL": "回呼網址", "Complete authorization": "完成授權", "Account authorized. Choose the channel name and available models.": "帳號已授權，請設定管道名稱與可用模型。", "Enter model IDs separated by commas": "輸入模型 ID，以逗號分隔", "Use model IDs available to this account. API access still requires a New API token.": "請填寫該帳號可用的模型 ID，呼叫 API 時仍須使用 New API 權杖。", "Create client channel": "建立用戶端管道", "API": "API", "Refresh": "重新整理", "Name": "名稱", "Models": "模型", "Status": "狀態", "Enabled": "已啟用", "Disabled": "已停用", "Actions": "操作", "Enable": "啟用", "Disable": "停用", "Channel name": "管道名稱", "Group": "群組", "Close": "關閉", "Test": "測試", "Connection successful": "連線成功"}, "fr": {"Clients": "Clients", "Client accounts": "Comptes clients", "Authorize client accounts to provide APIs directly from New API.": "Autorisez les comptes clients pour fournir des API via New API.", "Authorize account": "Autoriser le compte", "No client accounts connected": "Aucun compte client connecté", "Client": "Client", "Starting authorization": "Autorisation en cours", "Authorization expired. Close this dialog and try again.": "Autorisation expirée. Fermez cette fenêtre et réessayez.", "Open the authorization page and sign in to your account.": "Ouvrez la page d’autorisation et connectez-vous.", "Open authorization page": "Ouvrir l’autorisation", "After signing in, copy the complete callback URL from the address bar, even if the local page cannot open.": "Après connexion, copiez l’URL de retour complète, même si la page locale ne s’ouvre pas.", "Callback URL": "URL de retour", "Complete authorization": "Terminer l’autorisation", "Account authorized. Choose the channel name and available models.": "Compte autorisé. Choisissez le nom du canal et les modèles disponibles.", "Enter model IDs separated by commas": "Identifiants des modèles, séparés par des virgules", "Use model IDs available to this account. API access still requires a New API token.": "Utilisez les modèles disponibles pour ce compte. Un jeton New API reste nécessaire.", "Create client channel": "Créer le canal client", "API": "API", "Refresh": "Actualiser", "Name": "Nom", "Models": "Modèles", "Status": "Statut", "Enabled": "Activé", "Disabled": "Désactivé", "Actions": "Actions", "Enable": "Activer", "Disable": "Désactiver", "Channel name": "Nom du canal", "Group": "Groupe", "Close": "Fermer", "Test": "Tester", "Connection successful": "Connexion réussie"}, "ja": {"Clients": "クライアント", "Client accounts": "クライアントアカウント", "Authorize client accounts to provide APIs directly from New API.": "クライアントアカウントを認証し、New API から API を提供します。", "Authorize account": "アカウントを認証", "No client accounts connected": "接続済みアカウントはありません", "Client": "クライアント", "Starting authorization": "認証を開始しています", "Authorization expired. Close this dialog and try again.": "認証の有効期限が切れました。閉じてから再試行してください。", "Open the authorization page and sign in to your account.": "認証ページを開いてログインしてください。", "Open authorization page": "認証ページを開く", "After signing in, copy the complete callback URL from the address bar, even if the local page cannot open.": "ログイン後、ローカルページが開かなくても、アドレスバーの完全なコールバック URL をコピーしてください。", "Callback URL": "コールバック URL", "Complete authorization": "認証を完了", "Account authorized. Choose the channel name and available models.": "認証済みです。チャネル名と利用可能なモデルを設定してください。", "Enter model IDs separated by commas": "モデル ID をカンマで区切って入力", "Use model IDs available to this account. API access still requires a New API token.": "このアカウントで利用可能なモデル ID を入力してください。API の呼び出しには New API トークンが必要です。", "Create client channel": "クライアントチャネルを作成", "API": "API", "Refresh": "更新", "Name": "名前", "Models": "モデル", "Status": "状態", "Enabled": "有効", "Disabled": "無効", "Actions": "操作", "Enable": "有効にする", "Disable": "無効にする", "Channel name": "チャネル名", "Group": "グループ", "Close": "閉じる", "Test": "テスト", "Connection successful": "接続に成功しました"}, "ru": {"Clients": "Клиенты", "Client accounts": "Аккаунты клиентов", "Authorize client accounts to provide APIs directly from New API.": "Авторизуйте аккаунты для доступа к API через New API.", "Authorize account": "Авторизовать аккаунт", "No client accounts connected": "Нет подключённых аккаунтов", "Client": "Клиент", "Starting authorization": "Начало авторизации", "Authorization expired. Close this dialog and try again.": "Авторизация истекла. Закройте окно и повторите.", "Open the authorization page and sign in to your account.": "Откройте страницу авторизации и войдите в аккаунт.", "Open authorization page": "Открыть авторизацию", "After signing in, copy the complete callback URL from the address bar, even if the local page cannot open.": "После входа скопируйте полный URL из адресной строки, даже если локальная страница не открылась.", "Callback URL": "URL обратного вызова", "Complete authorization": "Завершить авторизацию", "Account authorized. Choose the channel name and available models.": "Аккаунт авторизован. Укажите название канала и доступные модели.", "Enter model IDs separated by commas": "ID моделей через запятую", "Use model IDs available to this account. API access still requires a New API token.": "Укажите доступные аккаунту модели. Для вызова API нужен токен New API.", "Create client channel": "Создать канал клиента", "API": "API", "Refresh": "Обновить", "Name": "Название", "Models": "Модели", "Status": "Статус", "Enabled": "Включён", "Disabled": "Отключён", "Actions": "Действия", "Enable": "Включить", "Disable": "Отключить", "Channel name": "Название канала", "Group": "Группа", "Close": "Закрыть", "Test": "Проверить", "Connection successful": "Подключение успешно"}, "vi": {"Clients": "Ứng dụng khách", "Client accounts": "Tài khoản ứng dụng khách", "Authorize client accounts to provide APIs directly from New API.": "Ủy quyền tài khoản để cung cấp API trực tiếp từ New API.", "Authorize account": "Ủy quyền tài khoản", "No client accounts connected": "Chưa kết nối tài khoản nào", "Client": "Ứng dụng khách", "Starting authorization": "Đang bắt đầu ủy quyền", "Authorization expired. Close this dialog and try again.": "Ủy quyền đã hết hạn. Đóng hộp thoại rồi thử lại.", "Open the authorization page and sign in to your account.": "Mở trang ủy quyền và đăng nhập tài khoản.", "Open authorization page": "Mở trang ủy quyền", "After signing in, copy the complete callback URL from the address bar, even if the local page cannot open.": "Sau khi đăng nhập, sao chép toàn bộ URL chuyển hướng dù trang cục bộ không mở được.", "Callback URL": "URL chuyển hướng", "Complete authorization": "Hoàn tất ủy quyền", "Account authorized. Choose the channel name and available models.": "Đã ủy quyền. Chọn tên kênh và các mô hình khả dụng.", "Enter model IDs separated by commas": "Nhập ID mô hình, phân cách bằng dấu phẩy", "Use model IDs available to this account. API access still requires a New API token.": "Nhập ID mô hình của tài khoản. Gọi API vẫn cần mã thông báo New API.", "Create client channel": "Tạo kênh ứng dụng khách", "API": "API", "Refresh": "Làm mới", "Name": "Tên", "Models": "Mô hình", "Status": "Trạng thái", "Enabled": "Đã bật", "Disabled": "Đã tắt", "Actions": "Thao tác", "Enable": "Bật", "Disable": "Tắt", "Channel name": "Tên kênh", "Group": "Nhóm", "Close": "Đóng", "Test": "Kiểm tra", "Connection successful": "Kết nối thành công"}};
+
+const newKeys = {
+  en: {
+    "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "Globally control sidebar sections and modules display, drag handles or use arrows to reorder",
+    "Drag to reorder section": "Drag to reorder section",
+    "Drag to reorder module": "Drag to reorder module",
+    "Move section up": "Move section up",
+    "Move section down": "Move section down",
+    "Move up": "Move up",
+    "Move down": "Move down",
+    "Reset to default configuration": "Reset to default configuration",
+  },
+  "zh-CN": {
+    "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "全局控制侧边栏区域与功能显示，支持拖拽手柄或箭头调整展示顺序",
+    "Drag to reorder section": "按住拖动调整区域顺序",
+    "Drag to reorder module": "按住拖动调整功能顺序",
+    "Move section up": "上移区域",
+    "Move section down": "下移区域",
+    "Move up": "上移",
+    "Move down": "下移",
+    "Reset to default configuration": "重置为默认配置",
+  },
+  zh: {
+    "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "全局控制侧边栏区域与功能显示，支持拖拽手柄或箭头调整展示顺序",
+    "Drag to reorder section": "按住拖动调整区域顺序",
+    "Drag to reorder module": "按住拖动调整功能顺序",
+    "Move section up": "上移区域",
+    "Move section down": "下移区域",
+    "Move up": "上移",
+    "Move down": "下移",
+    "Reset to default configuration": "重置为默认配置",
+  },
+  "zh-TW": {
+    "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "全域控制側邊欄區域與功能顯示，支援拖曳控制代碼或箭頭調整顯示順序",
+    "Drag to reorder section": "按住拖曳調整區域順序",
+    "Drag to reorder module": "按住拖曳調整功能順序",
+    "Move section up": "上移區域",
+    "Move section down": "下移區域",
+    "Move up": "上移",
+    "Move down": "下移",
+    "Reset to default configuration": "重設為預設設定",
+  },
+  fr: {
+    "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "Contrôle global des sections et modules de la barre latérale, faites glisser les poignées ou utilisez les flèches pour réorganiser",
+    "Drag to reorder section": "Faites glisser pour réorganiser la section",
+    "Drag to reorder module": "Faites glisser pour réorganiser le module",
+    "Move section up": "Monter la section",
+    "Move section down": "Descendre la section",
+    "Move up": "Monter",
+    "Move down": "Descendre",
+    "Reset to default configuration": "Rétablir la configuration par défaut",
+  },
+  ja: {
+    "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "サイドバーのセクションとモジュールのグローバル制御。ハンドルをドラッグするか矢印で順序を変更できます",
+    "Drag to reorder section": "ドラッグしてセクションの順序を変更",
+    "Drag to reorder module": "ドラッグしてモジュールの順序を変更",
+    "Move section up": "セクションを上へ",
+    "Move section down": "セクションを下へ",
+    "Move up": "上へ",
+    "Move down": "下へ",
+    "Reset to default configuration": "デフォルト設定に戻す",
+  },
+  ru: {
+    "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "Глобальное управление разделами и модулями боковой панели, перетаскивайте за ручки или используйте стрелки для изменения порядка",
+    "Drag to reorder section": "Перетащите для изменения порядка раздела",
+    "Drag to reorder module": "Перетащите для изменения порядка модуля",
+    "Move section up": "Переместить раздел вверх",
+    "Move section down": "Переместить раздел вниз",
+    "Move up": "Вверх",
+    "Move down": "Вниз",
+    "Reset to default configuration": "Сбросить к настройкам по умолчанию",
+  },
+  vi: {
+    "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "Kiểm soát toàn cục các phần và mô-đun của thanh bên, kéo các chốt hoặc dùng mũi tên để sắp xếp lại",
+    "Drag to reorder section": "Kéo để sắp xếp lại phần",
+    "Drag to reorder module": "Kéo để sắp xếp lại mô-đun",
+    "Move section up": "Di chuyển phần lên",
+    "Move section down": "Di chuyển phần xuống",
+    "Move up": "Lên",
+    "Move down": "Xuống",
+    "Reset to default configuration": "Đặt lại về cấu hình mặc định",
+  },
+};
+
 for (const [locale, trans] of Object.entries(newKeys)) {
- const filePath = path.join(LOCALES_DIR, `${locale}.json`);
- const json = JSON.parse(await fs.readFile(filePath, 'utf8'));
- Object.assign(json.translation, trans);
- json.translation = Object.fromEntries(Object.entries(json.translation).sort(([a],[b]) => a.localeCompare(b)));
- await fs.writeFile(filePath, JSON.stringify(json, null, 2) + '\n', 'utf8');
- console.log(`${locale}: ${Object.keys(trans).length} translations applied`);
+  const filePath = path.join(LOCALES_DIR, `${locale}.json`);
+  const json = JSON.parse(await fs.readFile(filePath, 'utf8'));
+  Object.assign(json.translation, trans);
+  json.translation = Object.fromEntries(
+    Object.entries(json.translation).sort(([a], [b]) => a.localeCompare(b))
+  );
+  await fs.writeFile(filePath, JSON.stringify(json, null, 2) + '\n', 'utf8');
+  console.log(`${locale}: ${Object.keys(trans).length} translations applied`);
 }

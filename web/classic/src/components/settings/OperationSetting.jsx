@@ -29,7 +29,10 @@ import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLim
 import SettingsCheckin from '../../pages/Setting/Operation/SettingsCheckin';
 import { API, showError, toBoolean } from '../../helpers';
 
-const OperationSetting = () => {
+// initialSection controls which sub-panel(s) to display.
+// Values: 'general_op' | 'topnav' | 'sidebar' | 'sensitive' | 'log' | 'monitor' | 'credit' | 'checkin'
+// When absent renders all panels (legacy mode).
+const OperationSetting = ({ initialSection } = {}) => {
   let [inputs, setInputs] = useState({
     /* 额度相关 */
     QuotaForNewUser: 0,
@@ -119,44 +122,64 @@ const OperationSetting = () => {
     onRefresh();
   }, []);
 
+  // show(s) — show this panel when no section filter or section matches
+  const show = (s) => !initialSection || initialSection === s;
+
   return (
     <>
       <Spin spinning={loading} size='large'>
         {/* 通用设置 */}
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsGeneral options={inputs} refresh={onRefresh} />
-        </Card>
+        {show('general_op') && (
+          <Card style={{ marginTop: '10px' }}>
+            <SettingsGeneral options={inputs} refresh={onRefresh} />
+          </Card>
+        )}
         {/* 顶栏模块管理 */}
-        <div style={{ marginTop: '10px' }}>
-          <SettingsHeaderNavModules options={inputs} refresh={onRefresh} />
-        </div>
+        {show('topnav') && (
+          <div style={{ marginTop: '10px' }}>
+            <SettingsHeaderNavModules options={inputs} refresh={onRefresh} />
+          </div>
+        )}
         {/* 左侧边栏模块管理（管理员） */}
-        <div style={{ marginTop: '10px' }}>
-          <SettingsSidebarModulesAdmin options={inputs} refresh={onRefresh} />
-        </div>
+        {show('sidebar') && (
+          <div style={{ marginTop: '10px' }}>
+            <SettingsSidebarModulesAdmin options={inputs} refresh={onRefresh} />
+          </div>
+        )}
         {/* 屏蔽词过滤设置 */}
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsSensitiveWords options={inputs} refresh={onRefresh} />
-        </Card>
+        {show('sensitive') && (
+          <Card style={{ marginTop: '10px' }}>
+            <SettingsSensitiveWords options={inputs} refresh={onRefresh} />
+          </Card>
+        )}
         {/* 日志设置 */}
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsLog options={inputs} refresh={onRefresh} />
-        </Card>
+        {show('log') && (
+          <Card style={{ marginTop: '10px' }}>
+            <SettingsLog options={inputs} refresh={onRefresh} />
+          </Card>
+        )}
         {/* 监控设置 */}
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsMonitoring options={inputs} refresh={onRefresh} />
-        </Card>
+        {show('monitor') && (
+          <Card style={{ marginTop: '10px' }}>
+            <SettingsMonitoring options={inputs} refresh={onRefresh} />
+          </Card>
+        )}
         {/* 额度设置 */}
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsCreditLimit options={inputs} refresh={onRefresh} />
-        </Card>
+        {show('credit') && (
+          <Card style={{ marginTop: '10px' }}>
+            <SettingsCreditLimit options={inputs} refresh={onRefresh} />
+          </Card>
+        )}
         {/* 签到设置 */}
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsCheckin options={inputs} refresh={onRefresh} />
-        </Card>
+        {show('checkin') && (
+          <Card style={{ marginTop: '10px' }}>
+            <SettingsCheckin options={inputs} refresh={onRefresh} />
+          </Card>
+        )}
       </Spin>
     </>
   );
 };
 
 export default OperationSetting;
+

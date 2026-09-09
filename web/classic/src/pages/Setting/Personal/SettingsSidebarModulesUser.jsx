@@ -311,8 +311,16 @@ export default function SettingsSidebarModulesUser() {
       description: t('数据管理和日志查看'),
       modules: [
         { key: 'detail', title: t('数据看板'), description: t('系统数据统计') },
-        { key: 'token', title: t('令牌管理'), description: t('API令牌管理') },
-        { key: 'log', title: t('使用日志'), description: t('API使用记录') },
+        {
+          key: 'token',
+          title: t('API Key management'),
+          description: t('API令牌管理'),
+        },
+        {
+          key: 'log',
+          title: t('Invocation logs'),
+          description: t('API使用记录'),
+        },
         {
           key: 'midjourney',
           title: t('绘图日志'),

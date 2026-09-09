@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import AdminRequestsModal from '../model-sets/modals/AdminRequestsModal';
 import CardPro from '../../common/ui/CardPro';
 import ModelGrantsTable from './ModelGrantsTable';
 import ModelGrantsActions from './ModelGrantsActions';
@@ -40,6 +41,7 @@ const { Title, Text } = Typography;
 
 const ModelGrantsPage = () => {
   const { t } = useTranslation();
+  const [showAdminRequests, setShowAdminRequests] = useState(false);
   const activeRequest = useRef(null);
   const [grants, setGrants] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -158,10 +160,10 @@ const ModelGrantsPage = () => {
         (item) =>
           keys.includes(item.id) ||
           keys.includes(`batch_${item.batch_id}`) ||
-          keys.includes(item.rowKey)
+          keys.includes(item.rowKey),
       );
       await batchRevokeGrantBatches(
-        selectedItems.length > 0 ? selectedItems : keys.map((id) => ({ id }))
+        selectedItems.length > 0 ? selectedItems : keys.map((id) => ({ id })),
       );
       showSuccess(t('授权已撤销'));
       setSelectedRowKeys([]);
@@ -173,6 +175,14 @@ const ModelGrantsPage = () => {
 
   return (
     <>
+      <AdminRequestsModal
+        visible={showAdminRequests}
+        onClose={() => {
+          setShowAdminRequests(false);
+          loadGrants(page, pageSize, filters);
+        }}
+        t={t}
+      />
       <CreateGrantModal
         visible={showFormModal}
         batchItem={editingBatch}
@@ -211,13 +221,14 @@ const ModelGrantsPage = () => {
             <Title heading={4}>{t('模型权限授权管理')}</Title>
             <Text type='secondary'>
               {t(
-                '集中管理部门、用户组和个人用户的模型访问权限，支持批量授权、覆盖成员查看及权限诊断'
+                '集中管理部门、用户组和个人用户的模型访问权限，支持批量授权、覆盖成员查看及权限诊断',
               )}
             </Text>
           </div>
         }
         actionsArea={
           <ModelGrantsActions
+            onOpenRequests={() => setShowAdminRequests(true)}
             enableBatchDelete={enableBatchDelete}
             setEnableBatchDelete={setEnableBatchDelete}
             selectedKeys={selectedRowKeys}

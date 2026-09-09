@@ -19,15 +19,10 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Button,
-  Modal,
-  Switch,
-  Typography,
-  Select,
-} from '@douyinfe/semi-ui';
+import { Button, Modal, Switch, Typography, Select } from '@douyinfe/semi-ui';
 
 const ModelGrantsActions = ({
+  onOpenRequests,
   enableBatchDelete,
   setEnableBatchDelete,
   selectedKeys = [],
@@ -42,6 +37,9 @@ const ModelGrantsActions = ({
     <div className='flex flex-col md:flex-row justify-between items-start md:items-center gap-2 w-full'>
       {/* 左侧：批量操作按钮区 */}
       <div className='flex flex-wrap items-center gap-2 w-full md:w-auto order-2 md:order-1'>
+        <Button size='small' theme='light' onClick={onOpenRequests}>
+          {t('权限申请审批')}
+        </Button>
         <Button
           size='small'
           disabled={!enableBatchDelete || selectedCount === 0}
@@ -50,7 +48,9 @@ const ModelGrantsActions = ({
           onClick={() => {
             Modal.confirm({
               title: t('确定是否要删除所选授权？'),
-              content: t('将同时撤销所选授权包含的全部模型访问权限，此修改不可逆。'),
+              content: t(
+                '将同时撤销所选授权包含的全部模型访问权限，此修改不可逆。',
+              ),
               onOk: () => onBatchRevoke?.(selectedKeys),
             });
           }}
@@ -64,7 +64,10 @@ const ModelGrantsActions = ({
       {/* 右侧：设置开关与状态筛选区 (参考渠道管理) */}
       <div className='flex flex-col md:flex-row items-start md:items-center gap-3 w-full md:w-auto order-1 md:order-2'>
         <div className='flex items-center justify-between w-full md:w-auto'>
-          <Typography.Text strong className='mr-2 text-xs text-gray-600 dark:text-gray-300'>
+          <Typography.Text
+            strong
+            className='mr-2 text-xs text-gray-600 dark:text-gray-300'
+          >
             {t('开启批量操作')}
           </Typography.Text>
           <Switch
@@ -75,7 +78,10 @@ const ModelGrantsActions = ({
         </div>
 
         <div className='flex items-center justify-between w-full md:w-auto'>
-          <Typography.Text strong className='mr-2 text-xs text-gray-600 dark:text-gray-300'>
+          <Typography.Text
+            strong
+            className='mr-2 text-xs text-gray-600 dark:text-gray-300'
+          >
             {t('状态筛选')}
           </Typography.Text>
           <Select

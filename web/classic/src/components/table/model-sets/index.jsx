@@ -5,6 +5,16 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useState, useEffect } from 'react';
@@ -14,7 +24,6 @@ import ModelSetsTable from './ModelSetsTable';
 import ModelSetsActions from './ModelSetsActions';
 import ModelSetsFilters from './ModelSetsFilters';
 import ModelSetModal from './modals/ModelSetModal';
-import AdminRequestsModal from './modals/AdminRequestsModal';
 import { API, showError, showSuccess } from '../../../helpers';
 import { Typography } from '@douyinfe/semi-ui';
 
@@ -32,12 +41,13 @@ const ModelSetsPage = () => {
   // Modal states
   const [showSetModal, setShowSetModal] = useState(false);
   const [editingSet, setEditingSet] = useState(null);
-  const [showAdminRequests, setShowAdminRequests] = useState(false);
 
   const loadSets = async (p = page, kw = keyword) => {
     setLoading(true);
     try {
-      const res = await API.get(`/api/model-set?page=${p}&page_size=${pageSize}&keyword=${encodeURIComponent(kw)}`);
+      const res = await API.get(
+        `/api/model-set?page=${p}&page_size=${pageSize}&keyword=${encodeURIComponent(kw)}`,
+      );
       if (res.data?.success) {
         setSets(res.data.data.items || []);
         setTotal(res.data.data.total || 0);
@@ -98,31 +108,27 @@ const ModelSetsPage = () => {
         t={t}
       />
 
-      <AdminRequestsModal
-        visible={showAdminRequests}
-        onClose={() => setShowAdminRequests(false)}
-        t={t}
-      />
-
       <CardPro
         type='type1'
         descriptionArea={
           <div>
             <Title heading={4}>{t('模型集管理')}</Title>
             <Text type='secondary'>
-              {t('将多个底层模型打包为业务模型集，统一面向部门、用户组或个人授权。')}
+              {t(
+                '将多个底层模型打包为业务模型集，统一面向部门、用户组或个人授权。',
+              )}
             </Text>
           </div>
         }
         actionsArea={
           <div className='flex flex-col md:flex-row justify-between items-center gap-2 w-full'>
-            <ModelSetsActions
-              onAdd={handleAdd}
-              onOpenRequests={() => setShowAdminRequests(true)}
-              t={t}
-            />
+            <ModelSetsActions onAdd={handleAdd} t={t} />
             <div className='w-full md:w-full lg:w-auto order-1 md:order-2'>
-              <ModelSetsFilters onSearch={handleSearch} loading={loading} t={t} />
+              <ModelSetsFilters
+                onSearch={handleSearch}
+                loading={loading}
+                t={t}
+              />
             </div>
           </div>
         }
@@ -145,4 +151,3 @@ const ModelSetsPage = () => {
 };
 
 export default ModelSetsPage;
-

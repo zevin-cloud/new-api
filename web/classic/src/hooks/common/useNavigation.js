@@ -18,8 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { useMemo } from 'react';
-import { isAdmin } from '../../helpers';
-import { isOrdinaryUser } from '../../helpers/user-access';
 
 export const useNavigation = (t, docsLink, headerNavModules, user) => {
   const mainNavLinks = useMemo(() => {
@@ -36,25 +34,12 @@ export const useNavigation = (t, docsLink, headerNavModules, user) => {
     const modules = headerNavModules || defaultModules;
 
     const allLinks = [
-      {
-        text: t('首页'),
-        itemKey: 'home',
-        to: '/',
-      },
-      {
-        text: t('控制台'),
-        itemKey: 'console',
-        to: '/console',
-      },
-      {
-        text: t('模型广场'),
-        itemKey: 'pricing',
-        to: '/pricing',
-      },
+      { text: t('模型广场'), itemKey: 'pricing', to: '/pricing' },
+      { text: t('Management console'), itemKey: 'console', to: '/console' },
       ...(docsLink
         ? [
             {
-              text: t('文档'),
+              text: t('Integration docs'),
               itemKey: 'docs',
               isExternal: true,
               externalLink: docsLink,
@@ -70,11 +55,9 @@ export const useNavigation = (t, docsLink, headerNavModules, user) => {
 
     // 根据配置与权限过滤导航链接
     return allLinks.filter((link) => {
-      if (isOrdinaryUser(user)) {
-        return link.itemKey === 'pricing';
-      }
+      if (link.itemKey === 'about' && user?.role === 1) return false;
       if (link.itemKey === 'console') {
-        if (!isAdmin()) {
+        if (!(user?.role >= 10)) {
           return false;
         }
         return modules.console === true;
@@ -93,6 +76,11 @@ export const useNavigation = (t, docsLink, headerNavModules, user) => {
   }, [t, docsLink, headerNavModules, user]);
 
   return {
-    mainNavLinks,
+    mainNavLinks: mainNavLinks.filter((link) =>
+      ['pricing', 'console'].includes(link.itemKey),
+    ),
+    supportNavLinks: mainNavLinks.filter((link) =>
+      ['docs', 'about'].includes(link.itemKey),
+    ),
   };
 };

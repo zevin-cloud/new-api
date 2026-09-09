@@ -5,10 +5,21 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useState } from 'react';
 import { Layout, ImagePreview, Tabs, TabPane } from '@douyinfe/semi-ui';
+import MarketplaceTools from './MarketplaceTools';
 import PricingSidebar from './PricingSidebar';
 import PricingContent from './content/PricingContent';
 import ModelDetailSideSheet from '../modal/ModelDetailSideSheet';
@@ -36,6 +47,7 @@ const PricingPage = () => {
   return (
     <div className='bg-white min-h-[calc(100vh-60px)] flex flex-col'>
       <div className='px-4 pt-2 border-b border-[var(--semi-color-border)]'>
+        {pricingData.isAdminUser && <MarketplaceTools />}
         <Tabs
           type='line'
           activeKey={activeTab}

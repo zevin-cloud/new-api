@@ -62,11 +62,11 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     getUnreadKeys,
   } = useNotifications(statusState);
 
-  const { mainNavLinks } = useNavigation(
+  const { mainNavLinks, supportNavLinks } = useNavigation(
     t,
     docsLink,
     headerNavModules,
-    userState?.user
+    userState?.user,
   );
 
   return (
@@ -92,6 +92,7 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
             />
 
             <HeaderLogo
+              homePath={userState?.user?.role >= 10 ? '/console' : '/pricing'}
               isMobile={isMobile}
               isConsoleRoute={isConsoleRoute}
               logo={logo}
@@ -106,6 +107,7 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
 
           <Navigation
             mainNavLinks={mainNavLinks}
+            supportNavLinks={supportNavLinks}
             isMobile={isMobile}
             isLoading={isLoading}
             userState={userState}

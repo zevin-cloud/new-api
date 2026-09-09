@@ -18,22 +18,21 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Button } from '@douyinfe/semi-ui';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
+import ModelGrantsActions from '../ModelGrantsActions';
 
-const ModelSetsActions = ({ onAdd, t }) => {
-  return (
-    <div className='flex flex-wrap gap-2 w-full md:w-auto order-2 md:order-1'>
-      <Button
-        size='small'
-        theme='light'
-        type='primary'
-        className='w-full md:w-auto'
-        onClick={onAdd}
-      >
-        {t('新建模型集')}
-      </Button>
-    </div>
+afterEach(cleanup);
+it('opens access request review from authorization management', () => {
+  const onOpenRequests = vi.fn();
+  render(
+    <ModelGrantsActions
+      onOpenRequests={onOpenRequests}
+      setEnableBatchDelete={vi.fn()}
+      statusFilter={0}
+      setStatusFilter={vi.fn()}
+    />,
   );
-};
-
-export default ModelSetsActions;
+  fireEvent.click(screen.getByRole('button', { name: '权限申请审批' }));
+  expect(onOpenRequests).toHaveBeenCalledOnce();
+});

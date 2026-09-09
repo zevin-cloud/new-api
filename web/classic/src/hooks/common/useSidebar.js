@@ -25,7 +25,56 @@ import { API } from '../../helpers';
 const sidebarEventTarget = new EventTarget();
 const SIDEBAR_REFRESH_EVENT = 'sidebar-refresh';
 
+export const DEFAULT_SECTION_ORDER = [
+  'overview',
+  'resources',
+  'governance',
+  'audit',
+  'system',
+];
+
+export const DEFAULT_ITEM_ORDERS = {
+  overview: ['detail'],
+  resources: ['channel', 'models', 'model_set', 'deployment', 'playground'],
+  governance: ['model_grant', 'user', 'user_group', 'token'],
+  audit: ['log', 'midjourney', 'task'],
+  system: ['setting'],
+};
+
+const deepClone = (value) => JSON.parse(JSON.stringify(value));
+
 export const DEFAULT_ADMIN_CONFIG = {
+  sectionOrder: [...DEFAULT_SECTION_ORDER],
+  itemOrders: deepClone(DEFAULT_ITEM_ORDERS),
+  overview: {
+    enabled: true,
+    detail: true,
+  },
+  resources: {
+    enabled: true,
+    channel: true,
+    models: true,
+    model_set: true,
+    deployment: true,
+    playground: true,
+  },
+  governance: {
+    enabled: true,
+    model_grant: true,
+    user: true,
+    user_group: true,
+    token: true,
+  },
+  audit: {
+    enabled: true,
+    log: true,
+    midjourney: true,
+    task: true,
+  },
+  system: {
+    enabled: true,
+    setting: true,
+  },
   chat: {
     enabled: true,
     playground: true,
@@ -58,21 +107,155 @@ export const DEFAULT_ADMIN_CONFIG = {
   },
 };
 
-const deepClone = (value) => JSON.parse(JSON.stringify(value));
-
 export const mergeAdminConfig = (savedConfig) => {
   const merged = deepClone(DEFAULT_ADMIN_CONFIG);
   if (!savedConfig || typeof savedConfig !== 'object') return merged;
 
-  for (const [sectionKey, sectionConfig] of Object.entries(savedConfig)) {
-    if (!sectionConfig || typeof sectionConfig !== 'object') continue;
+  // 0. Orders
+  if (Array.isArray(savedConfig.sectionOrder)) {
+    const validSections = new Set(DEFAULT_SECTION_ORDER);
+    const userSections = savedConfig.sectionOrder.filter((key) =>
+      validSections.has(key),
+    );
+    DEFAULT_SECTION_ORDER.forEach((key) => {
+      if (!userSections.includes(key)) {
+        userSections.push(key);
+      }
+    });
+    merged.sectionOrder = userSections;
+  } else {
+    merged.sectionOrder = [...DEFAULT_SECTION_ORDER];
+  }
 
-    if (!merged[sectionKey]) {
-      merged[sectionKey] = { ...sectionConfig };
-      continue;
-    }
+  merged.itemOrders = deepClone(DEFAULT_ITEM_ORDERS);
+  if (savedConfig.itemOrders && typeof savedConfig.itemOrders === 'object') {
+    Object.keys(DEFAULT_ITEM_ORDERS).forEach((sectionKey) => {
+      const defaultItems = DEFAULT_ITEM_ORDERS[sectionKey];
+      const validItems = new Set(defaultItems);
+      const savedItems = savedConfig.itemOrders[sectionKey];
+      if (Array.isArray(savedItems)) {
+        const userItems = savedItems.filter((k) => validItems.has(k));
+        defaultItems.forEach((k) => {
+          if (!userItems.includes(k)) {
+            userItems.push(k);
+          }
+        });
+        merged.itemOrders[sectionKey] = userItems;
+      }
+    });
+  }
 
-    merged[sectionKey] = { ...merged[sectionKey], ...sectionConfig };
+  const hasLegacyConsole = Boolean(savedConfig.console);
+  const hasLegacyAdmin = Boolean(savedConfig.admin);
+  const hasLegacyChat = Boolean(savedConfig.chat);
+
+  // 1. Overview
+  if (savedConfig.overview) {
+    merged.overview = { ...merged.overview, ...savedConfig.overview };
+  } else if (hasLegacyConsole) {
+    merged.overview = {
+      enabled: savedConfig.console?.enabled !== false,
+      detail: savedConfig.console?.detail ?? true,
+    };
+  }
+
+  // 2. Resources
+  if (savedConfig.resources) {
+    merged.resources = { ...merged.resources, ...savedConfig.resources };
+  } else if (hasLegacyAdmin || hasLegacyChat) {
+    merged.resources = {
+      enabled: savedConfig.admin?.enabled !== false,
+      channel: savedConfig.admin?.channel ?? true,
+      models: savedConfig.admin?.models ?? true,
+      model_set: savedConfig.admin?.model_set ?? true,
+      deployment: savedConfig.admin?.deployment ?? true,
+      playground: savedConfig.chat?.playground ?? true,
+    };
+  }
+
+  // 3. Governance
+  if (savedConfig.governance) {
+    merged.governance = { ...merged.governance, ...savedConfig.governance };
+  } else if (hasLegacyAdmin || hasLegacyConsole) {
+    merged.governance = {
+      enabled:
+        savedConfig.admin?.enabled !== false &&
+        savedConfig.console?.enabled !== false,
+      model_grant: savedConfig.admin?.model_grant ?? true,
+      user: savedConfig.admin?.user ?? true,
+      user_group: savedConfig.admin?.user_group ?? true,
+      token: savedConfig.console?.token ?? true,
+    };
+  }
+
+  // 4. Audit
+  if (savedConfig.audit) {
+    merged.audit = { ...merged.audit, ...savedConfig.audit };
+  } else if (hasLegacyConsole) {
+    merged.audit = {
+      enabled: savedConfig.console?.enabled !== false,
+      log: savedConfig.console?.log ?? true,
+      midjourney: savedConfig.console?.midjourney ?? true,
+      task: savedConfig.console?.task ?? true,
+    };
+  }
+
+  // 5. System
+  if (savedConfig.system) {
+    merged.system = { ...merged.system, ...savedConfig.system };
+  } else if (hasLegacyAdmin) {
+    merged.system = {
+      enabled: savedConfig.admin?.enabled !== false,
+      setting: savedConfig.admin?.setting ?? true,
+    };
+  }
+
+  // Sync legacy sections for backwards compatibility
+  merged.console = {
+    ...merged.console,
+    ...(savedConfig.console || {}),
+    detail: merged.overview.detail,
+    token: merged.governance.token,
+    log: merged.audit.log,
+    midjourney: merged.audit.midjourney,
+    task: merged.audit.task,
+  };
+  merged.admin = {
+    ...merged.admin,
+    ...(savedConfig.admin || {}),
+    channel: merged.resources.channel,
+    models: merged.resources.models,
+    model_set: merged.resources.model_set,
+    deployment: merged.resources.deployment,
+    model_grant: merged.governance.model_grant,
+    user: merged.governance.user,
+    user_group: merged.governance.user_group,
+    setting: merged.system.setting,
+  };
+  merged.chat = {
+    ...merged.chat,
+    ...(savedConfig.chat || {}),
+    playground: merged.resources.playground,
+  };
+
+  // If savedConfig had explicit legacy group disabling without new sections, propagate it
+  if (
+    savedConfig.admin?.enabled === false &&
+    !savedConfig.resources &&
+    !savedConfig.governance &&
+    !savedConfig.system
+  ) {
+    merged.resources.enabled = false;
+    merged.governance.enabled = false;
+    merged.system.enabled = false;
+  }
+  if (
+    savedConfig.console?.enabled === false &&
+    !savedConfig.overview &&
+    !savedConfig.audit
+  ) {
+    merged.overview.enabled = false;
+    merged.audit.enabled = false;
   }
 
   return merged;
@@ -263,12 +446,29 @@ export const useSidebar = () => {
 
   // 检查特定功能是否应该显示
   const isModuleVisible = (sectionKey, moduleKey = null) => {
-    const section = finalConfig[sectionKey];
-    if (section && section.enabled === false) return false;
+    let section = finalConfig[sectionKey];
+
+    if (!section) {
+      if (sectionKey === 'admin') {
+        if (moduleKey === 'setting') section = finalConfig.system;
+        else if (['user', 'user_group', 'model_grant'].includes(moduleKey))
+          section = finalConfig.governance;
+        else section = finalConfig.resources;
+      } else if (sectionKey === 'console') {
+        if (moduleKey === 'detail') section = finalConfig.overview;
+        else if (moduleKey === 'token') section = finalConfig.governance;
+        else section = finalConfig.audit;
+      } else if (sectionKey === 'chat') {
+        section = finalConfig.resources;
+      }
+    }
+
+    if (!section) return true;
+    if (section.enabled === false) return false;
     if (moduleKey) {
-      return section?.[moduleKey] !== false;
+      return section[moduleKey] !== false;
     } else {
-      return section?.enabled !== false;
+      return section.enabled !== false;
     }
   };
 
@@ -297,6 +497,8 @@ export const useSidebar = () => {
     adminConfig,
     userConfig,
     finalConfig,
+    sectionOrder: adminConfig?.sectionOrder || DEFAULT_SECTION_ORDER,
+    itemOrders: adminConfig?.itemOrders || DEFAULT_ITEM_ORDERS,
     isModuleVisible,
     hasSectionVisibleModules,
     getVisibleModules,

@@ -21,11 +21,7 @@ import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Avatar, Button, Dropdown, Typography } from '@douyinfe/semi-ui';
 import { ChevronDown } from 'lucide-react';
-import {
-  IconExit,
-  IconUserSetting,
-  IconKey,
-} from '@douyinfe/semi-icons';
+import { IconExit, IconUserSetting, IconKey } from '@douyinfe/semi-icons';
 import { stringToColor, isAdmin, renderQuota } from '../../../helpers';
 import SkeletonWrapper from '../components/SkeletonWrapper';
 import PersonalApiKeyModal from '../../common/PersonalApiKeyModal';
@@ -76,7 +72,9 @@ const UserArea = ({
                 </div>
                 <div className='flex items-center justify-between text-xs text-semi-color-text-2'>
                   <span>{t('已用配额')}</span>
-                  <span>{renderQuota(userState?.user?.used_quota || 0)} Tokens</span>
+                  <span>
+                    {renderQuota(userState?.user?.used_quota || 0)} Tokens
+                  </span>
                 </div>
               </div>
 
@@ -120,7 +118,7 @@ const UserArea = ({
                         size='small'
                         className='text-gray-500 dark:text-gray-400'
                       />
-                      <span>{t('令牌管理')}</span>
+                      <span>{t('API Key management')}</span>
                     </div>
                   </Dropdown.Item>
                 </>

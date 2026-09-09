@@ -44,7 +44,10 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import CustomOAuthSetting from './CustomOAuthSetting';
 
-const SystemSetting = () => {
+// section prop controls which group of cards to render.
+// Allowed values: 'general' | 'notice' | 'login' | 'passkey' | 'oauth' | 'captcha' | 'security'
+// When absent/undefined the full component renders (legacy mode).
+const SystemSetting = ({ section } = {}) => {
   const { t } = useTranslation();
   let [inputs, setInputs] = useState({
     PasswordLoginEnabled: '',
@@ -739,7 +742,10 @@ const SystemSetting = () => {
           onValueChange={handleFormChange}
           getFormApi={(api) => (formApiRef.current = api)}
         >
-          {({ formState, values, formApi }) => (
+          {({ formState, values, formApi }) => {
+            // show(s) returns true when no section filter OR section matches
+            const show = (s) => !section || section === s;
+            return (
             <div
               style={{
                 display: 'flex',
@@ -748,7 +754,7 @@ const SystemSetting = () => {
                 marginTop: '10px',
               }}
             >
-              <Card>
+              {show('general') && <Card>
                 <Form.Section text={t('通用设置')}>
                   <Row
                     gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
@@ -768,9 +774,9 @@ const SystemSetting = () => {
                     {t('更新服务器地址')}
                   </Button>
                 </Form.Section>
-              </Card>
+              </Card>}
 
-              <Card>
+              {show('general') && <Card>
                 <Form.Section text={t('代理设置')}>
                   <Banner
                     type='info'
@@ -817,9 +823,9 @@ const SystemSetting = () => {
                   </Form.Checkbox>
                   <Button onClick={submitWorker}>{t('更新Worker设置')}</Button>
                 </Form.Section>
-              </Card>
+              </Card>}
 
-              <Card>
+              {show('security') && <Card>
                 <Form.Section text={t('SSRF防护设置')}>
                   <Text extraText={t('SSRF防护详细说明')}>
                     {t('配置服务器端请求伪造(SSRF)防护，用于保护内网资源安全')}
@@ -1017,9 +1023,9 @@ const SystemSetting = () => {
                     {t('更新SSRF防护设置')}
                   </Button>
                 </Form.Section>
-              </Card>
+              </Card>}
 
-              <Card>
+              {show('login') && <Card>
                 <Form.Section text={t('配置登录注册')}>
                   <Row
                     gutter={{ xs: 8, sm: 16, md: 24, lg: 24, xl: 24, xxl: 24 }}
@@ -1129,9 +1135,9 @@ const SystemSetting = () => {
                     </Col>
                   </Row>
                 </Form.Section>
-              </Card>
+              </Card>}
 
-              <Card>
+              {show('passkey') && <Card>
                 <Form.Section text={t('配置 Passkey')}>
                   <Text>{t('用以支持基于 WebAuthn 的无密码登录注册')}</Text>
                   <Banner
@@ -1258,9 +1264,9 @@ const SystemSetting = () => {
                     {t('保存 Passkey 设置')}
                   </Button>
                 </Form.Section>
-              </Card>
+              </Card>}
 
-              <Card>
+              {show('login') && <Card>
                 <Form.Section text={t('配置邮箱域名白名单')}>
                   <Text>{t('用以防止恶意用户利用临时邮箱批量注册')}</Text>
                   <Row
@@ -1324,8 +1330,9 @@ const SystemSetting = () => {
                     {t('保存邮箱域名白名单设置')}
                   </Button>
                 </Form.Section>
-              </Card>
-              <Card>
+              </Card>}
+
+              {show('login') && <Card>
                 <Form.Section text={t('配置 SMTP')}>
                   <Text>{t('用以支持系统的邮件发送')}</Text>
                   <Row
@@ -1400,8 +1407,9 @@ const SystemSetting = () => {
                   </Row>
                   <Button onClick={submitSMTP}>{t('保存 SMTP 设置')}</Button>
                 </Form.Section>
-              </Card>
-              <Card>
+              </Card>}
+
+              {show('oauth') && <Card>
                 <Form.Section text={t('配置 OIDC')}>
                   <Text>
                     {t(
@@ -1477,9 +1485,9 @@ const SystemSetting = () => {
                     {t('保存 OIDC 设置')}
                   </Button>
                 </Form.Section>
-              </Card>
+              </Card>}
 
-              <Card>
+              {show('oauth') && <Card>
                 <Form.Section text={t('配置 GitHub OAuth App')}>
                   <Text>{t('用以支持通过 GitHub 进行登录注册')}</Text>
                   <Banner
@@ -1509,8 +1517,8 @@ const SystemSetting = () => {
                     {t('保存 GitHub OAuth 设置')}
                   </Button>
                 </Form.Section>
-              </Card>
-              <Card>
+              </Card>}
+              {show('oauth') && <Card>
                 <Form.Section text={t('配置 Discord OAuth')}>
                   <Text>{t('用以支持通过 Discord 进行登录注册')}</Text>
                   <Banner
@@ -1540,8 +1548,8 @@ const SystemSetting = () => {
                     {t('保存 Discord OAuth 设置')}
                   </Button>
                 </Form.Section>
-              </Card>
-              <Card>
+              </Card>}
+              {show('oauth') && <Card>
                 <Form.Section text={t('配置 Linux DO OAuth')}>
                   <Text>
                     {t('用以支持通过 Linux DO 进行登录注册')}
@@ -1594,11 +1602,11 @@ const SystemSetting = () => {
                     {t('保存 Linux DO OAuth 设置')}
                   </Button>
                 </Form.Section>
-              </Card>
+              </Card>}
 
-              <CustomOAuthSetting serverAddress={inputs.ServerAddress} />
+              {show('oauth') && <CustomOAuthSetting serverAddress={inputs.ServerAddress} />}
 
-              <Card>
+              {show('oauth') && <Card>
                 <Form.Section text={t('配置 WeChat Server')}>
                   <Text>{t('用以支持通过微信进行登录注册')}</Text>
                   <Row
@@ -1629,9 +1637,9 @@ const SystemSetting = () => {
                     {t('保存 WeChat Server 设置')}
                   </Button>
                 </Form.Section>
-              </Card>
+              </Card>}
 
-              <Card>
+              {show('oauth') && <Card>
                 <Form.Section text={t('配置 Telegram 登录')}>
                   <Text>{t('用以支持通过 Telegram 进行登录注册')}</Text>
                   <Row
@@ -1656,9 +1664,9 @@ const SystemSetting = () => {
                     {t('保存 Telegram 登录设置')}
                   </Button>
                 </Form.Section>
-              </Card>
+              </Card>}
 
-              <Card>
+              {show('captcha') && <Card>
                 <Form.Section text={t('配置 Turnstile')}>
                   <Text>{t('用以支持用户校验')}</Text>
                   <Row
@@ -1683,7 +1691,7 @@ const SystemSetting = () => {
                     {t('保存 Turnstile 设置')}
                   </Button>
                 </Form.Section>
-              </Card>
+              </Card>}
 
               <Modal
                 title={t('确认取消密码登录')}
@@ -1703,7 +1711,8 @@ const SystemSetting = () => {
                 </p>
               </Modal>
             </div>
-          )}
+            );
+          }}
         </Form>
       ) : (
         <div
