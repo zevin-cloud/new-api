@@ -48,7 +48,12 @@ const DEFAULT_PROVIDERS = [
   { slug: 'claude', name: 'Claude Code', icon: <Claude.Color size={16} /> },
   { slug: 'codex', name: 'ChatGPT / Codex', icon: <OpenAI size={16} /> },
   { slug: 'kimi', name: 'Kimi Code', icon: <Moonshot size={16} /> },
-  { slug: 'kiro', name: 'Kiro', icon: <Cloud size={16} /> },
+  {
+    slug: 'kiro',
+    name: 'Kiro',
+    icon: <Cloud size={16} />,
+    experimental: true,
+  },
 ];
 
 export default function ClientDrawerAuth({
@@ -235,7 +240,7 @@ export default function ClientDrawerAuth({
                     key={p.slug}
                     type='button'
                     onClick={() => handleProviderSelect(p.slug)}
-                    className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                    className={`relative flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
                       isSelected
                         ? 'border-[var(--semi-color-primary)] bg-[var(--semi-color-primary-light-default)] text-[var(--semi-color-primary)] shadow-sm'
                         : 'border-[var(--semi-color-border)] bg-[var(--semi-color-bg-0)] hover:border-[var(--semi-color-primary)] text-[var(--semi-color-text-0)]'
@@ -243,6 +248,11 @@ export default function ClientDrawerAuth({
                   >
                     {p.icon}
                     <span>{p.name}</span>
+                    {p.experimental && (
+                      <span className='absolute right-1 top-1 rounded bg-amber-100 px-1 py-0.5 text-[9px] leading-none text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'>
+                        {t('Experimental')}
+                      </span>
+                    )}
                   </button>
                 );
               })}

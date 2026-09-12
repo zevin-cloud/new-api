@@ -57,7 +57,7 @@ func GetClientAuthProviders(c *gin.Context) {
 		{"slug": "codex", "name": "ChatGPT / Codex", "endpoint": "/v1/responses, /v1/chat/completions"},
 		{"slug": "claude", "name": "Claude Code", "endpoint": "/v1/messages, /v1/chat/completions"},
 		{"slug": "antigravity", "name": "Antigravity", "endpoint": "/v1/chat/completions, /v1/responses"},
-		{"slug": "kiro", "name": "Kiro", "endpoint": "/v1/messages, /v1/chat/completions"},
+		{"slug": "kiro", "name": "Kiro", "endpoint": "/v1/messages, /v1/chat/completions", "experimental": true},
 	}})
 }
 

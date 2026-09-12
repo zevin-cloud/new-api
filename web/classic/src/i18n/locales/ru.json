@@ -210,6 +210,7 @@
     "Exact models only. Empty uses default. Pools are tried in selection order; other pools are never used.": "Только точные имена моделей. Пусто — default. Пулы проверяются в порядке выбора; другие не используются.",
     "Existing model sets": "Существующие наборы",
     "Existing routing restrictions are retained until you select model routing.": "Прежние ограничения действуют до выбора маршрутизации модели.",
+    "Experimental": "Экспериментально",
     "Expiration must be in the future": "Срок действия должен быть в будущем",
     "false": "false",
     "For example: temporary access (leave empty for an automatic name)": "Например: временный доступ (пустое поле — автоматическое имя)",

@@ -212,6 +212,7 @@
     "Exact models only. Empty uses default. Pools are tried in selection order; other pools are never used.": "僅適用於精確模型名稱。留空僅使用 default；依選擇順序嘗試渠道池，不使用其他池。",
     "Existing model sets": "選擇現有模型集",
     "Existing routing restrictions are retained until you select model routing.": "切換為依模型路由前，保留此授權原有的渠道限制。",
+    "Experimental": "實驗性",
     "Expiration must be in the future": "到期時間必須晚於目前時間",
     "false": "false",
     "For example: temporary access (leave empty for an automatic name)": "例如：臨時模型授權（留空則自動命名）",

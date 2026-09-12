@@ -200,6 +200,7 @@
     "Exact models only. Empty uses default. Pools are tried in selection order; other pools are never used.": "Chỉ áp dụng tên mô hình chính xác. Để trống dùng default. Thử theo thứ tự chọn, không dùng nhóm khác.",
     "Existing model sets": "Bộ mô hình có sẵn",
     "Existing routing restrictions are retained until you select model routing.": "Giữ giới hạn kênh hiện có cho đến khi chọn định tuyến mô hình.",
+    "Experimental": "Thử nghiệm",
     "Expiration must be in the future": "Thời hạn phải ở tương lai",
     "false": "sai",
     "For example: temporary access (leave empty for an automatic name)": "Ví dụ: quyền tạm thời (để trống để đặt tên tự động)",

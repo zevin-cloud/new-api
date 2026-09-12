@@ -206,6 +206,7 @@
     "Exact models only. Empty uses default. Pools are tried in selection order; other pools are never used.": "Noms exacts uniquement. Vide : default. Les pools sont essayés dans l’ordre de sélection, sans utiliser d’autres pools.",
     "Existing model sets": "Ensembles existants",
     "Existing routing restrictions are retained until you select model routing.": "Les restrictions existantes sont conservées tant que le routage du modèle n’est pas sélectionné.",
+    "Experimental": "Expérimental",
     "Expiration must be in the future": "L’expiration doit être dans le futur",
     "false": "faux",
     "For example: temporary access (leave empty for an automatic name)": "Exemple : accès temporaire (vide pour un nom automatique)",

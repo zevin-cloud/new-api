@@ -20,6 +20,8 @@ pipeline {
         SQL_DSN        = 'postgresql://root:root@zevin.xin:35432/new_api_test?sslmode=disable'
         REDIS_CONN     = 'redis://:redis%40123@zevin.xin:36379/2'
         SESSION_SECRET = 'B7A26D0B-F51C-49C0-A308-E50A007B6A81'
+        SYSTEM_NAME    = '聚流'
+        LOGO           = '/logo.png'
     }
 
     stages {
@@ -59,6 +61,8 @@ pipeline {
                         -e SQL_DSN="${SQL_DSN}" \
                         -e REDIS_CONN_STRING="${REDIS_CONN}" \
                         -e SESSION_SECRET="${SESSION_SECRET}" \
+                        -e SYSTEM_NAME="${SYSTEM_NAME}" \
+                        -e LOGO="${LOGO}" \
                         -e MEMORY_CACHE_ENABLED=true \
                         -e SYNC_FREQUENCY=60 \
                         -e CHANNEL_UPDATE_FREQUENCY=30 \

@@ -220,6 +220,7 @@
     "Exact models only. Empty uses default. Pools are tried in selection order; other pools are never used.": "Exact models only. Empty uses default. Pools are tried in selection order; other pools are never used.",
     "Existing model sets": "Existing model sets",
     "Existing routing restrictions are retained until you select model routing.": "Existing routing restrictions are retained until you select model routing.",
+    "Experimental": "Experimental",
     "Expiration must be in the future": "Expiration must be in the future",
     "Expr 预览": "Expression Preview",
     "false": "false",

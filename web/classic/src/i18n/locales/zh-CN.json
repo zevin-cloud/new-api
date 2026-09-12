@@ -209,6 +209,7 @@
     "Exact models only. Empty uses default. Pools are tried in selection order; other pools are never used.": "仅适用于精确模型名称。留空仅使用 default；按选择顺序尝试渠道池，不会使用其他池。",
     "Existing model sets": "选择已有模型集",
     "Existing routing restrictions are retained until you select model routing.": "切换为跟随模型路由前，保留此授权原有的渠道限制。",
+    "Experimental": "实验性",
     "Expiration must be in the future": "过期时间不能早于当前时间",
     "Expr 预览": "Expr 预览",
     "false": "false",

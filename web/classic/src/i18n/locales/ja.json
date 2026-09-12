@@ -200,6 +200,7 @@
     "Exact models only. Empty uses default. Pools are tried in selection order; other pools are never used.": "完全一致のモデル名のみ。未設定時は default のみ使用。選択順に試行し、他のプールは使用しません。",
     "Existing model sets": "既存のモデルセット",
     "Existing routing restrictions are retained until you select model routing.": "モデルのルーティングに切り替えるまで、従来のチャネル制限を維持します。",
+    "Experimental": "実験的",
     "Expiration must be in the future": "有効期限は現在より後に設定してください",
     "false": "false",
     "For example: temporary access (leave empty for an automatic name)": "例：一時的なアクセス（空欄で自動命名）",

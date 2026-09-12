@@ -5,6 +5,7 @@ const LOCALES_DIR = path.resolve('src/i18n/locales');
 
 const newKeys = {
   en: {
+    "Experimental": "Experimental",
     "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "Globally control sidebar sections and modules display, drag handles or use arrows to reorder",
     "Drag to reorder section": "Drag to reorder section",
     "Drag to reorder module": "Drag to reorder module",
@@ -15,6 +16,7 @@ const newKeys = {
     "Reset to default configuration": "Reset to default configuration",
   },
   "zh-CN": {
+    "Experimental": "实验性",
     "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "全局控制侧边栏区域与功能显示，支持拖拽手柄或箭头调整展示顺序",
     "Drag to reorder section": "按住拖动调整区域顺序",
     "Drag to reorder module": "按住拖动调整功能顺序",
@@ -25,6 +27,7 @@ const newKeys = {
     "Reset to default configuration": "重置为默认配置",
   },
   zh: {
+    "Experimental": "实验性",
     "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "全局控制侧边栏区域与功能显示，支持拖拽手柄或箭头调整展示顺序",
     "Drag to reorder section": "按住拖动调整区域顺序",
     "Drag to reorder module": "按住拖动调整功能顺序",
@@ -35,6 +38,7 @@ const newKeys = {
     "Reset to default configuration": "重置为默认配置",
   },
   "zh-TW": {
+    "Experimental": "實驗性",
     "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "全域控制側邊欄區域與功能顯示，支援拖曳控制代碼或箭頭調整顯示順序",
     "Drag to reorder section": "按住拖曳調整區域順序",
     "Drag to reorder module": "按住拖曳調整功能順序",
@@ -45,6 +49,7 @@ const newKeys = {
     "Reset to default configuration": "重設為預設設定",
   },
   fr: {
+    "Experimental": "Expérimental",
     "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "Contrôle global des sections et modules de la barre latérale, faites glisser les poignées ou utilisez les flèches pour réorganiser",
     "Drag to reorder section": "Faites glisser pour réorganiser la section",
     "Drag to reorder module": "Faites glisser pour réorganiser le module",
@@ -55,6 +60,7 @@ const newKeys = {
     "Reset to default configuration": "Rétablir la configuration par défaut",
   },
   ja: {
+    "Experimental": "実験的",
     "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "サイドバーのセクションとモジュールのグローバル制御。ハンドルをドラッグするか矢印で順序を変更できます",
     "Drag to reorder section": "ドラッグしてセクションの順序を変更",
     "Drag to reorder module": "ドラッグしてモジュールの順序を変更",
@@ -65,6 +71,7 @@ const newKeys = {
     "Reset to default configuration": "デフォルト設定に戻す",
   },
   ru: {
+    "Experimental": "Экспериментально",
     "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "Глобальное управление разделами и модулями боковой панели, перетаскивайте за ручки или используйте стрелки для изменения порядка",
     "Drag to reorder section": "Перетащите для изменения порядка раздела",
     "Drag to reorder module": "Перетащите для изменения порядка модуля",
@@ -75,6 +82,7 @@ const newKeys = {
     "Reset to default configuration": "Сбросить к настройкам по умолчанию",
   },
   vi: {
+    "Experimental": "Thử nghiệm",
     "Globally control sidebar sections and modules display, drag handles or use arrows to reorder": "Kiểm soát toàn cục các phần và mô-đun của thanh bên, kéo các chốt hoặc dùng mũi tên để sắp xếp lại",
     "Drag to reorder section": "Kéo để sắp xếp lại phần",
     "Drag to reorder module": "Kéo để sắp xếp lại mô-đun",
