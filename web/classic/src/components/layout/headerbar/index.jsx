@@ -120,11 +120,9 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
 
             <HeaderLogo
               homePath={
-                headerNavModules?.home === true || !userState?.user
-                  ? '/'
-                  : userState?.user?.role >= 10
-                    ? '/console'
-                    : '/pricing'
+                userState?.user?.role >= 10 && headerNavModules?.home !== true
+                  ? '/console'
+                  : '/'
               }
               isMobile={isMobile}
               isConsoleRoute={isConsoleRoute}

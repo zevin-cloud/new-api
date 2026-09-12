@@ -30,8 +30,11 @@ describe('ordinary user page access', () => {
     ).toBe(false);
   });
 
-  it('redirects an ordinary user away from every other page', () => {
-    expect(shouldRedirectOrdinaryUser({ role: 1 }, '/')).toBe(true);
+  it('allows an ordinary user to visit the home page', () => {
+    expect(shouldRedirectOrdinaryUser({ role: 1 }, '/')).toBe(false);
+  });
+
+  it('redirects an ordinary user away from protected pages', () => {
     expect(shouldRedirectOrdinaryUser({ role: 1 }, '/console')).toBe(true);
     expect(shouldRedirectOrdinaryUser({ role: 1 }, '/about')).toBe(true);
   });

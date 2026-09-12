@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 export const MODEL_MARKETPLACE_PATH = '/pricing';
+const ORDINARY_USER_PUBLIC_PATHS = new Set(['/', MODEL_MARKETPLACE_PATH]);
 
 export function isOrdinaryUser(user) {
   return Boolean(user && user.role === 1);
@@ -35,5 +36,5 @@ export function getStoredUser() {
 }
 
 export function shouldRedirectOrdinaryUser(user, pathname) {
-  return isOrdinaryUser(user) && pathname !== MODEL_MARKETPLACE_PATH;
+  return isOrdinaryUser(user) && !ORDINARY_USER_PUBLIC_PATHS.has(pathname);
 }
