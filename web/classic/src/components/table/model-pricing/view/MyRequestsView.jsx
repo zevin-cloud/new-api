@@ -127,7 +127,7 @@ const MyRequestsView = ({ t }) => {
   ];
 
   return (
-    <div className='p-4 bg-white rounded-lg'>
+    <div className='p-4 bg-[var(--semi-color-bg-1)] border border-[var(--semi-color-border)] rounded-lg'>
       <div className='flex justify-between items-center mb-4'>
         <Text strong className='text-base'>{t('我的模型权限申请列表')}</Text>
         <Button size='small' theme='light' onClick={() => loadRequests(page)}>

@@ -504,14 +504,14 @@ const LoginForm = () => {
         <div className='w-full max-w-md'>
           <div className='flex items-center justify-center mb-6 gap-2'>
             <img src={logo} alt='Logo' className='h-10 rounded-full' />
-            <Title heading={3} className='!text-gray-800'>
+            <Title heading={3} style={{ color: 'var(--semi-color-text-0)' }}>
               {systemName}
             </Title>
           </div>
 
-          <Card className='border-0 !rounded-2xl overflow-hidden'>
+          <Card className='border border-gray-200/80 dark:border-white/10 shadow-lg dark:shadow-2xl !rounded-2xl overflow-hidden bg-white dark:bg-[#15171e]'>
             <div className='flex justify-center pt-6 pb-2'>
-              <Title heading={3} className='text-gray-800 dark:text-gray-200'>
+              <Title heading={3} style={{ color: 'var(--semi-color-text-0)' }}>
                 {t('登 录')}
               </Title>
             </div>
@@ -520,7 +520,7 @@ const LoginForm = () => {
                 {status.wechat_login && (
                   <Button
                     theme='outline'
-                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200 transition-colors'
                     type='tertiary'
                     icon={
                       <Icon svg={<WeChatIcon />} style={{ color: '#07C160' }} />
@@ -535,7 +535,7 @@ const LoginForm = () => {
                 {status.github_oauth && (
                   <Button
                     theme='outline'
-                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200 transition-colors'
                     type='tertiary'
                     icon={<IconGithubLogo size='large' />}
                     onClick={handleGitHubClick}
@@ -630,7 +630,7 @@ const LoginForm = () => {
                 {status.passkey_login && passkeySupported && (
                   <Button
                     theme='outline'
-                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200 transition-colors'
                     type='tertiary'
                     icon={<IconKey size='large' />}
                     onClick={handlePasskeyLogin}
@@ -647,7 +647,7 @@ const LoginForm = () => {
                 <Button
                   theme='solid'
                   type='primary'
-                  className='w-full h-12 flex items-center justify-center bg-black text-white !rounded-full hover:bg-gray-800 transition-colors'
+                  className='w-full h-12 flex items-center justify-center bg-black dark:bg-white/10 text-white !rounded-full hover:bg-gray-800 dark:hover:bg-white/20 border border-transparent dark:border-white/10 transition-colors'
                   icon={<IconMail size='large' />}
                   onClick={handleEmailLoginClick}
                   loading={emailLoginLoading}
@@ -662,7 +662,7 @@ const LoginForm = () => {
                     checked={agreedToTerms}
                     onChange={(e) => setAgreedToTerms(e.target.checked)}
                   >
-                    <Text size='small' className='text-gray-600'>
+                    <Text size='small' className='!text-gray-600 dark:!text-gray-400'>
                       {t('我已阅读并同意')}
                       {hasUserAgreement && (
                         <>
@@ -670,7 +670,7 @@ const LoginForm = () => {
                             href='/user-agreement'
                             target='_blank'
                             rel='noopener noreferrer'
-                            className='text-blue-600 hover:text-blue-800 mx-1'
+                            className='text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 mx-1'
                           >
                             {t('用户协议')}
                           </a>
@@ -683,7 +683,7 @@ const LoginForm = () => {
                             href='/privacy-policy'
                             target='_blank'
                             rel='noopener noreferrer'
-                            className='text-blue-600 hover:text-blue-800 mx-1'
+                            className='text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 mx-1'
                           >
                             {t('隐私政策')}
                           </a>
@@ -696,11 +696,11 @@ const LoginForm = () => {
 
               {!status.self_use_mode_enabled && (
                 <div className='mt-6 text-center text-sm'>
-                  <Text>
+                  <Text className='!text-gray-600 dark:!text-gray-400'>
                     {t('没有账户？')}{' '}
                     <Link
                       to='/register'
-                      className='text-blue-600 hover:text-blue-800 font-medium'
+                      className='text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium'
                     >
                       {t('注册')}
                     </Link>
@@ -720,12 +720,12 @@ const LoginForm = () => {
         <div className='w-full max-w-md'>
           <div className='flex items-center justify-center mb-6 gap-2'>
             <img src={logo} alt='Logo' className='h-10 rounded-full' />
-            <Title heading={3}>{systemName}</Title>
+            <Title heading={3} style={{ color: 'var(--semi-color-text-0)' }}>{systemName}</Title>
           </div>
 
-          <Card className='border-0 !rounded-2xl overflow-hidden'>
+          <Card className='border border-gray-200/80 dark:border-white/10 shadow-lg dark:shadow-2xl !rounded-2xl overflow-hidden bg-white dark:bg-[#15171e]'>
             <div className='flex justify-center pt-6 pb-2'>
-              <Title heading={3} className='text-gray-800 dark:text-gray-200'>
+              <Title heading={3} style={{ color: 'var(--semi-color-text-0)' }}>
                 {t('登 录')}
               </Title>
             </div>
@@ -734,7 +734,7 @@ const LoginForm = () => {
                 <Button
                   theme='outline'
                   type='tertiary'
-                  className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors mb-4'
+                  className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200 transition-colors mb-4'
                   icon={<IconKey size='large' />}
                   onClick={handlePasskeyLogin}
                   loading={passkeyLoading}
@@ -818,7 +818,7 @@ const LoginForm = () => {
                   <Button
                     theme='borderless'
                     type='tertiary'
-                    className='w-full !rounded-full'
+                    className='w-full !rounded-full !text-gray-600 dark:!text-gray-400 hover:!text-gray-900 dark:hover:!text-white'
                     onClick={handleResetPasswordClick}
                     loading={resetPasswordLoading}
                   >
@@ -837,7 +837,7 @@ const LoginForm = () => {
                     <Button
                       theme='outline'
                       type='tertiary'
-                      className='w-full !rounded-full'
+                      className='w-full !rounded-full border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 !text-gray-700 dark:!text-gray-200'
                       onClick={handleOtherLoginOptionsClick}
                       loading={otherLoginOptionsLoading}
                     >
@@ -849,11 +849,11 @@ const LoginForm = () => {
 
               {!status.self_use_mode_enabled && (
                 <div className='mt-6 text-center text-sm'>
-                  <Text>
+                  <Text className='!text-gray-600 dark:!text-gray-400'>
                     {t('没有账户？')}{' '}
                     <Link
                       to='/register'
-                      className='text-blue-600 hover:text-blue-800 font-medium'
+                      className='text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium'
                     >
                       {t('注册')}
                     </Link>
@@ -945,7 +945,7 @@ const LoginForm = () => {
   };
 
   return (
-    <div className='classic-page-fill relative overflow-hidden bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8'>
+    <div className='classic-page-fill relative overflow-hidden bg-gray-50 dark:bg-[#070b14] transition-colors duration-200 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8'>
       {/* 背景模糊晕染球 */}
       <div
         className='blur-ball blur-ball-indigo'

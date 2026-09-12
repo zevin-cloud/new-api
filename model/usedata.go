@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -140,12 +141,18 @@ func increaseQuotaData(quotaData *QuotaData) {
 
 func GetQuotaDataByUsername(username string, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
 	var quotaDatas []*QuotaData
-	// 从quota_data表中查询数据
-	err = DB.Table("quota_data").
+	// 从quota_data表中查询数据，支持按精确/模糊用户名或用户ID进行检索
+	query := DB.Table("quota_data").
 		Select("user_id, username, model_name, created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used").
-		Where("username = ? and created_at >= ? and created_at <= ?", username, startTime, endTime).
-		Group("user_id, username, model_name, created_at").
-		Find(&quotaDatas).Error
+		Where("created_at >= ? and created_at <= ?", startTime, endTime)
+
+	if uid, parseErr := strconv.Atoi(username); parseErr == nil && uid > 0 {
+		query = query.Where("(user_id = ? OR username = ?)", uid, username)
+	} else {
+		query = query.Where("(username = ? OR username LIKE ?)", username, "%"+username+"%")
+	}
+
+	err = query.Group("user_id, username, model_name, created_at").Find(&quotaDatas).Error
 	return quotaDatas, err
 }
 
@@ -163,9 +170,9 @@ func GetQuotaDataByUserId(userId int, startTime int64, endTime int64) (quotaData
 func GetQuotaDataGroupByUser(startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
 	var quotaDatas []*QuotaData
 	err = DB.Table("quota_data").
-		Select("username, created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used").
+		Select("user_id, username, created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used").
 		Where("created_at >= ? and created_at <= ?", startTime, endTime).
-		Group("username, created_at").
+		Group("user_id, username, created_at").
 		Find(&quotaDatas).Error
 	return quotaDatas, err
 }

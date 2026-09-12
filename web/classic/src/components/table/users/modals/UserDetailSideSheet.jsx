@@ -113,8 +113,13 @@ const UserDetailSideSheet = ({ visible, userId, onClose, t }) => {
               {userGroups.length > 0 ? (
                 <Space wrap>
                   {userGroups.map((g) => (
-                    <Tag key={g.id} color='violet'>
+                    <Tag
+                      key={g.id}
+                      color='violet'
+                      title={g.description || undefined}
+                    >
                       {g.name}
+                      {g.description ? ` (${g.description})` : ''}
                     </Tag>
                   ))}
                 </Space>

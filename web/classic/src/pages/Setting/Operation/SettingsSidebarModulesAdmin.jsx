@@ -17,7 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useContext,
+  useRef,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Card,
@@ -52,6 +58,75 @@ export default function SettingsSidebarModulesAdmin(props) {
   // 同步拖拽引用（避免 React 状态异步导致 dragover 无法识别目标）
   const draggedSectionRef = useRef(null);
   const draggedModuleRef = useRef(null);
+  const lastSwapTimeRef = useRef(0);
+
+  // FLIP 动画 DOM 引用与历史位置记录
+  const sectionDomRefs = useRef(new Map());
+  const moduleDomRefs = useRef(new Map());
+  const prevRectsRef = useRef(new Map());
+
+  // 记录所有区域和功能块当前的屏幕位置
+  const recordPositions = () => {
+    const rects = new Map();
+    sectionDomRefs.current.forEach((el, key) => {
+      if (el && typeof el.getBoundingClientRect === 'function') {
+        rects.set(`sec:${key}`, el.getBoundingClientRect());
+      }
+    });
+    moduleDomRefs.current.forEach((el, key) => {
+      if (el && typeof el.getBoundingClientRect === 'function') {
+        rects.set(`mod:${key}`, el.getBoundingClientRect());
+      }
+    });
+    prevRectsRef.current = rects;
+  };
+
+  // FLIP 动画过渡执行
+  useLayoutEffect(() => {
+    const prevMap = prevRectsRef.current;
+    if (!prevMap || prevMap.size === 0) return;
+
+    const currentMap = new Map();
+    sectionDomRefs.current.forEach((el, key) => {
+      if (el && typeof el.getBoundingClientRect === 'function') {
+        currentMap.set(`sec:${key}`, { el, rect: el.getBoundingClientRect() });
+      }
+    });
+    moduleDomRefs.current.forEach((el, key) => {
+      if (el && typeof el.getBoundingClientRect === 'function') {
+        currentMap.set(`mod:${key}`, { el, rect: el.getBoundingClientRect() });
+      }
+    });
+
+    currentMap.forEach(({ el, rect }, key) => {
+      const prevRect = prevMap.get(key);
+      if (!prevRect) return;
+
+      const dx = prevRect.left - rect.left;
+      const dy = prevRect.top - rect.top;
+
+      if (dx !== 0 || dy !== 0) {
+        // Invert: 立即将元素位移回前一帧位置
+        el.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+        el.style.transition = 'none';
+
+        // 触发重绘
+        void el.offsetHeight;
+
+        // Play: 平滑过渡到当前新位置
+        el.style.transition = 'transform 280ms cubic-bezier(0.25, 1, 0.5, 1)';
+        el.style.transform = '';
+
+        const onEnd = () => {
+          el.style.transition = '';
+          el.removeEventListener('transitionend', onEnd);
+        };
+        el.addEventListener('transitionend', onEnd);
+      }
+    });
+
+    prevRectsRef.current = new Map();
+  }, [sidebarModulesAdmin.sectionOrder, sidebarModulesAdmin.itemOrders]);
 
   // UI 高亮状态
   const [dragOverSectionKey, setDragOverSectionKey] = useState(null);
@@ -68,6 +143,7 @@ export default function SettingsSidebarModulesAdmin(props) {
     const fromIndex = currentOrder.indexOf(fromKey);
     const toIndex = currentOrder.indexOf(toKey);
     if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+    recordPositions();
     const [moved] = currentOrder.splice(fromIndex, 1);
     currentOrder.splice(toIndex, 0, moved);
     setSidebarModulesAdmin((prev) => ({
@@ -87,6 +163,7 @@ export default function SettingsSidebarModulesAdmin(props) {
     const fromIndex = currentItems.indexOf(fromKey);
     const toIndex = currentItems.indexOf(toKey);
     if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+    recordPositions();
     const [moved] = currentItems.splice(fromIndex, 1);
     currentItems.splice(toIndex, 0, moved);
     setSidebarModulesAdmin((prev) => ({
@@ -107,6 +184,7 @@ export default function SettingsSidebarModulesAdmin(props) {
     if (index === -1) return;
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= currentOrder.length) return;
+    recordPositions();
     const [moved] = currentOrder.splice(index, 1);
     currentOrder.splice(targetIndex, 0, moved);
     setSidebarModulesAdmin((prev) => ({
@@ -125,6 +203,7 @@ export default function SettingsSidebarModulesAdmin(props) {
     if (index === -1) return;
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= currentItems.length) return;
+    recordPositions();
     const [moved] = currentItems.splice(index, 1);
     currentItems.splice(targetIndex, 0, moved);
     setSidebarModulesAdmin((prev) => ({
@@ -207,17 +286,19 @@ export default function SettingsSidebarModulesAdmin(props) {
   }
 
   useEffect(() => {
-    // 从 props.options 中获取配置
-    if (props.options && props.options.SidebarModulesAdmin) {
+    const rawConfig =
+      (props.options && props.options.SidebarModulesAdmin) ||
+      statusState?.status?.SidebarModulesAdmin;
+    if (rawConfig) {
       try {
-        const modules = JSON.parse(props.options.SidebarModulesAdmin);
+        const modules =
+          typeof rawConfig === 'string' ? JSON.parse(rawConfig) : rawConfig;
         setSidebarModulesAdmin(mergeAdminConfig(modules));
       } catch (error) {
-        // 使用默认配置
         setSidebarModulesAdmin(mergeAdminConfig(null));
       }
     }
-  }, [props.options]);
+  }, [props.options, statusState?.status?.SidebarModulesAdmin]);
 
   // 基础区域配置数据
   const baseSectionConfigs = [
@@ -359,53 +440,54 @@ export default function SettingsSidebarModulesAdmin(props) {
           return (
             <div
               key={section.key}
-              onDragOver={(e) => {
-                if (draggedSectionRef.current) {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                  if (dragOverSectionKey !== section.key) {
-                    setDragOverSectionKey(section.key);
-                  }
-                }
+              ref={(el) => {
+                if (el) sectionDomRefs.current.set(section.key, el);
+                else sectionDomRefs.current.delete(section.key);
               }}
-              onDragLeave={(e) => {
-                if (dragOverSectionKey === section.key) {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  if (
-                    e.clientX < rect.left ||
-                    e.clientX >= rect.right ||
-                    e.clientY < rect.top ||
-                    e.clientY >= rect.bottom
-                  ) {
-                    setDragOverSectionKey(null);
-                  }
+              onDragOver={(e) => {
+                const sourceKey = draggedSectionRef.current;
+                if (!sourceKey || sourceKey === section.key) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+
+                // 节流与临界点迟滞保护：防止在两个区域边缘反复横跳闪烁
+                if (Date.now() - lastSwapTimeRef.current < 200) return;
+
+                const currentOrder =
+                  sidebarModulesAdmin.sectionOrder || DEFAULT_SECTION_ORDER;
+                const fromIndex = currentOrder.indexOf(sourceKey);
+                const toIndex = currentOrder.indexOf(section.key);
+                if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex)
+                  return;
+
+                const rect = e.currentTarget.getBoundingClientRect();
+                const hasLayout =
+                  rect &&
+                  typeof rect.height === 'number' &&
+                  rect.height > 0;
+
+                if (hasLayout) {
+                  const centerY = rect.top + rect.height / 2;
+                  // 向下拖动时必须越过目标中心点；向上拖动时必须越过目标中心点
+                  if (fromIndex < toIndex && e.clientY < centerY) return;
+                  if (fromIndex > toIndex && e.clientY > centerY) return;
                 }
+
+                lastSwapTimeRef.current = Date.now();
+                moveSection(sourceKey, section.key);
               }}
               onDrop={(e) => {
-                const sourceKey = draggedSectionRef.current;
-                if (sourceKey) {
-                  e.preventDefault();
-                  moveSection(sourceKey, section.key);
-                  draggedSectionRef.current = null;
-                  setDraggingSectionKey(null);
-                  setDragOverSectionKey(null);
-                }
+                e.preventDefault();
+                draggedSectionRef.current = null;
+                setDraggingSectionKey(null);
+                setDragOverSectionKey(null);
               }}
               style={{
                 marginBottom: '28px',
                 borderRadius: '8px',
                 padding: '4px',
-                border:
-                  dragOverSectionKey === section.key &&
-                  draggingSectionKey !== section.key
-                    ? '2px dashed var(--semi-color-primary)'
-                    : '2px solid transparent',
-                backgroundColor:
-                  dragOverSectionKey === section.key &&
-                  draggingSectionKey !== section.key
-                    ? 'var(--semi-color-primary-light-default)'
-                    : 'transparent',
-                transition: 'all 0.2s',
+                border: '2px solid transparent',
+                willChange: 'transform',
               }}
             >
               {/* 区域标题、拖拽手柄、排序微调和总开关 */}
@@ -431,9 +513,10 @@ export default function SettingsSidebarModulesAdmin(props) {
                   backgroundColor: 'var(--semi-color-fill-0)',
                   borderRadius: '8px',
                   border: '1px solid var(--semi-color-border)',
-                  opacity: draggingSectionKey === section.key ? 0.3 : 1,
+                  opacity: draggingSectionKey === section.key ? 0.35 : 1,
+                  transform: draggingSectionKey === section.key ? 'scale(0.99)' : 'none',
                   cursor: 'grab',
-                  transition: 'all 0.2s',
+                  transition: 'opacity 0.2s, transform 0.2s',
                   userSelect: 'none',
                 }}
               >
@@ -544,6 +627,10 @@ export default function SettingsSidebarModulesAdmin(props) {
                       xl={6}
                     >
                       <div
+                        ref={(el) => {
+                          if (el) moduleDomRefs.current.set(`${section.key}:${module.key}`, el);
+                          else moduleDomRefs.current.delete(`${section.key}:${module.key}`);
+                        }}
                         draggable={sidebarModulesAdmin[section.key]?.enabled}
                         onDragStart={(e) => {
                           e.stopPropagation();
@@ -561,46 +648,77 @@ export default function SettingsSidebarModulesAdmin(props) {
                         onDragOver={(e) => {
                           const currentSource = draggedModuleRef.current;
                           if (
-                            currentSource &&
-                            currentSource.sectionKey === section.key
+                            !currentSource ||
+                            currentSource.sectionKey !== section.key ||
+                            currentSource.moduleKey === module.key
                           ) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.dataTransfer.dropEffect = 'move';
-                            if (dragOverModuleKey !== module.key) {
-                              setDragOverModuleKey(module.key);
-                            }
+                            return;
                           }
-                        }}
-                        onDragLeave={(e) => {
+                          e.preventDefault();
                           e.stopPropagation();
-                          if (dragOverModuleKey === module.key) {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            if (
-                              e.clientX < rect.left ||
-                              e.clientX >= rect.right ||
-                              e.clientY < rect.top ||
-                              e.clientY >= rect.bottom
-                            ) {
-                              setDragOverModuleKey(null);
+                          e.dataTransfer.dropEffect = 'move';
+
+                          // 节流与临界点迟滞保护：防止在两张卡片交界边缘反复横跳闪烁
+                          if (Date.now() - lastSwapTimeRef.current < 200) return;
+
+                          const currentItems =
+                            sidebarModulesAdmin.itemOrders?.[section.key] ||
+                            DEFAULT_ITEM_ORDERS[section.key] ||
+                            [];
+                          const fromIndex = currentItems.indexOf(
+                            currentSource.moduleKey,
+                          );
+                          const toIndex = currentItems.indexOf(module.key);
+                          if (
+                            fromIndex === -1 ||
+                            toIndex === -1 ||
+                            fromIndex === toIndex
+                          ) {
+                            return;
+                          }
+
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const hasLayout =
+                            rect &&
+                            typeof rect.width === 'number' &&
+                            rect.width > 0;
+
+                          if (hasLayout) {
+                            const centerX = rect.left + rect.width / 2;
+                            const centerY = rect.top + rect.height / 2;
+
+                            // 区分同行卡片与跨行卡片
+                            const isDifferentRow =
+                              Math.abs(e.clientY - centerY) >
+                              rect.height * 0.45;
+
+                            if (fromIndex < toIndex) {
+                              // 向后拖拽：必须越过目标卡片中心点（同行看 X，跨行看 Y）
+                              if (isDifferentRow) {
+                                if (e.clientY < centerY) return;
+                              } else {
+                                if (e.clientX < centerX) return;
+                              }
+                            } else {
+                              // 向前拖拽：必须越过目标卡片中心点（同行看 X，跨行看 Y）
+                              if (isDifferentRow) {
+                                if (e.clientY > centerY) return;
+                              } else {
+                                if (e.clientX > centerX) return;
+                              }
                             }
                           }
+
+                          lastSwapTimeRef.current = Date.now();
+                          moveModule(
+                            section.key,
+                            currentSource.moduleKey,
+                            module.key,
+                          );
                         }}
                         onDrop={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          const currentSource = draggedModuleRef.current;
-                          if (
-                            currentSource &&
-                            currentSource.sectionKey === section.key &&
-                            currentSource.moduleKey !== module.key
-                          ) {
-                            moveModule(
-                              section.key,
-                              currentSource.moduleKey,
-                              module.key,
-                            );
-                          }
                           draggedModuleRef.current = null;
                           setDraggingModuleKey(null);
                           setDragOverModuleKey(null);
@@ -615,6 +733,10 @@ export default function SettingsSidebarModulesAdmin(props) {
                           cursor: sidebarModulesAdmin[section.key]?.enabled
                             ? 'grab'
                             : 'not-allowed',
+                          opacity: isModDragging ? 0.35 : 1,
+                          transform: isModDragging ? 'scale(0.98)' : 'none',
+                          transition: 'opacity 0.2s, transform 0.2s',
+                          willChange: 'transform',
                         }}
                       >
                         <Card

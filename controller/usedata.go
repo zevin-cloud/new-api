@@ -32,6 +32,11 @@ func GetAllQuotaDates(c *gin.Context) {
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 	username := c.Query("username")
+	if username == "" {
+		if userId, err := strconv.Atoi(c.Query("user_id")); err == nil && userId > 0 {
+			username = strconv.Itoa(userId)
+		}
+	}
 	dates, err := model.GetAllQuotaDates(startTimestamp, endTimestamp, username)
 	if err != nil {
 		common.ApiError(c, err)

@@ -20,10 +20,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react';
 
 export const useNavigation = (t, docsLink, headerNavModules, user) => {
-  const mainNavLinks = useMemo(() => {
+  const effectiveDocsLink = docsLink || 'https://docs.newapi.pro';
+
+  const allFilteredLinks = useMemo(() => {
     // 默认配置，如果没有传入配置则显示所有模块
     const defaultModules = {
-      home: true,
+      home: false,
       console: true,
       pricing: true,
       docs: true,
@@ -34,18 +36,17 @@ export const useNavigation = (t, docsLink, headerNavModules, user) => {
     const modules = headerNavModules || defaultModules;
 
     const allLinks = [
+      ...(modules.home === true
+        ? [{ text: t('首页'), itemKey: 'home', to: '/' }]
+        : []),
       { text: t('模型广场'), itemKey: 'pricing', to: '/pricing' },
       { text: t('Management console'), itemKey: 'console', to: '/console' },
-      ...(docsLink
-        ? [
-            {
-              text: t('Integration docs'),
-              itemKey: 'docs',
-              isExternal: true,
-              externalLink: docsLink,
-            },
-          ]
-        : []),
+      {
+        text: t('Integration docs'),
+        itemKey: 'docs',
+        isExternal: true,
+        externalLink: effectiveDocsLink,
+      },
       {
         text: t('关于'),
         itemKey: 'about',
@@ -55,7 +56,6 @@ export const useNavigation = (t, docsLink, headerNavModules, user) => {
 
     // 根据配置与权限过滤导航链接
     return allLinks.filter((link) => {
-      if (link.itemKey === 'about' && user?.role === 1) return false;
       if (link.itemKey === 'console') {
         if (!(user?.role >= 10)) {
           return false;
@@ -63,7 +63,10 @@ export const useNavigation = (t, docsLink, headerNavModules, user) => {
         return modules.console === true;
       }
       if (link.itemKey === 'docs') {
-        return docsLink && modules.docs;
+        return modules.docs === true;
+      }
+      if (link.itemKey === 'about') {
+        return modules.about === true;
       }
       if (link.itemKey === 'pricing') {
         // 支持新的pricing配置格式
@@ -73,13 +76,13 @@ export const useNavigation = (t, docsLink, headerNavModules, user) => {
       }
       return modules[link.itemKey] === true;
     });
-  }, [t, docsLink, headerNavModules, user]);
+  }, [t, effectiveDocsLink, headerNavModules, user]);
 
   return {
-    mainNavLinks: mainNavLinks.filter((link) =>
-      ['pricing', 'console'].includes(link.itemKey),
+    mainNavLinks: allFilteredLinks.filter((link) =>
+      ['home', 'pricing', 'console', 'docs', 'about'].includes(link.itemKey),
     ),
-    supportNavLinks: mainNavLinks.filter((link) =>
+    supportNavLinks: allFilteredLinks.filter((link) =>
       ['docs', 'about'].includes(link.itemKey),
     ),
   };

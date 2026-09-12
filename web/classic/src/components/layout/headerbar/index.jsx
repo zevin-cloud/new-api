@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useHeaderBar } from '../../../hooks/common/useHeaderBar';
 import { useNotifications } from '../../../hooks/common/useNotifications';
 import { useNavigation } from '../../../hooks/common/useNavigation';
@@ -28,6 +29,26 @@ import Navigation from './Navigation';
 import ActionButtons from './ActionButtons';
 
 const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
+  const [isScrolled, setIsScrolled] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const offset = window.scrollY || document.documentElement.scrollTop;
+      setIsScrolled(offset > 20);
+    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [location.pathname]);
+
+  const isTransparentRoute =
+    location.pathname === '/' ||
+    ['/login', '/register', '/reset'].includes(location.pathname);
+
+  const isOnDarkBg = location.pathname === '/';
+  const isTransparent = isTransparentRoute && !isScrolled;
+
   const {
     userState,
     statusState,
@@ -70,7 +91,13 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
   );
 
   return (
-    <header className='text-semi-color-text-0 sticky top-0 z-50 transition-colors duration-300 bg-white/75 dark:bg-zinc-900/75 backdrop-blur-lg'>
+    <header
+      className={`sticky top-0 z-50 transition-colors duration-300 ${
+        isOnDarkBg
+          ? 'header-on-dark text-white bg-[#070b14]/80 backdrop-blur-lg border-b border-white/10 shadow-sm'
+          : 'text-semi-color-text-0 bg-white/80 dark:bg-zinc-900/85 backdrop-blur-lg border-b border-gray-200/80 dark:border-zinc-800/80 shadow-sm'
+      }`}
+    >
       <NoticeModal
         visible={noticeVisible}
         onClose={handleNoticeClose}
@@ -92,13 +119,20 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
             />
 
             <HeaderLogo
-              homePath={userState?.user?.role >= 10 ? '/console' : '/pricing'}
+              homePath={
+                headerNavModules?.home === true || !userState?.user
+                  ? '/'
+                  : userState?.user?.role >= 10
+                    ? '/console'
+                    : '/pricing'
+              }
               isMobile={isMobile}
               isConsoleRoute={isConsoleRoute}
               logo={logo}
               logoLoaded={logoLoaded}
               isLoading={isLoading}
               systemName={systemName}
+              version={statusState?.status?.version}
               isSelfUseMode={isSelfUseMode}
               isDemoSiteMode={isDemoSiteMode}
               t={t}

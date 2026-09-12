@@ -105,7 +105,7 @@ const CustomInputRender = (props) => {
   // 清空按钮
   const styledClearNode = clearContextNode
     ? React.cloneElement(clearContextNode, {
-        className: `!rounded-full !bg-gray-100 hover:!bg-red-500 hover:!text-white flex-shrink-0 transition-all ${clearContextNode.props.className || ''}`,
+        className: `!rounded-full !bg-gray-100 dark:!bg-zinc-700/80 !text-gray-500 dark:!text-zinc-300 hover:!bg-red-500 dark:hover:!bg-red-500 hover:!text-white flex-shrink-0 transition-all ${clearContextNode.props.className || ''}`,
         style: {
           ...clearContextNode.props.style,
           width: '32px',
@@ -137,7 +137,7 @@ const CustomInputRender = (props) => {
   return (
     <div className='p-2 sm:p-4' ref={containerRef}>
       <div
-        className='flex items-center gap-2 sm:gap-3 p-2 bg-gray-50 rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-shadow'
+        className='flex items-center gap-2 sm:gap-3 p-2 bg-gray-50 dark:bg-zinc-800/90 rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-shadow'
         style={{ border: '1px solid var(--semi-color-border)' }}
         onClick={onClick}
         title={t('支持 Ctrl+V 粘贴图片')}

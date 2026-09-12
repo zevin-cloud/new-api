@@ -47,6 +47,7 @@ go.work
 go.work.sum
 pprof/
 
+output/
 new-api-bin
 new-api-dev
 external_repos/

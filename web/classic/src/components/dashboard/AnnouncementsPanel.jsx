@@ -68,7 +68,7 @@ const AnnouncementsPanel = ({
                                 : '#8b9aa7',
                   }}
                 />
-                <span className='text-gray-600'>{legend.label}</span>
+                <span className='text-gray-600 dark:text-gray-400'>{legend.label}</span>
               </div>
             ))}
           </div>
@@ -89,7 +89,7 @@ const AnnouncementsPanel = ({
                   extra={
                     item.extra ? (
                       <div
-                        className='text-xs text-gray-500'
+                        className='text-xs text-gray-500 dark:text-gray-400'
                         dangerouslySetInnerHTML={{ __html: htmlExtra }}
                       />
                     ) : null

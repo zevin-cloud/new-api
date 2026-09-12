@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import HeaderBar from './headerbar';
+import { useFavicon } from '../../hooks/common/useFavicon';
 import { Layout } from '@douyinfe/semi-ui';
 import SiderBar from './SiderBar';
 import App from '../../App';
@@ -43,7 +44,8 @@ const { Sider, Content, Header } = Layout;
 
 const PageLayout = () => {
   const [userState, userDispatch] = useContext(UserContext);
-  const [, statusDispatch] = useContext(StatusContext);
+  const [statusState, statusDispatch] = useContext(StatusContext);
+  useFavicon(statusState?.status?.logo ?? getLogo());
   const isMobile = useIsMobile();
   const [collapsed, , setCollapsed] = useSidebarCollapsed();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -62,9 +64,15 @@ const PageLayout = () => {
     '/pricing',
   ];
 
+  const isHomePage = location.pathname === '/';
+
   const shouldHideFooter =
     cardProPages.includes(location.pathname) ||
-    location.pathname === '/console/setting';
+    location.pathname === '/console/setting' ||
+    isHomePage;
+
+  const shouldHideHeader =
+    location.pathname === '/console/setting' || isHomePage;
 
   const shouldInnerPadding =
     location.pathname.includes('/console') &&
@@ -76,7 +84,10 @@ const PageLayout = () => {
     location.pathname.startsWith('/console') &&
     location.pathname !== '/console/setting';
   const showSider = isConsoleRoute && (!isMobile || drawerOpen);
-  const isFixedLayout = isConsoleRoute || location.pathname === '/pricing';
+  const isFixedLayout =
+    isConsoleRoute ||
+    location.pathname === '/pricing' ||
+    location.pathname === '/console/setting';
 
   useEffect(() => {
     if (isMobile && drawerOpen && collapsed) {
@@ -114,13 +125,6 @@ const PageLayout = () => {
     if (systemName) {
       document.title = systemName;
     }
-    let logo = getLogo();
-    if (logo) {
-      let linkElement = document.querySelector("link[rel~='icon']");
-      if (linkElement) {
-        linkElement.href = logo;
-      }
-    }
   }, []);
 
   useEffect(() => {
@@ -157,30 +161,34 @@ const PageLayout = () => {
         display: 'flex',
         flexDirection: 'column',
         overflow: isFixedLayout && !isMobile ? 'hidden' : 'visible',
+        backgroundColor: isHomePage ? '#070b14' : undefined,
       }}
     >
-      <Header
-        style={{
-          padding: 0,
-          height: 'auto',
-          lineHeight: 'normal',
-          position: 'fixed',
-          width: '100%',
-          top: 0,
-          zIndex: 100,
-        }}
-      >
-        <HeaderBar
-          onMobileMenuToggle={() => setDrawerOpen((prev) => !prev)}
-          drawerOpen={drawerOpen}
-        />
-      </Header>
+      {!shouldHideHeader && (
+        <Header
+          style={{
+            padding: 0,
+            height: 'auto',
+            lineHeight: 'normal',
+            position: 'fixed',
+            width: '100%',
+            top: 0,
+            zIndex: 100,
+          }}
+        >
+          <HeaderBar
+            onMobileMenuToggle={() => setDrawerOpen((prev) => !prev)}
+            drawerOpen={drawerOpen}
+          />
+        </Header>
+      )}
       <Layout
         style={{
           overflow: isFixedLayout && !isMobile ? 'auto' : 'visible',
           display: 'flex',
           flexDirection: 'column',
           flex: '1 1 auto',
+          backgroundColor: isHomePage ? '#070b14' : undefined,
         }}
       >
         {showSider && (
@@ -214,6 +222,7 @@ const PageLayout = () => {
             display: 'flex',
             flexDirection: 'column',
             minHeight: 0,
+            backgroundColor: isHomePage ? '#070b14' : undefined,
           }}
         >
           <Content
@@ -236,6 +245,15 @@ const PageLayout = () => {
               style={{
                 flex: '0 0 auto',
                 width: '100%',
+                backgroundColor:
+                  isHomePage ||
+                  ['/login', '/register', '/reset'].includes(location.pathname)
+                    ? 'transparent'
+                    : undefined,
+                borderTop:
+                  location.pathname === '/'
+                    ? '1px solid rgba(255, 255, 255, 0.08)'
+                    : undefined,
               }}
             >
               <FooterBar />

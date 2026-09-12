@@ -30,12 +30,12 @@ import {
 } from '@douyinfe/semi-ui';
 import {
   API,
-  confirmSwitchToDefaultFrontend,
   showError,
   showSuccess,
   timestamp2string,
 } from '../../helpers';
 import { marked } from 'marked';
+import LogoSetting from './LogoSetting';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../context/Status';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
@@ -72,10 +72,18 @@ const OtherSetting = () => {
     const { success, message } = res.data;
     if (success) {
       setInputs((inputs) => ({ ...inputs, [key]: value }));
+      if (key === 'Logo') {
+        localStorage.setItem('logo', value);
+        statusDispatch({
+          type: 'set',
+          payload: { ...statusState?.status, logo: value },
+        });
+      }
     } else {
       showError(message);
     }
     setLoading(false);
+    return success;
   };
 
   const [loadingInput, setLoadingInput] = useState({
@@ -177,17 +185,10 @@ const OtherSetting = () => {
   };
 
   // 个性化设置 - Logo
-  const submitLogo = async () => {
-    try {
-      setLoadingInput((loadingInput) => ({ ...loadingInput, Logo: true }));
-      await updateOption('Logo', inputs.Logo);
-      showSuccess('Logo 已更新');
-    } catch (error) {
-      console.error('Logo 更新失败', error);
-      showError('Logo 更新失败');
-    } finally {
-      setLoadingInput((loadingInput) => ({ ...loadingInput, Logo: false }));
-    }
+  const submitLogo = async (value) => {
+    const success = await updateOption('Logo', value);
+    if (!success) throw new Error('Logo update failed');
+    showSuccess(t('Logo saved.'));
   };
   // 个性化设置 - 首页内容
   const submitOption = async (key) => {
@@ -286,17 +287,6 @@ const OtherSetting = () => {
     }
   };
 
-  const switchToDefaultFrontend = () => {
-    confirmSwitchToDefaultFrontend(t, {
-      onLoadingChange: (loading) => {
-        setLoadingInput((loadingInput) => ({
-          ...loadingInput,
-          FrontendTheme: loading,
-        }));
-      },
-    });
-  };
-
   const getOptions = async () => {
     const res = await API.get('/api/option/');
     const { success, message, data } = res.data;
@@ -360,12 +350,6 @@ const OtherSetting = () => {
                       loading={loadingInput['CheckUpdate']}
                     >
                       {t('检查更新')}
-                    </Button>
-                    <Button
-                      onClick={switchToDefaultFrontend}
-                      loading={loadingInput['FrontendTheme']}
-                    >
-                      {t('切换到新版前端')}
                     </Button>
                   </Space>
                 </Col>
@@ -460,15 +444,7 @@ const OtherSetting = () => {
               >
                 {t('设置系统名称')}
               </Button>
-              <Form.Input
-                label={t('Logo 图片地址')}
-                placeholder={t('在此输入 Logo 图片地址')}
-                field={'Logo'}
-                onChange={handleInputChange}
-              />
-              <Button onClick={submitLogo} loading={loadingInput['Logo']}>
-                {t('设置 Logo')}
-              </Button>
+              <LogoSetting value={inputs.Logo || ''} onSave={submitLogo} />
               <Form.TextArea
                 label={t('首页内容')}
                 placeholder={t(

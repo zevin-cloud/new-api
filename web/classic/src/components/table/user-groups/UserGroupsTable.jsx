@@ -39,12 +39,19 @@ const UserGroupsTable = ({
     {
       title: t('用户组名称'),
       dataIndex: 'name',
-      render: (v, r) => (
-        <div>
-          <div className='font-medium'>{v}</div>
-          {r.description && <div className='text-xs text-gray-500'>{r.description}</div>}
-        </div>
-      ),
+      width: 180,
+      render: (v) => <div className='font-medium text-semi-color-text-0'>{v}</div>,
+    },
+    {
+      title: t('描述'),
+      dataIndex: 'description',
+      ellipsis: true,
+      render: (v) =>
+        v ? (
+          <span className='text-sm text-semi-color-text-1'>{v}</span>
+        ) : (
+          <span className='text-xs text-semi-color-text-2'>-</span>
+        ),
     },
     {
       title: t('成员数'),

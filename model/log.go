@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -491,8 +492,14 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 	if tx, err = applyExplicitLogTextFilter(tx, "logs.model_name", modelName); err != nil {
 		return nil, 0, err
 	}
-	if tx, err = applyExplicitLogTextFilter(tx, "logs.username", username); err != nil {
-		return nil, 0, err
+	if username != "" {
+		if uid, parseErr := strconv.Atoi(username); parseErr == nil && uid > 0 {
+			tx = tx.Where("(logs.username = ? OR logs.user_id = ?)", username, uid)
+		} else {
+			if tx, err = applyExplicitLogTextFilter(tx, "logs.username", username); err != nil {
+				return nil, 0, err
+			}
+		}
 	}
 	if tokenName != "" {
 		tx = tx.Where("logs.token_name = ?", tokenName)

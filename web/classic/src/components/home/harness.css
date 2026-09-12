@@ -1,0 +1,321 @@
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../../../public/harness/fonts/dm-sans-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../../../public/harness/fonts/dm-sans-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../../../public/harness/fonts/montserrat-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../../../public/harness/fonts/montserrat-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Fragment Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../../../public/harness/fonts/fragment-mono-latin.woff2') format('woff2');
+}
+
+.ds-home-scope {
+  --ds-color-text-primary: #fff;
+  --ds-color-text-primary-bluish: #fff;
+  --ds-color-text-link-blue: #6799fe;
+  --ds-color-text-secondary: rgba(255, 255, 255, 0.7);
+  --ds-color-text-description: rgba(255, 255, 255, 0.65);
+  --ds-color-text-inverse: #0f0f0f;
+  --ds-color-text-placeholder: #576579;
+  --ds-color-brand: #6799fe;
+  --ds-color-brand-deep: #fff;
+  --ds-color-brand-medium-reverse: #fff;
+  --ds-color-brand-light-reverse: #73a3d2;
+  --ds-color-static-white: #fff;
+  --ds-color-static-black: #0f0f0f;
+  --ds-color-static-black-secondary: rgba(0, 0, 0, 0.6);
+
+  --ds-color-bg-page: #06080e;
+  --ds-color-bg-surface-1: rgba(255, 255, 255, 0.08);
+  --ds-color-bg-surface-2: rgba(255, 255, 255, 0.05);
+  --ds-color-bg-surface-3: rgba(255, 255, 255, 0.02);
+  --ds-color-bg-surface-4: rgba(255, 255, 255, 0.015);
+  --ds-color-bg-surface-5: rgba(255, 255, 255, 0.035);
+  --ds-color-bg-surface-raised: rgba(255, 255, 255, 0.08);
+  --ds-color-bg-hero-cta: rgba(255, 255, 255, 0.08);
+  --ds-color-bg-code: rgba(255, 255, 255, 0.08);
+  --ds-color-bg-hover: rgba(255, 255, 255, 0.06);
+  --ds-color-bg-input: rgba(255, 255, 255, 0.05);
+  --ds-color-bg-input-hover: rgba(255, 255, 255, 0.09);
+  --ds-color-border-input: rgba(255, 255, 255, 0.08);
+  --ds-color-border-input-focus: rgba(255, 255, 255, 0.16);
+
+  --ds-color-border-subtle: rgba(255, 255, 255, 0.06);
+  --ds-color-border-default: rgba(255, 255, 255, 0.1);
+  --ds-color-border-divider: rgba(255, 255, 255, 0.08);
+  --ds-color-border-hover: rgba(255, 255, 255, 0.2);
+  --ds-color-border-strong: rgba(255, 255, 255, 0.25);
+  --ds-color-border-secondary: rgba(255, 255, 255, 0.12);
+
+  --ds-btn-primary-bg: #fff;
+  --ds-btn-primary-text: #06080e;
+  --ds-btn-primary-border: transparent;
+  --ds-btn-primary-hover-bg: rgba(255, 255, 255, 0.2);
+
+  --ds-btn-secondary-bg: rgba(255, 255, 255, 0.06);
+  --ds-btn-secondary-text: #fff;
+  --ds-btn-secondary-border: rgba(255, 255, 255, 0.15);
+  --ds-btn-secondary-hover-bg: rgba(255, 255, 255, 0.12);
+  --ds-btn-secondary-hover-border: rgba(255, 255, 255, 0.35);
+
+  --ds-radius-pill: 100px;
+  --ds-radius-card: 24px;
+  --ds-radius-panel: 16px;
+  --ds-radius-media: 10px;
+  --ds-radius-input: 10px;
+  --ds-radius-sm: 8px;
+
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 24px;
+  --ds-space-6: 32px;
+  --ds-space-7: 40px;
+  --ds-space-8: 56px;
+  --ds-space-9: 80px;
+  --ds-space-10: 120px;
+  --ds-space-11: 160px;
+  --ds-space-12: 200px;
+  --ds-space-13: 240px;
+
+  --ds-blur-glass: 12px;
+  --ds-font-body: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --ds-font-sans: var(--ds-font-body);
+  --ds-font-mono: 'Fragment Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  background-color: var(--ds-color-bg-page);
+  color: var(--ds-color-text-primary);
+  font-family: var(--ds-font-sans);
+}
+
+.ds-home-scope .text-ds-primary {
+  color: var(--ds-color-text-primary);
+}
+
+.ds-home-scope .text-ds-description {
+  color: var(--ds-color-text-description);
+}
+
+.ds-home-scope .text-ds-brand {
+  color: var(--ds-color-brand);
+}
+
+.ds-home-scope .border-ds-border-default {
+  border-color: var(--ds-color-border-default);
+}
+
+.ds-home-scope .font-ds-sans {
+  font-family: var(--ds-font-sans);
+}
+
+.ds-home-scope .ds-header-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  z-index: 50;
+  width: min(100% - 48px, 1280px);
+  padding: 16px 0 0;
+}
+
+@media (min-width: 768px) {
+  .ds-home-scope .ds-header-wrapper {
+    width: min(100% - 96px, 1280px);
+    padding: 24px 0 0;
+  }
+}
+
+.ds-home-scope .ds-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 auto;
+  padding: 4px 0;
+  border-radius: var(--ds-radius-pill);
+  position: relative;
+  background: transparent;
+}
+
+.ds-home-scope .ds-locale-toggle {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 3px;
+  border-radius: var(--ds-radius-pill);
+  border: 1px solid var(--ds-color-border-default);
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px);
+}
+
+.ds-home-scope .ds-locale-toggle-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 12px;
+  border-radius: var(--ds-radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ds-color-text-description);
+  transition: color 0.2s, background-color 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.ds-home-scope .ds-locale-toggle-item.is-active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.ds-home-scope .ds-hero-height {
+  min-height: 100vh;
+  min-height: 100svh;
+  height: 100vh;
+}
+
+.ds-home-scope .ds-container {
+  width: min(100% - 48px, 1280px);
+  margin-inline: auto;
+}
+
+@media (min-width: 768px) {
+  .ds-home-scope .ds-container {
+    width: min(100% - 96px, 1280px);
+  }
+}
+
+.ds-home-scope .ds-hero-enter {
+  animation: ds-hero-enter 0.8s ease-out backwards;
+}
+
+@keyframes ds-hero-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(var(--enter-y, 20px));
+    filter: blur(var(--enter-blur, 0));
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.ds-home-scope .ds-text-hero {
+  font-family: 'Montserrat', var(--ds-font-sans);
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+@media (min-width: 768px) {
+  .ds-home-scope .ds-text-hero {
+    font-size: 56px;
+  }
+}
+
+.ds-home-scope .ds-btn-primary,
+.ds-home-scope .ds-btn-secondary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--ds-radius-pill);
+  box-sizing: border-box;
+  font-family: var(--ds-font-sans);
+  font-weight: 500;
+  line-height: 120%;
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ds-home-scope .ds-btn-primary {
+  background: var(--ds-btn-primary-bg);
+  color: var(--ds-btn-primary-text);
+  border: 1px solid var(--ds-btn-primary-border);
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.15);
+}
+
+.ds-home-scope .ds-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 32px rgba(255, 255, 255, 0.3);
+}
+
+.ds-home-scope .ds-btn-secondary {
+  background: var(--ds-btn-secondary-bg);
+  color: var(--ds-btn-secondary-text);
+  border: 1px solid var(--ds-btn-secondary-border);
+  backdrop-filter: blur(var(--ds-blur-glass));
+  -webkit-backdrop-filter: blur(var(--ds-blur-glass));
+}
+
+.ds-home-scope .ds-btn-secondary:hover {
+  background: var(--ds-btn-secondary-hover-bg);
+  border-color: var(--ds-btn-secondary-hover-border);
+  transform: translateY(-2px);
+  color: #fff;
+}
+
+.ds-home-scope .ds-btn-m {
+  font-size: 14px;
+  padding: 10px 20px;
+}
+
+@media (min-width: 768px) {
+  .ds-home-scope .ds-btn-m {
+    font-size: 15px;
+    padding: 11px 22px;
+  }
+}
+
+.ds-home-scope .rounded-ds-media {
+  border-radius: var(--ds-radius-media);
+}
+
+.ds-home-scope .ds-text-body {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+@media (min-width: 768px) {
+  .ds-home-scope .ds-text-body {
+    font-size: 15px;
+    line-height: 1.7;
+  }
+}

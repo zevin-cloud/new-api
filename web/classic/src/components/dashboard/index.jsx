@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2025 QuantumNous
+Copyright (C) 2025-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -23,16 +23,17 @@ import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 
 import DashboardHeader from './DashboardHeader';
+import DashboardFilterBar from './DashboardFilterBar';
 import StatsCards from './StatsCards';
+import ModelCostPanel from './ModelCostPanel';
+import UserUsageTable from './UserUsageTable';
 import ChartsPanel from './ChartsPanel';
 import ApiInfoPanel from './ApiInfoPanel';
 import AnnouncementsPanel from './AnnouncementsPanel';
 import FaqPanel from './FaqPanel';
 import UptimePanel from './UptimePanel';
-import SearchModal from './modals/SearchModal';
 
 import { useDashboardData } from '../../hooks/dashboard/useDashboardData';
-import { useDashboardStats } from '../../hooks/dashboard/useDashboardStats';
 import { useDashboardCharts } from '../../hooks/dashboard/useDashboardCharts';
 
 import {
@@ -44,7 +45,6 @@ import {
   UPTIME_STATUS_MAP,
 } from '../../constants/dashboard.constants';
 import {
-  getTrendSpec,
   handleCopyUrl,
   handleSpeedTest,
   getUptimeStatusColor,
@@ -73,19 +73,7 @@ const Dashboard = () => {
     dashboardData.t,
   );
 
-  // ========== 统计数据 ==========
-  const { groupedStatsData } = useDashboardStats(
-    userState,
-    dashboardData.consumeQuota,
-    dashboardData.consumeTokens,
-    dashboardData.times,
-    dashboardData.trendData,
-    dashboardData.performanceMetrics,
-    dashboardData.navigate,
-    dashboardData.t,
-  );
-
-  // ========== 数据处理 ==========
+  // ========== 数据加载处理 ==========
   const loadUserData = async () => {
     if (dashboardData.isAdminUser) {
       const userData = await dashboardData.loadUserQuotaData();
@@ -127,9 +115,11 @@ const Dashboard = () => {
     await loadUserData();
   };
 
-  const handleSearchConfirm = async () => {
-    await dashboardData.handleSearchConfirm(dashboardCharts.updateChartData);
-    await loadUserData();
+  const handleScrollToUsers = () => {
+    const tableEl = document.getElementById('user-usage-table-card');
+    if (tableEl) {
+      tableEl.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   // ========== 数据准备 ==========
@@ -166,40 +156,69 @@ const Dashboard = () => {
 
   return (
     <div className='h-full'>
+      {/* 头部：标题、汇报日期与刷新 */}
       <DashboardHeader
         getGreeting={dashboardData.getGreeting}
         greetingVisible={dashboardData.greetingVisible}
-        showSearchModal={dashboardData.showSearchModal}
         refresh={handleRefresh}
         loading={dashboardData.loading}
-        t={dashboardData.t}
-      />
-
-      <SearchModal
-        searchModalVisible={dashboardData.searchModalVisible}
-        handleSearchConfirm={handleSearchConfirm}
-        handleCloseModal={dashboardData.handleCloseModal}
-        isMobile={dashboardData.isMobile}
         isAdminUser={dashboardData.isAdminUser}
-        inputs={dashboardData.inputs}
-        dataExportDefaultTime={dashboardData.dataExportDefaultTime}
-        timeOptions={dashboardData.timeOptions}
-        handleInputChange={dashboardData.handleInputChange}
         t={dashboardData.t}
       />
 
-      <StatsCards
-        groupedStatsData={groupedStatsData}
+      {/* 常驻多维筛选栏 (今日/昨日/7天/30天、时间粒度、用户、用户组、模型、渠道) */}
+      <DashboardFilterBar
+        inputs={dashboardData.inputs}
+        handleInputChange={dashboardData.handleInputChange}
+        handleTimePresetChange={(preset) => {
+          dashboardData.handleTimePresetChange(preset);
+          setTimeout(() => handleRefresh(), 50);
+        }}
+        activeTimePreset={dashboardData.activeTimePreset}
+        userGroupOptions={dashboardData.userGroupOptions}
+        userSuggestions={dashboardData.userSuggestions}
+        onSearchUserSuggestions={dashboardData.searchUserSuggestions}
+        onSelectUserSuggestion={dashboardData.handleSelectUserSuggestion}
+        modelOptions={dashboardData.modelOptions}
+        channelOptions={dashboardData.channelOptions}
+        onSearch={handleRefresh}
+        onReset={() => {
+          dashboardData.handleReset();
+          setTimeout(() => handleRefresh(), 50);
+        }}
         loading={dashboardData.loading}
-        getTrendSpec={getTrendSpec}
-        CARD_PROPS={CARD_PROPS}
-        CHART_CONFIG={CHART_CONFIG}
+        isAdminUser={dashboardData.isAdminUser}
+        t={dashboardData.t}
       />
 
-      {/* API信息和图表面板 */}
+      {/* 3×3 关键运营质量与价值矩阵九宫格 */}
+      <StatsCards
+        stats={dashboardData.statsMatrix}
+        loading={dashboardData.loading}
+        isAdminUser={dashboardData.isAdminUser}
+        onUserCardClick={handleScrollToUsers}
+      />
+
+      {/* 模型占比与算力价值折算面板 (量化自建算力 ROI 与公私模型分布) */}
+      {dashboardData.isAdminUser && (
+        <ModelCostPanel
+          modelDistribution={dashboardData.modelDistribution}
+          privateShare={dashboardData.statsMatrix.privateShare}
+          failureRate={dashboardData.statsMatrix.failureRate}
+          upstreamDetails={dashboardData.upstreamDetails}
+          totalTokens={dashboardData.statsMatrix.totalTokens}
+          t={dashboardData.t}
+        />
+      )}
+
+      {/* API信息与趋势图表面板 */}
       <div className='mb-4'>
         <div
-          className={`grid grid-cols-1 gap-4 ${dashboardData.hasApiInfoPanel ? 'lg:grid-cols-4' : ''}`}
+          className={`grid grid-cols-1 gap-4 ${
+            dashboardData.hasApiInfoPanel && !dashboardData.isAdminUser
+              ? 'lg:grid-cols-4'
+              : ''
+          }`}
         >
           <ChartsPanel
             activeChartTab={dashboardData.activeChartTab}
@@ -214,11 +233,13 @@ const Dashboard = () => {
             CARD_PROPS={CARD_PROPS}
             CHART_CONFIG={CHART_CONFIG}
             FLEX_CENTER_GAP2={FLEX_CENTER_GAP2}
-            hasApiInfoPanel={dashboardData.hasApiInfoPanel}
+            hasApiInfoPanel={
+              dashboardData.hasApiInfoPanel && !dashboardData.isAdminUser
+            }
             t={dashboardData.t}
           />
 
-          {dashboardData.hasApiInfoPanel && (
+          {dashboardData.hasApiInfoPanel && !dashboardData.isAdminUser && (
             <ApiInfoPanel
               apiInfoData={apiInfoData}
               handleCopyUrl={(url) => handleCopyUrl(url, dashboardData.t)}
@@ -231,6 +252,19 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+
+      {/* 全网关用户用量排行统揽表 (管理员视角下钻与统揽) */}
+      {dashboardData.isAdminUser && (
+        <UserUsageTable
+          usersData={dashboardData.userUsageList}
+          loading={dashboardData.loading}
+          onSelectUser={(username) => {
+            dashboardData.handleSelectUser(username);
+            setTimeout(() => handleRefresh(), 50);
+          }}
+          t={dashboardData.t}
+        />
+      )}
 
       {/* 系统公告和常见问答卡片 */}
       {dashboardData.hasInfoPanels && (

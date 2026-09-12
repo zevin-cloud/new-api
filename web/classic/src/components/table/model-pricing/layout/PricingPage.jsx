@@ -45,7 +45,7 @@ const PricingPage = () => {
   };
 
   return (
-    <div className='bg-white min-h-[calc(100vh-60px)] flex flex-col'>
+    <div className='bg-[var(--semi-color-bg-0)] h-full pt-16 flex flex-col overflow-hidden'>
       <div className='px-4 pt-2 border-b border-[var(--semi-color-border)]'>
         {pricingData.isAdminUser && <MarketplaceTools />}
         <Tabs
@@ -66,7 +66,7 @@ const PricingPage = () => {
         </Tabs>
       </div>
 
-      <div className='flex-1'>
+      <div className='flex-1 min-h-0 overflow-hidden'>
         {activeTab === 'models' && (
           <Layout className='pricing-layout'>
             {!isMobile && (

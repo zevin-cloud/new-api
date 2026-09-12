@@ -35,14 +35,20 @@ const Navigation = ({
   const location = useLocation();
   const renderNavLinks = () => {
     const baseClasses =
-      'flex-shrink-0 flex items-center gap-1 font-semibold rounded-md transition-all duration-200 ease-in-out';
+      'flex-shrink-0 flex items-center gap-1 transition-colors duration-200 ease-in-out';
     const hoverClasses = 'hover:text-semi-color-primary';
-    const spacingClasses = isMobile ? 'p-1' : 'p-2';
+    const spacingClasses = isMobile ? 'px-2 py-1' : 'px-3 py-1.5';
 
     const commonLinkClasses = `${baseClasses} ${spacingClasses} ${hoverClasses}`;
 
-    return mainNavLinks.map((link) => {
+    const displayLinks = isMobile
+      ? mainNavLinks.filter((link) => !['docs', 'about'].includes(link.itemKey))
+      : mainNavLinks;
+
+    return displayLinks.map((link) => {
       const linkContent = <span>{link.text}</span>;
+
+      const isOnDark = location.pathname === '/';
 
       if (link.isExternal) {
         return (
@@ -51,7 +57,9 @@ const Navigation = ({
             href={link.externalLink}
             target='_blank'
             rel='noopener noreferrer'
-            className={commonLinkClasses}
+            className={`${commonLinkClasses} ${
+              isOnDark ? 'text-white/85 hover:text-white' : 'text-semi-color-text-0'
+            } font-medium`}
           >
             {linkContent}
           </a>
@@ -75,7 +83,15 @@ const Navigation = ({
           key={link.itemKey}
           to={targetPath}
           aria-current={active ? 'page' : undefined}
-          className={`${commonLinkClasses} ${active ? 'text-semi-color-primary bg-semi-color-fill-0' : ''}`}
+          className={`${commonLinkClasses} ${
+            active
+              ? isOnDark
+                ? 'text-cyan-400 font-semibold'
+                : 'text-semi-color-primary font-semibold'
+              : isOnDark
+                ? 'text-white/85 hover:text-white font-medium'
+                : 'text-semi-color-text-0 font-medium'
+          }`}
         >
           {linkContent}
         </Link>
@@ -94,54 +110,38 @@ const Navigation = ({
         isMobile={isMobile}
       >
         {renderNavLinks()}
-        {supportNavLinks.length > 0 && (
+        {isMobile && supportNavLinks.length > 0 && (
           <div className='ml-auto flex flex-shrink-0 items-center gap-2'>
-            {!isMobile &&
-              supportNavLinks
-                .filter((link) => link.itemKey === 'docs')
-                .map((link) => (
-                  <a
-                    key={link.itemKey}
-                    href={link.externalLink}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    className='p-2 text-semi-color-text-2 hover:text-semi-color-primary'
-                  >
-                    {link.text}
-                  </a>
-                ))}
-            {(isMobile ||
-              supportNavLinks.some((link) => link.itemKey === 'about')) && (
-              <Dropdown
-                trigger='click'
-                position='bottomRight'
-                render={
-                  <Dropdown.Menu>
-                    {supportNavLinks
-                      .filter((link) => isMobile || link.itemKey !== 'docs')
-                      .map((link) => (
-                        <Dropdown.Item key={link.itemKey}>
-                          {link.isExternal ? (
-                            <a
-                              href={link.externalLink}
-                              target='_blank'
-                              rel='noopener noreferrer'
-                            >
-                              {link.text}
-                            </a>
-                          ) : (
-                            <Link to={link.to}>{link.text}</Link>
-                          )}
-                        </Dropdown.Item>
-                      ))}
-                  </Dropdown.Menu>
-                }
-              >
-                <Button theme='borderless' type='tertiary'>
-                  {t('Help')}
-                </Button>
-              </Dropdown>
-            )}
+            <Dropdown
+              trigger='click'
+              position='bottomRight'
+              render={
+                <Dropdown.Menu>
+                  {supportNavLinks.map((link) => (
+                    <Dropdown.Item key={link.itemKey}>
+                      {link.isExternal ? (
+                        <a
+                          href={link.externalLink}
+                          target='_blank'
+                          rel='noopener noreferrer'
+                          className='text-semi-color-text-0'
+                        >
+                          {link.text}
+                        </a>
+                      ) : (
+                        <Link to={link.to} className='text-semi-color-text-0'>
+                          {link.text}
+                        </Link>
+                      )}
+                    </Dropdown.Item>
+                  ))}
+                </Dropdown.Menu>
+              }
+            >
+              <Button theme='borderless' type='tertiary'>
+                {t('Help')}
+              </Button>
+            </Dropdown>
           </div>
         )}
       </SkeletonWrapper>
@@ -150,3 +150,4 @@ const Navigation = ({
 };
 
 export default Navigation;
+

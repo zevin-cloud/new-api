@@ -27,7 +27,7 @@ import {
   Switch,
   Typography,
 } from '@douyinfe/semi-ui';
-import { API, showError, showSuccess } from '../../../helpers';
+import { API, setStatusData, showError, showSuccess } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../../context/Status';
 
@@ -40,7 +40,7 @@ export default function SettingsHeaderNavModules(props) {
 
   // 顶栏模块管理状态
   const [headerNavModules, setHeaderNavModules] = useState({
-    home: true,
+    home: false,
     console: true,
     pricing: {
       enabled: true,
@@ -50,12 +50,50 @@ export default function SettingsHeaderNavModules(props) {
     about: true,
   });
 
-  // 处理顶栏模块配置变更
+  // 持久化保存顶栏模块配置并实时同步全局状态和本地缓存
+  const persistModules = async (modulesToSave, showToast = true) => {
+    try {
+      const payloadStr = JSON.stringify(modulesToSave);
+      const res = await API.put('/api/option/', {
+        key: 'HeaderNavModules',
+        value: payloadStr,
+      });
+      const { success, message } = res.data;
+      if (success) {
+        if (showToast) {
+          showSuccess(t('已保存'));
+        }
+
+        const nextStatus = {
+          ...(statusState?.status || {}),
+          HeaderNavModules: payloadStr,
+        };
+
+        statusDispatch({
+          type: 'set',
+          payload: nextStatus,
+        });
+        setStatusData(nextStatus);
+
+        if (props.refresh) {
+          props.refresh();
+        }
+        return true;
+      } else {
+        showError(message);
+        return false;
+      }
+    } catch (error) {
+      showError(t('保存失败，请重试'));
+      return false;
+    }
+  };
+
+  // 处理顶栏模块配置变更（立即保存生效）
   function handleHeaderNavModuleChange(moduleKey) {
     return (checked) => {
       const newModules = { ...headerNavModules };
       if (moduleKey === 'pricing') {
-        // 对于pricing模块，只更新enabled属性
         newModules[moduleKey] = {
           ...newModules[moduleKey],
           enabled: checked,
@@ -64,10 +102,11 @@ export default function SettingsHeaderNavModules(props) {
         newModules[moduleKey] = checked;
       }
       setHeaderNavModules(newModules);
+      persistModules(newModules, true);
     };
   }
 
-  // 处理模型广场权限控制变更
+  // 处理模型广场权限控制变更（立即保存生效）
   function handlePricingAuthChange(checked) {
     const newModules = { ...headerNavModules };
     newModules.pricing = {
@@ -75,12 +114,13 @@ export default function SettingsHeaderNavModules(props) {
       requireAuth: checked,
     };
     setHeaderNavModules(newModules);
+    persistModules(newModules, true);
   }
 
   // 重置顶栏模块为默认配置
-  function resetHeaderNavModules() {
+  async function resetHeaderNavModules() {
     const defaultModules = {
-      home: true,
+      home: false,
       console: true,
       pricing: {
         enabled: true,
@@ -90,78 +130,55 @@ export default function SettingsHeaderNavModules(props) {
       about: true,
     };
     setHeaderNavModules(defaultModules);
+    await persistModules(defaultModules, false);
     showSuccess(t('已重置为默认配置'));
   }
 
-  // 保存配置
+  // 手动保存配置
   async function onSubmit() {
     setLoading(true);
     try {
-      const res = await API.put('/api/option/', {
-        key: 'HeaderNavModules',
-        value: JSON.stringify(headerNavModules),
-      });
-      const { success, message } = res.data;
-      if (success) {
-        showSuccess(t('保存成功'));
-
-        // 立即更新StatusContext中的状态
-        statusDispatch({
-          type: 'set',
-          payload: {
-            ...statusState.status,
-            HeaderNavModules: JSON.stringify(headerNavModules),
-          },
-        });
-
-        // 刷新父组件状态
-        if (props.refresh) {
-          await props.refresh();
-        }
-      } else {
-        showError(message);
-      }
-    } catch (error) {
-      showError(t('保存失败，请重试'));
+      await persistModules(headerNavModules, true);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    // 从 props.options 中获取配置
-    if (props.options && props.options.HeaderNavModules) {
-      try {
-        const modules = JSON.parse(props.options.HeaderNavModules);
+    // 优先从 props.options 读取，其次使用 statusState
+    const rawConfig =
+      (props.options && props.options.HeaderNavModules) ||
+      statusState?.status?.HeaderNavModules;
 
-        // 处理向后兼容性：如果pricing是boolean，转换为对象格式
+    if (rawConfig) {
+      try {
+        const modules =
+          typeof rawConfig === 'string' ? JSON.parse(rawConfig) : rawConfig;
+
         if (typeof modules.pricing === 'boolean') {
           modules.pricing = {
             enabled: modules.pricing,
-            requireAuth: false, // 默认不需要登录鉴权
+            requireAuth: false,
           };
         }
 
-        setHeaderNavModules(modules);
+        setHeaderNavModules((prev) => ({
+          ...prev,
+          ...modules,
+        }));
       } catch (error) {
-        // 使用默认配置
-        const defaultModules = {
-          home: true,
-          console: true,
-          pricing: {
-            enabled: true,
-            requireAuth: false,
-          },
-          docs: true,
-          about: true,
-        };
-        setHeaderNavModules(defaultModules);
+        // 保留当前状态
       }
     }
-  }, [props.options]);
+  }, [props.options, statusState?.status?.HeaderNavModules]);
 
   // 模块配置数据
   const moduleConfigs = [
+    {
+      key: 'home',
+      title: t('首页'),
+      description: t('系统主页展示'),
+    },
     {
       key: 'console',
       title: t('Management console'),
@@ -193,7 +210,14 @@ export default function SettingsHeaderNavModules(props) {
       >
         <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
           {moduleConfigs.map((module) => (
-            <Col key={module.key} xs={24} sm={12} md={6} lg={6} xl={6}>
+            <Col
+              key={module.key}
+              xs={24}
+              sm={12}
+              md={module.hasSubConfig ? 12 : 6}
+              lg={module.hasSubConfig ? 12 : 6}
+              xl={module.hasSubConfig ? 8 : 4}
+            >
               <Card
                 style={{
                   borderRadius: '8px',

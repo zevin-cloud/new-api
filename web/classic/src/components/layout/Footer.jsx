@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useEffect, useState, useMemo, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import { Typography } from '@douyinfe/semi-ui';
 import { getFooterHTML, getLogo, getSystemName } from '../../helpers';
 import { StatusContext } from '../../context/Status';
@@ -218,24 +219,37 @@ const FooterBar = () => {
     loadFooter();
   }, []);
 
+  const location = useLocation();
+  const isOnDark = location.pathname === '/';
+
   return (
-    <div className='w-full'>
+    <div className={`w-full ${isOnDark ? 'bg-[#070b14]' : ''}`}>
       {footer ? (
-        <footer className='relative h-auto py-4 px-6 md:px-24 w-full flex items-center justify-center overflow-hidden'>
+        <footer
+          className={`relative h-auto py-4 px-6 md:px-24 w-full flex items-center justify-center overflow-hidden ${
+            isOnDark ? 'footer-on-dark bg-[#070b14]' : ''
+          }`}
+        >
           <div className='flex flex-col md:flex-row items-center justify-between w-full max-w-[1110px] gap-4'>
             <div
-              className='custom-footer na-cb6feafeb3990c78 text-sm !text-semi-color-text-1'
+              className={`custom-footer na-cb6feafeb3990c78 text-sm ${
+                isOnDark ? '!text-white/70' : '!text-semi-color-text-1'
+              }`}
               dangerouslySetInnerHTML={{ __html: footer }}
             ></div>
             <div className='text-sm flex-shrink-0'>
-              <span className='!text-semi-color-text-1'>
+              <span className={isOnDark ? '!text-white/60' : '!text-semi-color-text-1'}>
                 {t('设计与开发由')}{' '}
               </span>
               <a
                 href='https://github.com/QuantumNous/new-api'
                 target='_blank'
                 rel='noopener noreferrer'
-                className='!text-semi-color-primary font-medium'
+                className={
+                  isOnDark
+                    ? 'text-[#4d6bfe] hover:text-[#6799fe] font-medium'
+                    : '!text-semi-color-primary font-medium'
+                }
               >
                 New API
               </a>

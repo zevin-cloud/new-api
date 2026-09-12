@@ -18,10 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useState, lazy, Suspense } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Spin } from '@douyinfe/semi-ui';
-import { ArrowLeft } from 'lucide-react';
 import { isRoot } from '../../helpers';
 import SettingsNav from './SettingsNav';
 
@@ -148,6 +147,7 @@ const Setting = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [activeItem, setActiveItem] = useState(DEFAULT_ITEM);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -168,51 +168,41 @@ const Setting = () => {
     <div
       style={{
         display: 'flex',
-        flexDirection: 'column',
         height: '100vh',
+        width: '100vw',
         overflow: 'hidden',
+        background: 'var(--semi-color-bg-0)',
       }}
     >
-      {/* Back link bar */}
+      {/* Left nav */}
+      <SettingsNav
+        activeItem={activeItem}
+        onSelect={handleSelect}
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed((prev) => !prev)}
+      />
+
+      {/* Right content */}
       <div
         style={{
-          padding: '10px 20px',
-          borderBottom: '1px solid var(--semi-color-border)',
+          flex: 1,
+          overflowY: 'auto',
+          padding: '16px 20px 40px 20px',
+          minWidth: 0,
+          background: 'var(--semi-color-bg-1)',
           display: 'flex',
-          alignItems: 'center',
-          flexShrink: 0,
-          background: 'var(--semi-color-bg-0)',
+          flexDirection: 'column',
         }}
       >
-        <Link
-          to='/console'
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            color: 'var(--semi-color-text-1)',
-            textDecoration: 'none',
-            fontSize: '13px',
-            fontWeight: 500,
-          }}
-        >
-          <ArrowLeft size={15} />
-          {t('返回控制台')}
-        </Link>
-      </div>
-
-      {/* Two-panel layout */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Left nav */}
-        <SettingsNav activeItem={activeItem} onSelect={handleSelect} />
-
-        {/* Right content */}
         <div
           style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '0 24px 40px 24px',
-            minWidth: 0,
+            background: 'var(--semi-color-bg-0)',
+            borderRadius: '16px',
+            border: '1px solid var(--semi-color-border)',
+            padding: '24px 28px',
+            minHeight: '100%',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+            boxSizing: 'border-box',
           }}
         >
           <SettingsContent item={activeItem} />

@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2025 QuantumNous
+Copyright (C) 2025-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
@@ -18,40 +18,45 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Button } from '@douyinfe/semi-ui';
-import { RefreshCw, Search } from 'lucide-react';
+import { Button, Tag } from '@douyinfe/semi-ui';
+import { RefreshCw, Calendar } from 'lucide-react';
 
 const DashboardHeader = ({
   getGreeting,
   greetingVisible,
-  showSearchModal,
   refresh,
   loading,
+  currentDate = new Date().toISOString().slice(0, 10),
+  isAdminUser,
   t,
 }) => {
-  const ICON_BUTTON_CLASS = 'text-white hover:bg-opacity-80 !rounded-full';
-
   return (
-    <div className='flex items-center justify-between mb-4'>
-      <h2
-        className='text-2xl font-semibold text-gray-800 transition-opacity duration-1000 ease-in-out'
-        style={{ opacity: greetingVisible ? 1 : 0 }}
-      >
-        {getGreeting}
-      </h2>
-      <div className='flex gap-3'>
+    <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4'>
+      <div>
+        <div className='flex items-center gap-2 mb-1'>
+          <Tag color='blue' shape='circle' size='large'>
+            <Calendar size={12} className='mr-1 inline' />
+            {currentDate}
+          </Tag>
+          <h2 className='text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight'>
+            {isAdminUser ? t('AI 网关运营大盘') : t('数据看板')}
+          </h2>
+        </div>
+        <p className='text-xs text-gray-500 dark:text-gray-400'>
+          {isAdminUser
+            ? t('全平台调用统览 · 3x3运营质量与私有化价值矩阵')
+            : getGreeting}
+        </p>
+      </div>
+
+      <div className='flex items-center gap-2.5'>
         <Button
           type='tertiary'
-          icon={<Search size={16} />}
-          onClick={showSearchModal}
-          className={`bg-green-500 hover:bg-green-600 ${ICON_BUTTON_CLASS}`}
-        />
-        <Button
-          type='tertiary'
-          icon={<RefreshCw size={16} />}
+          icon={<RefreshCw size={15} />}
           onClick={refresh}
           loading={loading}
-          className={`bg-blue-500 hover:bg-blue-600 ${ICON_BUTTON_CLASS}`}
+          className='!rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'
+          title={t('刷新数据')}
         />
       </div>
     </div>

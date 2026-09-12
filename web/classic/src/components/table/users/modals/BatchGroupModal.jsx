@@ -84,7 +84,12 @@ const BatchGroupModal = ({ visible, selectedUserIds, onClose, onSuccess, t }) =>
         >
           {userGroups.map((g) => (
             <Select.Option key={g.id} value={g.id}>
-              {g.name}
+              <div className='flex justify-between items-center w-full'>
+                <span className='font-medium'>{g.name}</span>
+                {g.description && (
+                  <span className='text-xs text-gray-400 ml-2'>({g.description})</span>
+                )}
+              </div>
             </Select.Option>
           ))}
         </Form.Select>

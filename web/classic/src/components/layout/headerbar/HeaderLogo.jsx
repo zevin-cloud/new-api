@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Typography, Tag } from '@douyinfe/semi-ui';
 import SkeletonWrapper from '../components/SkeletonWrapper';
 
@@ -30,10 +30,14 @@ const HeaderLogo = ({
   logoLoaded,
   isLoading,
   systemName,
+  version,
   isSelfUseMode,
   isDemoSiteMode,
   t,
 }) => {
+  const location = useLocation();
+  const isOnDark = location.pathname === '/';
+
   if (isMobile && isConsoleRoute) {
     return null;
   }
@@ -58,11 +62,26 @@ const HeaderLogo = ({
           >
             <Typography.Title
               heading={4}
-              className='!text-lg !font-semibold !mb-0'
+              className={`!text-lg !font-semibold !mb-0 ${isOnDark ? '!text-white' : ''}`}
             >
               {systemName}
             </Typography.Title>
           </SkeletonWrapper>
+          {version && !isLoading && (
+            <span
+              className='hidden sm:inline-flex items-center rounded-[8px] p-[1px]'
+              style={{
+                background:
+                  'linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.08) 35%, rgba(255,255,255,0.04) 65%, rgba(255,255,255,0.4) 100%)',
+                boxShadow:
+                  '0 0 16px rgba(255,255,255,0.08), 0 0 32px rgba(255,255,255,0.04)',
+              }}
+            >
+              <span className='truncate pt-[2px] pb-[2px] rounded-[7px] font-mono text-[10px] font-medium leading-none px-[6px] bg-black/30 text-white/90'>
+                {version}
+              </span>
+            </span>
+          )}
           {(isSelfUseMode || isDemoSiteMode) && !isLoading && (
             <Tag
               color={isSelfUseMode ? 'purple' : 'blue'}

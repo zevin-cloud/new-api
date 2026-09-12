@@ -104,7 +104,7 @@ const PasswordResetForm = () => {
   }
 
   return (
-    <div className='classic-page-fill relative overflow-hidden bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8'>
+    <div className='classic-page-fill relative overflow-hidden bg-gray-50 dark:bg-[#070b14] transition-colors duration-200 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8'>
       {/* 背景模糊晕染球 */}
       <div
         className='blur-ball blur-ball-indigo'
@@ -119,14 +119,14 @@ const PasswordResetForm = () => {
           <div className='w-full max-w-md'>
             <div className='flex items-center justify-center mb-6 gap-2'>
               <img src={logo} alt='Logo' className='h-10 rounded-full' />
-              <Title heading={3} className='!text-gray-800'>
+              <Title heading={3} style={{ color: 'var(--semi-color-text-0)' }}>
                 {systemName}
               </Title>
             </div>
 
-            <Card className='border-0 !rounded-2xl overflow-hidden'>
+            <Card className='border border-gray-200/80 dark:border-white/10 shadow-lg dark:shadow-2xl !rounded-2xl overflow-hidden bg-white dark:bg-[#15171e]'>
               <div className='flex justify-center pt-6 pb-2'>
-                <Title heading={3} className='text-gray-800 dark:text-gray-200'>
+                <Title heading={3} style={{ color: 'var(--semi-color-text-0)' }}>
                   {t('密码重置')}
                 </Title>
               </div>
@@ -160,11 +160,11 @@ const PasswordResetForm = () => {
                 </Form>
 
                 <div className='mt-6 text-center text-sm'>
-                  <Text>
+                  <Text className='!text-gray-600 dark:!text-gray-400'>
                     {t('想起来了？')}{' '}
                     <Link
                       to='/login'
-                      className='text-blue-600 hover:text-blue-800 font-medium'
+                      className='text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium'
                     >
                       {t('登录')}
                     </Link>

@@ -990,22 +990,21 @@ html.dark .with-pastel-balls::before {
 
 /* ==================== 模型定价页面布局 ==================== */
 .pricing-layout {
-  height: calc(100vh - 60px);
+  height: 100%;
   overflow: hidden;
-  margin-top: 60px;
 }
 
 .pricing-sidebar {
   width: clamp(280px, 24vw, 520px) !important;
   min-width: clamp(280px, 24vw, 520px) !important;
   max-width: clamp(280px, 24vw, 520px) !important;
-  height: calc(100vh - 60px);
+  height: 100%;
   background-color: var(--semi-color-bg-0);
   overflow: auto;
 }
 
 .pricing-content {
-  height: calc(100vh - 60px);
+  height: 100%;
   background-color: var(--semi-color-bg-0);
   display: flex;
   flex-direction: column;
@@ -1119,3 +1118,167 @@ html.dark .with-pastel-balls::before {
 .ec-dbcd0a3c01b55203 {
   forced-color-adjust: auto;
 }
+
+/* ==================== DeepSeek 风格首页样式 ==================== */
+.ds-grid-bg {
+  background-image:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 0),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035) 1px, transparent 0);
+  background-size: 80px 80px;
+  background-position: 0 0;
+  mask-image: radial-gradient(ellipse 75% 75% at 50% 50%, #000 35%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 75% 75% at 50% 50%, #000 35%, transparent 100%);
+  pointer-events: none;
+}
+
+@keyframes ds-float {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-16px) scale(1.02);
+  }
+}
+
+.animate-ds-float {
+  animation: ds-float 7s ease-in-out infinite;
+}
+
+/* ==================== 宇宙黑洞/深度视觉首页样式 ==================== */
+.cosmic-hero {
+  position: relative;
+  min-height: calc(100vh - 64px - 56px);
+  overflow: hidden;
+  color: #fff;
+  background: #070b14;
+}
+
+.cosmic-star-field {
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.85) 0 1px, transparent 1.5px),
+    radial-gradient(circle, rgba(198, 193, 255, 0.6) 0 1px, transparent 1.5px);
+  background-position: 0 0, 43px 61px;
+  background-size: 91px 91px, 137px 137px;
+  mask-image: linear-gradient(to bottom, #000 65%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.cosmic-star-field:after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(ellipse at 72% 48%, rgba(170, 151, 255, 0.14), transparent 34%),
+    radial-gradient(ellipse at 65% 52%, rgba(107, 212, 255, 0.09), transparent 40%);
+  animation: cosmic-drift 14s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes cosmic-drift {
+  to {
+    transform: translate3d(-2%, 2%, 0) scale(1.08);
+  }
+}
+
+.black-hole-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.black-hole-canvas {
+  display: block;
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+  pointer-events: none;
+}
+
+.cosmic-hero-content {
+  position: relative;
+  z-index: 10;
+}
+
+.cosmic-hero-stats {
+  position: relative;
+  z-index: 10;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(2, 3, 4, 0.3) 0%, rgba(2, 3, 4, 0.75) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ==================== 顶部导航暗黑背景适配 ==================== */
+.header-on-dark {
+  color: #ffffff !important;
+}
+
+.header-on-dark .semi-typography,
+.header-on-dark .semi-typography-title,
+.header-on-dark .semi-typography-text {
+  color: #ffffff !important;
+}
+
+.header-on-dark a {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.header-on-dark a:hover {
+  color: #ffffff !important;
+}
+
+.header-on-dark a[aria-current="page"] {
+  color: #38bdf8 !important; /* sky-400 */
+}
+
+.header-on-dark .semi-button-tertiary,
+.header-on-dark .semi-button-borderless,
+.header-on-dark .header-action-button {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.header-on-dark .semi-button-tertiary:hover,
+.header-on-dark .semi-button-borderless:hover,
+.header-on-dark .header-action-button:hover {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.header-on-dark .semi-button-content,
+.header-on-dark .semi-icon,
+.header-on-dark svg {
+  color: inherit !important;
+}
+
+/* ==================== 底部页脚暗黑背景适配 ==================== */
+.footer-on-dark {
+  background-color: #020304 !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.footer-on-dark,
+.footer-on-dark .semi-typography,
+.footer-on-dark .custom-footer,
+.footer-on-dark .custom-footer p,
+.footer-on-dark .custom-footer span,
+.footer-on-dark .custom-footer div {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.footer-on-dark a {
+  color: #38bdf8 !important;
+}
+
+.footer-on-dark a:hover {
+  color: #7dd3fc !important;
+}
+
+
+
