@@ -51,6 +51,13 @@ type TokenBundle struct {
 	Scope        string    `json:"scope,omitempty"`
 	Email        string    `json:"email,omitempty"`
 	AccountID    string    `json:"account_id,omitempty"`
+	ProfileARN   string    `json:"profile_arn,omitempty"`
+	AuthMethod   string    `json:"auth_method,omitempty"`
+	ClientID     string    `json:"client_id,omitempty"`
+	ClientSecret string    `json:"client_secret,omitempty"`
+	Region       string    `json:"region,omitempty"`
+	StartURL     string    `json:"start_url,omitempty"`
+	MachineID    string    `json:"machine_id,omitempty"`
 	RawPayload   string    `json:"raw_payload,omitempty"`
 }
 
@@ -89,4 +96,8 @@ type AuthSession struct {
 	CreatedAt     time.Time
 	ExpiresAt     time.Time
 	PollInterval  time.Duration
+	ClientID      string
+	ClientSecret  string
+	Region        string
+	StartURL      string
 }

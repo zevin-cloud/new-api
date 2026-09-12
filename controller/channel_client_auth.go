@@ -57,6 +57,7 @@ func GetClientAuthProviders(c *gin.Context) {
 		{"slug": "codex", "name": "ChatGPT / Codex", "endpoint": "/v1/responses, /v1/chat/completions"},
 		{"slug": "claude", "name": "Claude Code", "endpoint": "/v1/messages, /v1/chat/completions"},
 		{"slug": "antigravity", "name": "Antigravity", "endpoint": "/v1/chat/completions, /v1/responses"},
+		{"slug": "kiro", "name": "Kiro", "endpoint": "/v1/messages, /v1/chat/completions"},
 	}})
 }
 
@@ -186,6 +187,19 @@ func GetClientChannelQuota(c *gin.Context) {
 	}
 
 	switch credential.Provider {
+	case "kiro":
+		summary, err := clientauth.FetchKiroQuotaSummary(c.Request.Context(), credential)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": fmt.Sprintf("获取 Kiro 配额失败: %v", err)})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success":  true,
+			"provider": credential.Provider,
+			"email":    credential.Email,
+			"data":     summary,
+		})
+		return
 	case "antigravity":
 		summary, err := clientauth.FetchAntigravityQuotaSummary(c.Request.Context(), credential.AccessToken, credential.ProjectID)
 		if err != nil {

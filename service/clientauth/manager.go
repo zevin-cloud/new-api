@@ -171,13 +171,12 @@ func (m *AuthManager) InitAuth(ctx context.Context, provider string) (*AuthInitR
 		m.mu.Unlock()
 
 		return &AuthInitResult{
-			SessionID:     sessionID,
-			Provider:      provider,
-			AuthType:      AuthTypeOAuthPKCE,
-			AuthURL:       authURL,
-			ExpiresIn:     600,
-			Instructions:  "请点击授权链接，在 Google 授权页面登录并获取授权码贴回",
-			DefaultModels: GetProviderDefaultModels(provider),
+			SessionID:    sessionID,
+			Provider:     provider,
+			AuthType:     AuthTypeOAuthPKCE,
+			AuthURL:      authURL,
+			ExpiresIn:    600,
+			Instructions: "请点击授权链接，在 Google 授权页面登录并获取授权码贴回",
 		}, nil
 
 	case "claude":
@@ -210,6 +209,35 @@ func (m *AuthManager) InitAuth(ctx context.Context, provider string) (*AuthInitR
 			ExpiresIn:     600,
 			Instructions:  "请点击授权链接，在 Claude 官方页面登录授权后贴回授权码",
 			DefaultModels: GetProviderDefaultModels(provider),
+		}, nil
+
+	case "kiro":
+		verifier, challenge, err := GeneratePKCE()
+		if err != nil {
+			return nil, fmt.Errorf("生成 PKCE 失败: %w", err)
+		}
+		session := &AuthSession{
+			ID:           sessionID,
+			OwnerID:      ownerID(ctx),
+			Provider:     provider,
+			AuthType:     AuthTypeOAuthPKCE,
+			Status:       AuthStatusPending,
+			CodeVerifier: verifier,
+			CreatedAt:    now,
+			ExpiresAt:    now.Add(10 * time.Minute),
+			Region:       kiroDefaultRegion,
+			StartURL:     kiroSocialAuthURL,
+		}
+		m.mu.Lock()
+		m.sessions[sessionID] = session
+		m.mu.Unlock()
+		return &AuthInitResult{
+			SessionID:    sessionID,
+			Provider:     provider,
+			AuthType:     AuthTypeOAuthPKCE,
+			AuthURL:      BuildKiroSocialAuthURL(sessionID, challenge),
+			ExpiresIn:    600,
+			Instructions: "请使用 Kiro 个人账号（Google 或 GitHub）完成授权，然后粘贴完整回调地址",
 		}, nil
 
 	default:
@@ -295,6 +323,8 @@ func providerTitle(provider string) string {
 		return "Claude Code"
 	case "kimi":
 		return "Kimi Code"
+	case "kiro":
+		return "Kiro"
 	default:
 		return provider
 	}
@@ -326,6 +356,12 @@ func (m *AuthManager) ExchangeOAuthCode(ctx context.Context, sessionID string, c
 	expected := claudeRedirectURI
 	if session.Provider == "antigravity" {
 		expected = antigravityRedirectURI
+	} else if session.Provider == "kiro" {
+		if session.ClientID == "" {
+			expected = kiroSocialRedirectURI + "/oauth/callback"
+		} else {
+			expected = KiroRedirectURI()
+		}
 	}
 	target, _ := url.Parse(expected)
 	if callback.Scheme != target.Scheme || callback.Host != target.Host || callback.Path != target.Path {
@@ -341,6 +377,12 @@ func (m *AuthManager) ExchangeOAuthCode(ctx context.Context, sessionID string, c
 		token, err = ExchangeAntigravityToken(ctx, code, session.CodeVerifier)
 	case "claude":
 		token, err = ExchangeClaudeToken(ctx, code, session.CodeVerifier)
+	case "kiro":
+		if session.ClientID == "" {
+			token, err = ExchangeKiroSocialToken(ctx, code, session.CodeVerifier, callback.Query().Get("login_option"))
+		} else {
+			token, err = ExchangeKiroToken(ctx, code, session.CodeVerifier, session.ClientID, session.ClientSecret, session.Region, session.StartURL)
+		}
 	default:
 		return nil, fmt.Errorf("该 Provider 不支持手动 Exchange: %s", session.Provider)
 	}
@@ -374,6 +416,15 @@ func (m *AuthManager) ExchangeOAuthCode(ctx context.Context, sessionID string, c
 			session.DefaultName = fmt.Sprintf("Claude Code (%s)", token.Email)
 		} else {
 			session.DefaultName = "Claude Code"
+		}
+	} else if session.Provider == "kiro" {
+		if models, modelsErr := FetchKiroAvailableModels(ctx, token); modelsErr == nil {
+			session.DefaultModels = models
+		}
+		if token.Email != "" {
+			session.DefaultName = fmt.Sprintf("Kiro (%s)", token.Email)
+		} else {
+			session.DefaultName = "Kiro"
 		}
 	}
 
@@ -473,7 +524,6 @@ func (m *AuthManager) GetSessionToken(ctx context.Context, id string) (*TokenBun
 	}
 	return session.TokenResult, nil
 }
-
 
 // snapshot exposes progress without sharing mutable session state or credentials.
 func (s *AuthSession) snapshot() *AuthSession {

@@ -462,6 +462,16 @@ func fetchClientOAuthBalance(channel *model.Channel) (channelBalanceResult, erro
 		return channelBalanceResult{}, err
 	}
 	switch credential.Provider {
+	case "kiro":
+		summary, err := clientauth.FetchKiroQuotaSummary(context.Background(), credential)
+		if err != nil {
+			return channelBalanceResult{}, err
+		}
+		rawBytes, _ := common.Marshal(summary)
+		formatted, _ := common.IndentJson(rawBytes)
+		balance := math.Round(summary.RemainingPercent())
+		channel.UpdateBalance(balance)
+		return channelBalanceResult{Balance: balance, RawResponse: string(formatted)}, nil
 	case "antigravity":
 		summary, err := clientauth.FetchAntigravityQuotaSummary(context.Background(), credential.AccessToken, credential.ProjectID)
 		if err != nil {

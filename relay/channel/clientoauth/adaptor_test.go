@@ -26,7 +26,8 @@ func TestClientOAuthUsesProviderHostAndBearerToken(t *testing.T) {
 		{"kimi", "https://api.kimi.com/coding/v1/chat/completions", relayconstant.RelayModeChatCompletions},
 		{"codex", "https://chatgpt.com/backend-api/codex/responses", relayconstant.RelayModeResponses},
 		{"claude", "https://api.anthropic.com/v1/messages", relayconstant.RelayModeChatCompletions},
-		{"antigravity", "https://cloudcode-pa.googleapis.com/v1internal:generateContent", relayconstant.RelayModeChatCompletions},
+		{"antigravity", "https://daily-cloudcode-pa.googleapis.com/v1internal:generateContent", relayconstant.RelayModeChatCompletions},
+		{"kiro", "https://q.us-east-1.amazonaws.com/generateAssistantResponse", relayconstant.RelayModeChatCompletions},
 	} {
 		t.Run(tc.provider, func(t *testing.T) {
 			key, err := common.Marshal(clientauth.TokenBundle{Provider: tc.provider, AccessToken: "access", RefreshToken: "refresh", AccountID: "account"})
@@ -46,6 +47,10 @@ func TestClientOAuthUsesProviderHostAndBearerToken(t *testing.T) {
 			assert.NotContains(t, headers, "refresh")
 			if tc.provider == "codex" {
 				assert.Equal(t, "account", headers.Get("chatgpt-account-id"))
+			}
+			if tc.provider == "kiro" {
+				assert.Equal(t, "vibe", headers.Get("x-amzn-kiro-agent-mode"))
+				assert.NotEmpty(t, headers.Get("Amz-Sdk-Invocation-Id"))
 			}
 		})
 	}
@@ -91,4 +96,3 @@ func TestAntigravityHTTP1AndUserAgent(t *testing.T) {
 	assert.Equal(t, "Bearer ag-token", headers.Get("Authorization"))
 	assert.Equal(t, "antigravity/hub/2.9.1 darwin/arm64", headers.Get("User-Agent"))
 }
-

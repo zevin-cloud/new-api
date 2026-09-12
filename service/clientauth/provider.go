@@ -25,6 +25,8 @@ func ProviderBaseURL(provider string) (string, error) {
 		return "https://api.anthropic.com", nil
 	case "antigravity":
 		return "https://daily-cloudcode-pa.googleapis.com", nil
+	case "kiro":
+		return KiroAPIBaseURL(""), nil
 	default:
 		return "", fmt.Errorf("unsupported client provider")
 	}
@@ -45,6 +47,8 @@ func RefreshToken(ctx context.Context, token *TokenBundle) (*TokenBundle, error)
 		next, err = RefreshClaudeToken(ctx, token.RefreshToken)
 	case "antigravity":
 		next, err = RefreshAntigravityToken(ctx, token.RefreshToken)
+	case "kiro":
+		next, err = RefreshKiroToken(ctx, token)
 	default:
 		return nil, fmt.Errorf("unsupported client provider")
 	}
@@ -55,6 +59,27 @@ func RefreshToken(ctx context.Context, token *TokenBundle) (*TokenBundle, error)
 		return nil, fmt.Errorf("refresh response missing access token")
 	}
 	next.ProjectID = token.ProjectID
+	if next.ProfileARN == "" {
+		next.ProfileARN = token.ProfileARN
+	}
+	if next.ClientID == "" {
+		next.ClientID = token.ClientID
+	}
+	if next.ClientSecret == "" {
+		next.ClientSecret = token.ClientSecret
+	}
+	if next.Region == "" {
+		next.Region = token.Region
+	}
+	if next.StartURL == "" {
+		next.StartURL = token.StartURL
+	}
+	if next.AuthMethod == "" {
+		next.AuthMethod = token.AuthMethod
+	}
+	if next.MachineID == "" {
+		next.MachineID = token.MachineID
+	}
 	if next.AccountID == "" {
 		next.AccountID = token.AccountID
 	}

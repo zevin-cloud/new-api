@@ -2,6 +2,7 @@ package clientauth
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -147,4 +149,73 @@ func TestRefreshRejectsMissingAccessToken(t *testing.T) {
 		require.Error(t, err)
 		assert.False(t, strings.Contains(err.Error(), "old"))
 	}
+}
+
+func TestKiroSocialAuthAndRefresh(t *testing.T) {
+	previous := OAuthHTTPClient
+	OAuthHTTPClient = &http.Client{Transport: authTransport(func(req *http.Request) (*http.Response, error) {
+		var body string
+		switch req.URL.Path {
+		case "/oauth/token":
+			requestBody, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			var payload map[string]string
+			require.NoError(t, common.Unmarshal(requestBody, &payload))
+			assert.Equal(t, "auth-code", payload["code"])
+			assert.Equal(t, "http://localhost:49153/oauth/callback?login_option=google", payload["redirect_uri"])
+			body = `{"accessToken":"access-1","refreshToken":"refresh-old","expiresIn":3600}`
+		case "/refreshToken":
+			requestBody, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			var payload map[string]string
+			require.NoError(t, common.Unmarshal(requestBody, &payload))
+			assert.Equal(t, "refresh-old", payload["refreshToken"])
+			body = `{"accessToken":"access-2","expiresIn":3600}`
+		case "/ListAvailableModels":
+			assert.Equal(t, "AI_EDITOR", req.URL.Query().Get("origin"))
+			assert.Equal(t, "Bearer access-1", req.Header.Get("Authorization"))
+			body = `{"models":[{"modelId":"auto"},{"modelId":"claude-sonnet-4.5"}]}`
+		case "/getUsageLimits":
+			assert.Equal(t, "AI_EDITOR", req.URL.Query().Get("origin"))
+			assert.Equal(t, "AGENTIC_REQUEST", req.URL.Query().Get("resourceType"))
+			assert.Equal(t, "Bearer access-2", req.Header.Get("Authorization"))
+			body = `{"subscriptionInfo":{"subscriptionTitle":"Kiro Pro","type":"PRO"},"usageBreakdownList":[{"resourceType":"CREDIT","currentUsageWithPrecision":125,"usageLimitWithPrecision":1000}]}`
+		default:
+			return nil, fmt.Errorf("unexpected Kiro path: %s", req.URL.Path)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}, nil
+	})}
+	t.Cleanup(func() { OAuthHTTPClient = previous })
+
+	manager := &AuthManager{sessions: make(map[string]*AuthSession)}
+	ctx := WithOwner(context.Background(), 7)
+	initResult, err := manager.InitAuth(ctx, "kiro")
+	require.NoError(t, err)
+	assert.Equal(t, AuthTypeOAuthPKCE, initResult.AuthType)
+	assert.Contains(t, initResult.AuthURL, "app.kiro.dev/signin")
+	assert.Contains(t, initResult.AuthURL, "redirect_from=KiroIDE")
+	assert.Contains(t, initResult.AuthURL, "redirect_uri=http%3A%2F%2Flocalhost%3A49153")
+
+	callback := "http://localhost:49153/oauth/callback?login_option=google&code=auth-code&state=" + initResult.SessionID
+	token, err := manager.ExchangeOAuthCode(ctx, initResult.SessionID, callback)
+	require.NoError(t, err)
+	assert.Equal(t, "kiro", token.Provider)
+	assert.Empty(t, token.ClientID)
+	assert.Empty(t, token.ClientSecret)
+	assert.Equal(t, "social", token.AuthMethod)
+	assert.Len(t, token.MachineID, 64)
+	models, err := FetchKiroAvailableModels(context.Background(), token)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"auto", "claude-sonnet-4.5"}, models)
+
+	refreshed, err := RefreshToken(context.Background(), token)
+	require.NoError(t, err)
+	assert.Equal(t, "access-2", refreshed.AccessToken)
+	assert.Equal(t, "refresh-old", refreshed.RefreshToken)
+	assert.Equal(t, "social", refreshed.AuthMethod)
+
+	quota, err := FetchKiroQuotaSummary(context.Background(), refreshed)
+	require.NoError(t, err)
+	assert.Equal(t, "Kiro Pro", quota.SubscriptionInfo.SubscriptionTitle)
+	assert.Equal(t, 87.5, quota.RemainingPercent())
 }

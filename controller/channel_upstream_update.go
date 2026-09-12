@@ -510,6 +510,12 @@ func fetchClientOAuthUpstreamModelIDs(channel *model.Channel) ([]string, error) 
 			return item.ID
 		})
 		return normalizeModelNames(ids), nil
+	case "kiro":
+		models, err := clientauth.FetchKiroAvailableModels(ctx, credential)
+		if err != nil {
+			return nil, fmt.Errorf("未能从 Kiro 上游获取模型: %w", err)
+		}
+		return normalizeModelNames(models), nil
 	default:
 		return nil, fmt.Errorf("不支持的客户端提供方: %s", credential.Provider)
 	}

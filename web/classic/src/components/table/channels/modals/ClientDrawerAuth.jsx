@@ -36,7 +36,7 @@ import {
   IconExternalOpen,
   IconRefresh,
 } from '@douyinfe/semi-icons';
-import { Check } from 'lucide-react';
+import { Check, Cloud } from 'lucide-react';
 import { copy } from '../../../../helpers/utils';
 import { clientAuth } from '../../../../services/clientAuth';
 import { OpenAI, Claude, Moonshot, Gemini } from '@lobehub/icons';
@@ -48,6 +48,7 @@ const DEFAULT_PROVIDERS = [
   { slug: 'claude', name: 'Claude Code', icon: <Claude.Color size={16} /> },
   { slug: 'codex', name: 'ChatGPT / Codex', icon: <OpenAI size={16} /> },
   { slug: 'kimi', name: 'Kimi Code', icon: <Moonshot size={16} /> },
+  { slug: 'kiro', name: 'Kiro', icon: <Cloud size={16} /> },
 ];
 
 export default function ClientDrawerAuth({
@@ -80,6 +81,7 @@ export default function ClientDrawerAuth({
             else if (p.slug === 'claude') icon = <Claude.Color size={16} />;
             else if (p.slug === 'codex') icon = <OpenAI size={16} />;
             else if (p.slug === 'kimi') icon = <Moonshot size={16} />;
+            else if (p.slug === 'kiro') icon = <Cloud size={16} />;
             return { ...p, icon };
           }),
         );
@@ -225,7 +227,7 @@ export default function ClientDrawerAuth({
             <Text type='secondary' className='text-xs block mb-2'>
               {t('选择客户端厂商')}
             </Text>
-            <div className='grid grid-cols-2 gap-2 sm:grid-cols-4'>
+            <div className='grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5'>
               {providers.map((p) => {
                 const isSelected = selectedProvider === p.slug;
                 return (
@@ -271,8 +273,15 @@ export default function ClientDrawerAuth({
 
           {/* Starting state */}
           {status === 'starting' && (
-            <div className='py-4 text-center'>
-              <Spin tip={t('正在初始化客户端授权...')} />
+            <div
+              className='flex min-h-12 items-center justify-center gap-2 py-3'
+              role='status'
+              aria-live='polite'
+            >
+              <Spin size='small' />
+              <span className='whitespace-nowrap text-sm text-[var(--semi-color-text-1)]'>
+                {t('正在初始化客户端授权...')}
+              </span>
             </div>
           )}
 

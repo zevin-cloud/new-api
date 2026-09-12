@@ -52,6 +52,8 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 	case "antigravity":
 		a.Adaptor = &gemini.Adaptor{}
 		info.ChannelSetting.HTTPProtocol = dto.HTTPProtocolHTTP1
+	case "kiro":
+		a.Adaptor = &claude.Adaptor{}
 	default:
 		a.initErr = errors.New("unsupported client provider")
 		return
@@ -90,6 +92,8 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			return base + "/v1internal:streamGenerateContent?alt=sse", nil
 		}
 		return base + "/v1internal:generateContent", nil
+	case "kiro":
+		return clientauth.KiroAPIBaseURL(a.credential.Region) + "/generateAssistantResponse", nil
 	default:
 		return a.Adaptor.GetRequestURL(info)
 	}
@@ -114,8 +118,24 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, headers *http.Header, info 
 		headers.Set("OpenAI-Beta", "responses=experimental")
 	case "antigravity":
 		headers.Set("User-Agent", "antigravity/hub/2.9.1 darwin/arm64")
+	case "kiro":
+		machineID := a.credential.MachineID
+		if machineID == "" {
+			machineID = clientauth.KiroMachineID(a.credential.RefreshToken, a.credential.ClientID)
+		}
+		userAgent, amzUserAgent := clientauth.KiroRuntimeUserAgents(machineID)
+		headers.Set("Accept", "*/*")
+		headers.Set("User-Agent", userAgent)
+		headers.Set("X-Amz-User-Agent", amzUserAgent)
+		headers.Set("Amz-Sdk-Invocation-Id", common.GetUUID())
+		headers.Set("Amz-Sdk-Request", "attempt=1; max=3")
+		headers.Set("x-amzn-kiro-agent-mode", "vibe")
+		headers.Set("x-amzn-codewhisperer-optout", "true")
+		if a.credential.ProfileARN != "" {
+			headers.Set("x-amzn-kiro-profile-arn", a.credential.ProfileARN)
+		}
 	}
-	if info.IsStream || a.credential.Provider == "codex" {
+	if (info.IsStream && a.credential.Provider != "kiro") || a.credential.Provider == "codex" {
 		headers.Set("Accept", "text/event-stream")
 	}
 	return nil
@@ -138,6 +158,10 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, body io
 		info.ChannelSetting.HTTPProtocol = dto.HTTPProtocolHTTP1
 		if info.RelayMode != relayconstant.RelayModeChatCompletions && info.RelayMode != relayconstant.RelayModeResponses && info.RelayMode != relayconstant.RelayModeGemini && info.RelayFormat != types.RelayFormatClaude {
 			return nil, errors.New("unsupported Antigravity endpoint")
+		}
+	case "kiro":
+		if info.RelayMode != relayconstant.RelayModeChatCompletions && info.RelayFormat != types.RelayFormatClaude {
+			return nil, errors.New("Kiro supports messages and chat completions")
 		}
 	}
 	credential, err := service.ResolveClientCredential(c.Request.Context(), info.ChannelId)
@@ -193,6 +217,27 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, body io
 }
 
 func (a *Adaptor) DoResponse(c *gin.Context, response *http.Response, info *relaycommon.RelayInfo) (any, *types.NewAPIError) {
+	if a.credential.Provider == "kiro" && response.StatusCode == http.StatusOK {
+		if info.IsStream {
+			response.Body = newKiroClaudeStream(response.Body, info.OriginModelName, info.GetEstimatePromptTokens())
+			response.Header.Set("Content-Type", "text/event-stream")
+			response.Header.Del("Content-Length")
+		} else {
+			parsed, err := parseKiroResponse(response.Body)
+			response.Body.Close()
+			if err != nil {
+				return nil, types.NewError(err, types.ErrorCodeBadResponse)
+			}
+			data, err := buildKiroClaudeResponse(parsed, info.OriginModelName, info.GetEstimatePromptTokens())
+			if err != nil {
+				return nil, types.NewError(err, types.ErrorCodeBadResponse)
+			}
+			response.Body = io.NopCloser(bytes.NewReader(data))
+			response.Header.Set("Content-Type", "application/json")
+			response.Header.Del("Content-Length")
+		}
+		return a.Adaptor.DoResponse(c, response, info)
+	}
 	if a.credential.Provider == "codex" {
 		info.FinalRequestRelayFormat = types.RelayFormatOpenAIResponses
 		if info.RelayMode == relayconstant.RelayModeChatCompletions {
@@ -281,6 +326,17 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if a.initErr != nil {
 		return nil, a.initErr
 	}
+	if a.credential.Provider == "kiro" {
+		converted, err := a.Adaptor.ConvertOpenAIRequest(c, info, request)
+		if err != nil {
+			return nil, err
+		}
+		claudeRequest, ok := converted.(*dto.ClaudeRequest)
+		if !ok {
+			return nil, errors.New("invalid Claude conversion for Kiro")
+		}
+		return buildKiroRequest(claudeRequest, a.credential.ProfileARN)
+	}
 	if a.credential.Provider != "codex" {
 		return a.Adaptor.ConvertOpenAIRequest(c, info, request)
 	}
@@ -293,6 +349,16 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		return nil, errors.New("invalid Responses conversion")
 	}
 	return a.ConvertOpenAIResponsesRequest(c, info, *responses)
+}
+
+func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
+	if a.initErr != nil {
+		return nil, a.initErr
+	}
+	if a.credential.Provider == "kiro" {
+		return buildKiroRequest(request, a.credential.ProfileARN)
+	}
+	return a.Adaptor.ConvertClaudeRequest(c, info, request)
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
