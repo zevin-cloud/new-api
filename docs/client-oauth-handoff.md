@@ -1,5 +1,17 @@
 # 客户端 OAuth 内置接入：续做交接
 
+## 后续功能：Kiro AWS 登录
+
+记录日期：2026-09-12。当前 Kiro 已接通个人账号的 Social OAuth（Google/GitHub），模型列表和额度均从 Kiro 上游实时获取。AWS 登录暂不开放前端入口，后续有空再实现。
+
+目标是把 Kiro 登录明确拆成三种互不混用的模式：
+
+- Social OAuth：Google/GitHub，使用 `http://localhost:49153` 回调以及 Kiro `/oauth/token`、`/refreshToken`。
+- AWS Builder ID：个人 AWS 开发者身份，使用 AWS SSO OIDC 客户端注册、授权码或设备码及刷新流程。
+- IAM Identity Center：企业身份，要求管理员提供 Start URL 和 Region。
+
+实现时需要增加登录模式选择，并分别保存认证类型。禁止在三种模式之间共用回调地址、Token 交换端点或刷新参数。模型和额度必须使用对应账号的 Token 实时查询，不得使用静态列表或模拟数据。特别注意 `profileArn`：Social、Builder ID 和企业 Identity Center 的要求不同，不能无条件附加，否则可能触发 `403`。现有后端仍保留 AWS OIDC 注册、交换和刷新基础函数，可以在此基础上补前端入口、会话分支和真实账号端到端测试。
+
 交接日期：2026-09-07。用户因额度不足要求停止开发并整理交接。当前代码尚未完成验收，不能宣称四个平台已经全部打通。没有提交、推送或部署。
 
 ## 用户的明确目标
