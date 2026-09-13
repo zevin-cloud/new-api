@@ -4,7 +4,42 @@
 
 ---
 
-## 零、 Codex 客户端模式支持图片生成模型（`gpt-image-2`）与测试自动分流（最新）
+## 零、 模型管理集成定价设置（方案b）与通用列设置拖拽排序（最新）
+
+### 1. 模型管理集成定价设置（方案b）
+* **背景与需求**：
+  此前模型定价（按 Token 计费倍率、按次调用固定价格）仅能在【系统设置】->【倍率设置】中的大 JSON 或独立定价编辑器中统一管理，模型管理页面无法直接查看和配置单个模型的计费规则。
+* **架构方案（方案b）**：
+  直接在【模型管理】编辑/创建侧边栏（[EditModelModal.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/models/modals/EditModelModal.jsx)）中集成专属的“模型定价设置”卡片（[ModelPricingSection.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/models/components/ModelPricingSection.jsx)），并与系统设置 (`/api/option/` 下的 `ModelRatio`、`ModelPrice`、`CompletionRatio` 等）**实时双向绑定与无缝同步**：
+  1. **直观双模式切换**：
+     - **按量计费 (按 Token 计费)**：输入价格（`$/1M tokens`）、输出价格（`$/1M tokens`），实时换算对应模型倍率（`model_ratio = input_price / 2`）与补全倍率（`completion_ratio = completion_price / input_price`）。
+     - **按次计费 (按请求固定扣费)**：输入固定金额（`$/次`）。
+     - **高级价格项（折叠面板）**：支持细粒度配置缓存命中价格、缓存写入价格、音频输入/输出价格以及图片倍率。
+  2. **智能状态与一键重置**：
+     - 自动检测并显示当前模型状态徽章：`[已自定义定价]`（绿色）、`[系统默认倍率]`（蓝色）或 `[未设置定价]`（灰色）。
+     - 提供“清除自定义并重置”按钮，点击后恢复为系统内置默认定价，并在提交时自动清除系统自定义倍率选项中的对应键值。
+  3. **实时双向同步机制**：
+     - 打开抽屉时拉取 `/api/option/` 与 `/api/pricing`，解析并自动预填。
+     - 提交时仅向 `/api/option/` 提交真正发生变动的定价项；若用户未更改定价且模型使用系统默认值，则不污染自定义选项表。
+     - 若模型名称被重命名，自动清理旧模型名称对应的定价项，并在新名称下写入对应定价。
+
+### 2. 通用表格列自定义排序与显示设置
+* **背景与需求**：
+  此前表格列设置仅渠道管理具备基础显隐功能且样式与其他页面不统一，缺少列拖拽调序、上移/下移微调能力，且不同表格（渠道、模型、用户等）代码重复。
+* **改造内容**：
+  1. **封装通用列控制器 Hook**（[useTableColumns.js](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/hooks/common/useTableColumns.js)）：
+     - 统一管理列的可见性（`visibleKeys`）与列顺序（`columnOrder`）。
+     - 基于 `localStorage` 进行跨会话持久化存储，支持一键重置为系统默认排列。
+  2. **封装通用列配置弹窗组件**（[ColumnSelectorModal.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/common/table/ColumnSelectorModal.jsx)）：
+     - 采用原生 HTML5 Drag & Drop 实现平滑流畅的拖拽排序，配合上移/下移图标按钮方便无障碍微调。
+     - 深度适配 Semi-UI 设计系统与暗色模式主题变量（`var(--semi-color-*)`）。
+     - 提供“全选/清空”与“恢复默认”快捷操作。
+  3. **全量接入三大核心表格**：
+     - **渠道管理**（[ChannelsTable.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/channels/ChannelsTable.jsx)）：全量接入，支持所有渠道信息列的自定义排序与显隐。
+     - **模型管理**（[ModelsTable.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/models/ModelsTable.jsx) & [ModelsActions.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/models/ModelsActions.jsx)）：新增“列设置”入口与状态持久化。
+     - **用户管理**（[UsersTable.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/users/UsersTable.jsx) & [UsersActions.jsx](file:///Users/zevin/Desktop/fit2cloud/code/new-api/web/classic/src/components/table/users/UsersActions.jsx)）：新增“列设置”入口与状态持久化。
+
+---
 
 ### 1. 问题背景与根本原因
 * **痛点**：在 New-API 中使用 Codex 客户端渠道或 OpenAI 代理（如 CPA）测试 `gpt-image-2` 等生图模型时，报错：
