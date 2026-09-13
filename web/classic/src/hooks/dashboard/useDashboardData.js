@@ -41,22 +41,9 @@ export function formatTokensWithUnit(tokens = 0) {
   return String(num);
 }
 
-// 判断模型是否属于本地私有化集群部署
+// 保留兼容性空导出
 export function isPrivateModel(name = '') {
-  const lower = name.toLowerCase();
-  return (
-    lower.includes('本地') ||
-    lower.includes('私有') ||
-    lower.includes('local') ||
-    lower.includes('ollama') ||
-    lower.includes('vllm') ||
-    lower.includes('qwen') ||
-    lower.includes('deepseek-v4') ||
-    lower.includes('internlm') ||
-    lower.includes('chatglm') ||
-    lower.includes('baichuan') ||
-    lower.includes('bge')
-  );
+  return false;
 }
 
 export const useDashboardData = (userState, userDispatch, statusState) => {
@@ -127,6 +114,67 @@ export const useDashboardData = (userState, userDispatch, statusState) => {
   const [uptimeData, setUptimeData] = useState([]);
   const [uptimeLoading, setUptimeLoading] = useState(false);
   const [activeUptimeTab, setActiveUptimeTab] = useState('');
+  // ========== 算力归属计算 (按渠道设置与渠道类型驱动) ==========
+  const channelIdToIsPrivateMap = useMemo(() => {
+    const map = new Map();
+    if (!channelOptions || !Array.isArray(channelOptions)) return map;
+    channelOptions.forEach((ch) => {
+      let isPrivate = ch.type === 4 || ch.type === 47;
+      if (ch.settings) {
+        try {
+          const parsed =
+            typeof ch.settings === 'string'
+              ? JSON.parse(ch.settings)
+              : ch.settings;
+          if (parsed?.is_private !== undefined) {
+            isPrivate = parsed.is_private === true;
+          }
+        } catch {}
+      }
+      map.set(Number(ch.id), isPrivate);
+    });
+    return map;
+  }, [channelOptions]);
+
+  const privateModelSetFromChannels = useMemo(() => {
+    const set = new Set();
+    if (!channelOptions || !Array.isArray(channelOptions)) return set;
+    channelOptions.forEach((ch) => {
+      let isPrivate = ch.type === 4 || ch.type === 47;
+      if (ch.settings) {
+        try {
+          const parsed =
+            typeof ch.settings === 'string'
+              ? JSON.parse(ch.settings)
+              : ch.settings;
+          if (parsed?.is_private !== undefined) {
+            isPrivate = parsed.is_private === true;
+          }
+        } catch {}
+      }
+      if (isPrivate && ch.models) {
+        ch.models.split(',').forEach((m) => {
+          const trimmed = m.trim();
+          if (trimmed) set.add(trimmed);
+        });
+      }
+    });
+    return set;
+  }, [channelOptions]);
+
+  const isItemPrivate = useCallback(
+    (item) => {
+      const channelId = Number(item?.channel_id || 0);
+      if (channelId > 0 && channelIdToIsPrivateMap.has(channelId)) {
+        return channelIdToIsPrivateMap.get(channelId);
+      }
+      if (item?.model_name && privateModelSetFromChannels.has(item.model_name)) {
+        return true;
+      }
+      return false;
+    },
+    [channelIdToIsPrivateMap, privateModelSetFromChannels],
+  );
 
   // ========== 常量 ==========
   const now = new Date();
@@ -234,7 +282,7 @@ export const useDashboardData = (userState, userDispatch, statusState) => {
     // 5. 私有化占比与平均 Tokens
     let privateTokensSum = 0;
     quotaData.forEach((item) => {
-      if (item.model_name && isPrivateModel(item.model_name)) {
+      if (isItemPrivate(item)) {
         privateTokensSum += Number(item.token_used || 0);
       }
     });
@@ -280,6 +328,7 @@ export const useDashboardData = (userState, userDispatch, statusState) => {
     trendData.times,
     userQuotaDataList,
     quotaData,
+    isItemPrivate,
   ]);
 
   // ========== 模型占比与折算明细 ==========
@@ -295,41 +344,56 @@ export const useDashboardData = (userState, userDispatch, statusState) => {
           count: 0,
           tokens: 0,
           quota: 0,
+          privateTokens: 0,
+          privateQuota: 0,
         };
       }
+      const tokenUsed = Number(item.token_used || 0);
+      const quota = Number(item.quota || 0);
       map[name].count += Number(item.count || 0);
-      map[name].tokens += Number(item.token_used || 0);
-      map[name].quota += Number(item.quota || 0);
-      sumTokens += Number(item.token_used || 0);
+      map[name].tokens += tokenUsed;
+      map[name].quota += quota;
+      sumTokens += tokenUsed;
+
+      if (isItemPrivate(item)) {
+        map[name].privateTokens += tokenUsed;
+        map[name].privateQuota += quota;
+      }
     });
 
     return Object.values(map)
       .map((item) => {
-        const isPrivate = isPrivateModel(item.model_name);
         const percent =
           sumTokens > 0
             ? ((item.tokens / sumTokens) * 100).toFixed(2)
             : '0.00';
         const formattedTokens = formatTokensWithUnit(item.tokens);
 
-        // 折算价值规则：私有模型按商业官网高峰价等效折算 (约 4.5 元/百万 tokens)；公有模型按实际消费折算 RMB
-        let costRmb = '0.00';
-        if (isPrivate) {
-          costRmb = ((item.tokens / 1000000) * 4.8).toFixed(2);
-        } else {
-          costRmb = ((item.quota / 500000) * 7.2).toFixed(2);
-        }
+        const isPrivate =
+          item.privateTokens > 0 && item.privateTokens >= item.tokens * 0.99;
+        const isMixed =
+          item.privateTokens > 0 && item.privateTokens < item.tokens * 0.99;
+
+        // 折算价值规则：
+        // 私有化自建调用部分按商业官网高峰价等效折算 (约 4.8 元/百万 tokens)
+        // 公共商业部分按系统实际配额消费折算 RMB (quota / 500000 * 7.2)
+        const privateCost = (item.privateTokens / 1000000) * 4.8;
+        const publicQuota = Math.max(0, item.quota - item.privateQuota);
+        const publicCost = (publicQuota / 500000) * 7.2;
+        const costRmb = (privateCost + publicCost).toFixed(2);
 
         return {
           ...item,
           percent,
           isPrivate,
+          isMixed,
+          privateTokens: item.privateTokens,
           formattedTokens,
           costRmb,
         };
       })
       .sort((a, b) => b.tokens - a.tokens);
-  }, [quotaData]);
+  }, [quotaData, isItemPrivate]);
 
   // 上游真实落点明细
   const upstreamDetails = useMemo(() => {
@@ -716,7 +780,7 @@ export const useDashboardData = (userState, userDispatch, statusState) => {
         })
         .catch(() => {});
 
-      API.get('/api/channel/?p=0&page_size=100')
+      API.get('/api/channel/?p=0&page_size=1000')
         .then((res) => {
           if (res.data?.success && Array.isArray(res.data.data?.items)) {
             setChannelOptions(res.data.data.items);

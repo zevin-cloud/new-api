@@ -190,4 +190,13 @@ func TestLogQuotaDataSplitsRowsByUseGroupTokenChannelAndNode(t *testing.T) {
 	require.Equal(t, 60, rows[0].TokenUsed)
 	require.Equal(t, "default", rows[1].UseGroup)
 	require.Equal(t, 25, rows[1].Quota)
+
+	allDates, err := GetAllQuotaDates(3500, 3800, "")
+	require.NoError(t, err)
+	require.Len(t, allDates, 1)
+	require.Equal(t, "gpt-a", allDates[0].ModelName)
+	require.Equal(t, 1, allDates[0].ChannelID)
+	require.Equal(t, 175, allDates[0].Quota)
+	require.Equal(t, 70, allDates[0].TokenUsed)
 }
+

@@ -91,6 +91,10 @@ export default function ModelCostPanel({
                     <Tag size='small' color='teal' shape='circle'>
                       {t('本地部署')}
                     </Tag>
+                  ) : item.isMixed ? (
+                    <Tag size='small' color='cyan' shape='circle'>
+                      {t('混合分流')}
+                    </Tag>
                   ) : (
                     <Tag size='small' color='blue' shape='circle'>
                       {t('公共商业')}
@@ -118,7 +122,7 @@ export default function ModelCostPanel({
                     {item.formattedTokens}
                   </span>
 
-                  {item.isPrivate ? (
+                  {item.isPrivate || item.isMixed ? (
                     <Tag
                       color='teal'
                       shape='circle'
@@ -126,7 +130,7 @@ export default function ModelCostPanel({
                       className='!font-medium'
                     >
                       <Sparkles size={12} className='mr-1 inline text-teal-600' />
-                      {t('折算')} ¥{item.costRmb}
+                      {item.isMixed ? t('含折算') : t('折算')} ¥{item.costRmb}
                     </Tag>
                   ) : (
                     <Tag
@@ -178,7 +182,7 @@ export default function ModelCostPanel({
         <div className='text-gray-400 dark:text-gray-500 text-[11px] pt-1 border-t border-gray-200/60 dark:border-gray-700/60'>
           <Info size={12} className='inline mr-1 -mt-0.5 text-gray-400 dark:text-gray-500' />
           {t(
-            '折算规则：统一参考 DeepSeek / 通义千问官网商业阶梯价（输入 3 / 缓存命中 0.1 / 输出 9 元/百万 tokens）进行等效成本节约核算，量化私有自建集群算力 ROI。',
+            '折算规则：根据渠道配置的自建私有化算力属性，自建调用参考商用 API 阶梯价（约 4.8 元/百万 tokens）进行等效成本节约核算，量化自建算力 ROI；商业采购渠道按实际消耗配额计入。',
           )}
         </div>
       </div>

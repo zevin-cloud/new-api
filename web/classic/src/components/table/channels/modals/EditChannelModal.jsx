@@ -204,6 +204,8 @@ const EditChannelModal = (props) => {
     aws_key_type: 'ak_sk',
     // 企业账户设置
     is_enterprise_account: false,
+    // 是否为自建/私有化算力
+    is_private: false,
     // 字段透传控制默认值
     allow_service_tier: false,
     disable_store: false, // false = 允许透传（默认开启）
@@ -630,6 +632,10 @@ const EditChannelModal = (props) => {
     }
     setInputs((inputs) => ({ ...inputs, [name]: value }));
     if (name === 'type') {
+      if (!isEdit) {
+        const isLocal = value === 4 || value === 47;
+        handleChannelOtherSettingsChange('is_private', isLocal);
+      }
       let localModels = [];
       switch (value) {
         case 2:
@@ -953,6 +959,11 @@ const EditChannelModal = (props) => {
           // 读取企业账户设置
           data.is_enterprise_account =
             parsedSettings.openrouter_enterprise === true;
+          // 读取自建/私有化算力设置
+          data.is_private =
+            parsedSettings.is_private !== undefined
+              ? parsedSettings.is_private === true
+              : (data.type === 4 || data.type === 47);
           // 读取字段透传控制设置
           data.allow_service_tier = parsedSettings.allow_service_tier || false;
           data.disable_store = parsedSettings.disable_store || false;
@@ -987,6 +998,7 @@ const EditChannelModal = (props) => {
           data.vertex_key_type = 'json';
           data.aws_key_type = 'ak_sk';
           data.is_enterprise_account = false;
+          data.is_private = data.type === 4 || data.type === 47;
           data.allow_service_tier = false;
           data.disable_store = false;
           data.allow_safety_identifier = false;
@@ -1005,6 +1017,7 @@ const EditChannelModal = (props) => {
         data.vertex_key_type = 'json';
         data.aws_key_type = 'ak_sk';
         data.is_enterprise_account = false;
+        data.is_private = data.type === 4 || data.type === 47;
         data.allow_service_tier = false;
         data.disable_store = false;
         data.allow_safety_identifier = false;
@@ -1360,8 +1373,12 @@ const EditChannelModal = (props) => {
       initialBaseUrlRef.current = '';
       const initialType =
         Number(props.editingChannel?.type) || originInputs.type;
-      const initialData = { ...originInputs, type: initialType };
+      const isLocal = initialType === 4 || initialType === 47;
+      const initialData = { ...originInputs, type: initialType, is_private: isLocal };
       setInputs(initialData);
+      if (isLocal) {
+        handleChannelOtherSettingsChange('is_private', true);
+      }
       if (formApiRef.current) {
         formApiRef.current.setValues(initialData);
       }
@@ -2616,6 +2633,15 @@ const EditChannelModal = (props) => {
                   <Text className='text-sm font-medium text-gray-500 mb-3 block'>
                     {t('额外设置')}
                   </Text>
+
+                  <Form.Switch
+                    field='is_private'
+                    label={t('自建/本地私有化算力')}
+                    checkedText={t('是')}
+                    uncheckedText={t('否')}
+                    onChange={(value) => handleChannelOtherSettingsChange('is_private', value)}
+                    extraText={t('开启后标记该渠道为自建/私有化算力节点（如本地 vLLM、Ollama、GPU 集群等），数据大盘将按此统计私有化分流占比并折算节省成本')}
+                  />
 
                   {inputs.type === 14 && (
                     <Form.Switch field='claude_beta_query' label={t('Claude 强制 beta=true')} checkedText={t('开')} uncheckedText={t('关')} onChange={(value) => handleChannelOtherSettingsChange('claude_beta_query', value)} extraText={t('开启后，该渠道请求 Claude 时将强制追加 ?beta=true（无需客户端手动传参）')} />

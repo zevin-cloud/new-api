@@ -109,7 +109,7 @@ const renderType = (type, record = {}, t) => {
   };
 
   return (
-    <Space spacing={6}>
+    <Space spacing={6} align='center'>
       {typeTag}
       <Tooltip
         content={
@@ -468,6 +468,37 @@ export const getChannelsColumns = ({
         } else {
           return <>{renderTagType(t)}</>;
         }
+      },
+    },
+    {
+      key: COLUMN_KEYS.COMPUTE_TYPE,
+      title: t('算力属性'),
+      dataIndex: 'compute_type',
+      render: (text, record, index) => {
+        if (record.children !== undefined) {
+          return null;
+        }
+        let isPrivate = record?.type === 4 || record?.type === 47;
+        if (record?.settings) {
+          try {
+            const parsed =
+              typeof record.settings === 'string'
+                ? JSON.parse(record.settings)
+                : record.settings;
+            if (parsed?.is_private !== undefined) {
+              isPrivate = parsed.is_private === true;
+            }
+          } catch {}
+        }
+        return isPrivate ? (
+          <Tag color='teal' shape='circle' size='small'>
+            {t('自建算力')}
+          </Tag>
+        ) : (
+          <Tag color='blue' shape='circle' size='small'>
+            {t('公共商业')}
+          </Tag>
+        );
       },
     },
     {

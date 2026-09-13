@@ -149,6 +149,7 @@ export const useChannelsData = () => {
     NAME: 'name',
     GROUP: 'group',
     TYPE: 'type',
+    COMPUTE_TYPE: 'compute_type',
     STATUS: 'status',
     RESPONSE_TIME: 'response_time',
     BALANCE: 'balance',
@@ -189,6 +190,7 @@ export const useChannelsData = () => {
       [COLUMN_KEYS.NAME]: true,
       [COLUMN_KEYS.GROUP]: false,
       [COLUMN_KEYS.TYPE]: true,
+      [COLUMN_KEYS.COMPUTE_TYPE]: true,
       [COLUMN_KEYS.STATUS]: true,
       [COLUMN_KEYS.RESPONSE_TIME]: true,
       [COLUMN_KEYS.BALANCE]: true,
@@ -210,6 +212,9 @@ export const useChannelsData = () => {
       try {
         const parsed = JSON.parse(savedColumns);
         const defaults = getDefaultColumnVisibility();
+        if (parsed[COLUMN_KEYS.COMPUTE_TYPE] === undefined) {
+          parsed[COLUMN_KEYS.COMPUTE_TYPE] = true;
+        }
         const merged = { ...defaults, ...parsed };
         setVisibleColumns(merged);
       } catch (e) {
