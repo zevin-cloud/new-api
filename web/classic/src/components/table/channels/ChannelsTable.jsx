@@ -64,6 +64,7 @@ const ChannelsTable = (channelsData) => {
     openUpstreamUpdateModal,
     detectChannelUpstreamUpdates,
     openClientQuotaModal,
+    filterAndSortColumns,
   } = channelsData;
 
   // Get all columns
@@ -119,14 +120,13 @@ const ChannelsTable = (channelsData) => {
     openClientQuotaModal,
   ]);
 
-  // Filter columns based on visibility settings
-  const getVisibleColumns = () => {
-    return allColumns.filter((column) => visibleColumns[column.key]);
-  };
-
+  // Filter and sort columns based on settings
   const visibleColumnsList = useMemo(() => {
-    return getVisibleColumns();
-  }, [visibleColumns, allColumns]);
+    if (filterAndSortColumns) {
+      return filterAndSortColumns(allColumns);
+    }
+    return allColumns.filter((column) => visibleColumns[column.key]);
+  }, [filterAndSortColumns, allColumns, visibleColumns]);
 
   const tableColumns = useMemo(() => {
     return compactMode

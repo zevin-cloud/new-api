@@ -41,6 +41,7 @@ const ModelsActions = ({
   applyUpstreamOverwrite,
   compactMode,
   setCompactMode,
+  setShowColumnSelector,
   refresh,
   t,
 }) => {
@@ -173,6 +174,17 @@ const ModelsActions = ({
         >
           {t('预填组管理')}
         </Button>
+
+        {setShowColumnSelector && (
+          <Button
+            type='tertiary'
+            className='flex-1 md:flex-initial'
+            size='small'
+            onClick={() => setShowColumnSelector(true)}
+          >
+            {t('列设置')}
+          </Button>
+        )}
 
         <CompactModeToggle
           compactMode={compactMode}

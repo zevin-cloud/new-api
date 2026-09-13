@@ -273,6 +273,24 @@ const renderNameRule = (rule, record, t) => {
   );
 };
 
+export const MODEL_COLUMN_KEYS = {
+  ICON: 'icon',
+  MODEL_NAME: 'model_name',
+  NAME_RULE: 'name_rule',
+  SYNC_OFFICIAL: 'sync_official',
+  DESCRIPTION: 'description',
+  VENDOR_ID: 'vendor_id',
+  TAGS: 'tags',
+  ENDPOINTS: 'endpoints',
+  BOUND_CHANNELS: 'bound_channels',
+  ENABLE_GROUPS: 'enable_groups',
+  QUOTA_TYPES: 'quota_types',
+  MAX_CONCURRENCY: 'max_concurrency',
+  CREATED_TIME: 'created_time',
+  UPDATED_TIME: 'updated_time',
+  OPERATE: 'operate',
+};
+
 export const getModelsColumns = ({
   t,
   manageModel,
@@ -283,6 +301,7 @@ export const getModelsColumns = ({
 }) => {
   return [
     {
+      key: MODEL_COLUMN_KEYS.ICON,
       title: t('图标'),
       dataIndex: 'icon',
       width: 70,
@@ -290,6 +309,7 @@ export const getModelsColumns = ({
       render: (text, record) => renderModelIconCol(record, vendorMap),
     },
     {
+      key: MODEL_COLUMN_KEYS.MODEL_NAME,
       title: t('模型名称'),
       dataIndex: 'model_name',
       render: (text) => (
@@ -299,11 +319,13 @@ export const getModelsColumns = ({
       ),
     },
     {
+      key: MODEL_COLUMN_KEYS.NAME_RULE,
       title: t('匹配类型'),
       dataIndex: 'name_rule',
       render: (val, record) => renderNameRule(val, record, t),
     },
     {
+      key: MODEL_COLUMN_KEYS.SYNC_OFFICIAL,
       title: t('参与官方同步'),
       dataIndex: 'sync_official',
       render: (val) => (
@@ -313,41 +335,49 @@ export const getModelsColumns = ({
       ),
     },
     {
+      key: MODEL_COLUMN_KEYS.DESCRIPTION,
       title: t('描述'),
       dataIndex: 'description',
       render: (text) => renderDescription(text, 200),
     },
     {
+      key: MODEL_COLUMN_KEYS.VENDOR_ID,
       title: t('供应商'),
       dataIndex: 'vendor_id',
       render: (vendorId, record) => renderVendorTag(vendorId, vendorMap, t),
     },
     {
+      key: MODEL_COLUMN_KEYS.TAGS,
       title: t('标签'),
       dataIndex: 'tags',
       render: renderTags,
     },
     {
+      key: MODEL_COLUMN_KEYS.ENDPOINTS,
       title: t('端点'),
       dataIndex: 'endpoints',
       render: renderEndpoints,
     },
     {
+      key: MODEL_COLUMN_KEYS.BOUND_CHANNELS,
       title: t('已绑定渠道'),
       dataIndex: 'bound_channels',
       render: renderBoundChannels,
     },
     {
+      key: MODEL_COLUMN_KEYS.ENABLE_GROUPS,
       title: t('可用分组'),
       dataIndex: 'enable_groups',
       render: renderGroups,
     },
     {
+      key: MODEL_COLUMN_KEYS.QUOTA_TYPES,
       title: t('计费类型'),
       dataIndex: 'quota_types',
       render: (qts) => renderQuotaTypes(qts, t),
     },
     {
+      key: MODEL_COLUMN_KEYS.MAX_CONCURRENCY,
       title: t('并发限制'),
       dataIndex: 'max_concurrency',
       width: 100,
@@ -364,6 +394,7 @@ export const getModelsColumns = ({
       ),
     },
     {
+      key: MODEL_COLUMN_KEYS.CREATED_TIME,
       title: t('创建时间'),
       dataIndex: 'created_time',
       render: (text, record, index) => {
@@ -371,6 +402,7 @@ export const getModelsColumns = ({
       },
     },
     {
+      key: MODEL_COLUMN_KEYS.UPDATED_TIME,
       title: t('更新时间'),
       dataIndex: 'updated_time',
       render: (text, record, index) => {
@@ -378,6 +410,7 @@ export const getModelsColumns = ({
       },
     },
     {
+      key: MODEL_COLUMN_KEYS.OPERATE,
       title: '',
       dataIndex: 'operate',
       fixed: 'right',

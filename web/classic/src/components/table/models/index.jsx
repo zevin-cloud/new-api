@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Banner, Button, Modal } from '@douyinfe/semi-ui';
 import { IconAlertTriangle, IconClose } from '@douyinfe/semi-icons';
 import CardPro from '../../common/ui/CardPro';
@@ -27,6 +27,8 @@ import ModelsFilters from './ModelsFilters';
 import ModelsTabs from './ModelsTabs';
 import EditModelModal from './modals/EditModelModal';
 import EditVendorModal from './modals/EditVendorModal';
+import ColumnSelectorModal from '../../common/table/ColumnSelectorModal';
+import { getModelsColumns } from './ModelsColumnDefs';
 import { useModelsData } from '../../../hooks/models/useModelsData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../../helpers/utils';
@@ -107,8 +109,39 @@ const ModelsPage = () => {
     });
   };
 
+  const allColumns = useMemo(() => {
+    return getModelsColumns({
+      t: modelsData.t,
+      manageModel: modelsData.manageModel,
+      setEditingModel: modelsData.setEditingModel,
+      setShowEdit: modelsData.setShowEdit,
+      refresh: modelsData.refresh,
+      vendorMap: modelsData.vendorMap,
+    });
+  }, [
+    modelsData.t,
+    modelsData.manageModel,
+    modelsData.setEditingModel,
+    modelsData.setShowEdit,
+    modelsData.refresh,
+    modelsData.vendorMap,
+  ]);
+
   return (
     <>
+      <ColumnSelectorModal
+        visible={modelsData.showColumnSelector}
+        onCancel={() => modelsData.setShowColumnSelector(false)}
+        allColumns={allColumns}
+        visibleColumns={modelsData.visibleColumns}
+        columnOrder={modelsData.columnOrder}
+        handleColumnVisibilityChange={modelsData.handleColumnVisibilityChange}
+        handleColumnOrderChange={modelsData.handleColumnOrderChange}
+        handleSelectAll={modelsData.handleSelectAll}
+        initDefaultColumns={modelsData.initDefaultColumns}
+        t={modelsData.t}
+      />
+
       <EditModelModal
         refresh={refresh}
         editingModel={editingModel}
@@ -175,6 +208,7 @@ const ModelsPage = () => {
               applyUpstreamOverwrite={modelsData.applyUpstreamOverwrite}
               compactMode={compactMode}
               setCompactMode={setCompactMode}
+              setShowColumnSelector={modelsData.setShowColumnSelector}
               refresh={modelsData.refresh}
               t={t}
             />

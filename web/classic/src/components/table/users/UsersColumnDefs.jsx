@@ -222,6 +222,16 @@ const renderOperations = (
   );
 };
 
+export const USER_COLUMN_KEYS = {
+  ID: 'id',
+  USERNAME: 'username',
+  STATUS: 'info',
+  DEPARTMENT: 'department_name',
+  ROLE: 'role',
+  CREATED_AT: 'created_at',
+  OPERATE: 'operate',
+};
+
 /**
  * Get users table column definitions
  */
@@ -240,11 +250,13 @@ export const getUsersColumns = ({
 }) => {
   return [
     {
+      key: USER_COLUMN_KEYS.ID,
       title: 'ID',
       dataIndex: 'id',
       width: 70,
     },
     {
+      key: USER_COLUMN_KEYS.USERNAME,
       title: t('用户名 / 姓名'),
       dataIndex: 'username',
       render: (text, record) => (
@@ -258,12 +270,14 @@ export const getUsersColumns = ({
       ),
     },
     {
+      key: USER_COLUMN_KEYS.STATUS,
       title: t('状态'),
       dataIndex: 'info',
       render: (text, record, index) =>
         renderStatistics(text, record, showEnableDisableModal, t),
     },
     {
+      key: USER_COLUMN_KEYS.DEPARTMENT,
       title: t('所属部门'),
       dataIndex: 'department_name',
       render: (text, record) => {
@@ -282,6 +296,7 @@ export const getUsersColumns = ({
       },
     },
     {
+      key: USER_COLUMN_KEYS.ROLE,
       title: t('角色'),
       dataIndex: 'role',
       render: (text, record, index) => {
@@ -289,11 +304,13 @@ export const getUsersColumns = ({
       },
     },
     {
+      key: USER_COLUMN_KEYS.CREATED_AT,
       title: t('创建时间'),
       dataIndex: 'created_at',
       render: renderTimestamp,
     },
     {
+      key: USER_COLUMN_KEYS.OPERATE,
       title: t('操作'),
       dataIndex: 'operate',
       fixed: 'right',

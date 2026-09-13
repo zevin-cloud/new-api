@@ -56,6 +56,7 @@ const UsersTable = (usersData) => {
     refresh,
     resetUserPasskey,
     resetUserTwoFA,
+    filterAndSortColumns,
     t,
   } = usersData;
 
@@ -168,18 +169,26 @@ const UsersTable = (usersData) => {
     showUserSubscriptionsUserModal,
   ]);
 
+  // Filter and sort columns based on settings
+  const visibleColumnsList = useMemo(() => {
+    if (filterAndSortColumns) {
+      return filterAndSortColumns(columns);
+    }
+    return columns;
+  }, [filterAndSortColumns, columns]);
+
   // Handle compact mode by removing fixed positioning
   const tableColumns = useMemo(() => {
     return compactMode
-      ? columns.map((col) => {
+      ? visibleColumnsList.map((col) => {
           if (col.dataIndex === 'operate') {
             const { fixed, ...rest } = col;
             return rest;
           }
           return col;
         })
-      : columns;
-  }, [compactMode, columns]);
+      : visibleColumnsList;
+  }, [compactMode, visibleColumnsList]);
 
   const rowSelection = {
     selectedRowKeys,

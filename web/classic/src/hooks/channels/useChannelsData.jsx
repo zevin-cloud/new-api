@@ -35,6 +35,7 @@ import {
 } from '../../constants';
 import { useIsMobile } from '../common/useIsMobile';
 import { useTableCompactMode } from '../common/useTableCompactMode';
+import { useTableColumns } from '../common/useTableColumns';
 import { useChannelUpstreamUpdates } from './useChannelUpstreamUpdates';
 import { parseUpstreamUpdateMeta } from './upstreamUpdateUtils';
 import { Modal, Button } from '@douyinfe/semi-ui';
@@ -66,9 +67,6 @@ export const useChannelsData = () => {
   const [batchSetTagValue, setBatchSetTagValue] = useState('');
   const [compactMode, setCompactMode] = useTableCompactMode('channels');
 
-  // Column visibility states
-  const [visibleColumns, setVisibleColumns] = useState({});
-  const [showColumnSelector, setShowColumnSelector] = useState(false);
 
   // Status filter
   const [statusFilter, setStatusFilter] = useState(
@@ -183,7 +181,7 @@ export const useChannelsData = () => {
     fetchGlobalPassThroughEnabled().then();
   }, []);
 
-  // Column visibility management
+  // Column visibility and ordering management
   const getDefaultColumnVisibility = () => {
     return {
       [COLUMN_KEYS.ID]: true,
@@ -200,55 +198,37 @@ export const useChannelsData = () => {
     };
   };
 
-  const initDefaultColumns = () => {
-    const defaults = getDefaultColumnVisibility();
-    setVisibleColumns(defaults);
-  };
+  const getDefaultColumnOrder = () => [
+    COLUMN_KEYS.ID,
+    COLUMN_KEYS.NAME,
+    COLUMN_KEYS.GROUP,
+    COLUMN_KEYS.TYPE,
+    COLUMN_KEYS.COMPUTE_TYPE,
+    COLUMN_KEYS.STATUS,
+    COLUMN_KEYS.RESPONSE_TIME,
+    COLUMN_KEYS.BALANCE,
+    COLUMN_KEYS.PRIORITY,
+    COLUMN_KEYS.WEIGHT,
+    COLUMN_KEYS.OPERATE,
+  ];
 
-  // Load saved column preferences
-  useEffect(() => {
-    const savedColumns = localStorage.getItem('channels-table-columns');
-    if (savedColumns) {
-      try {
-        const parsed = JSON.parse(savedColumns);
-        const defaults = getDefaultColumnVisibility();
-        if (parsed[COLUMN_KEYS.COMPUTE_TYPE] === undefined) {
-          parsed[COLUMN_KEYS.COMPUTE_TYPE] = true;
-        }
-        const merged = { ...defaults, ...parsed };
-        setVisibleColumns(merged);
-      } catch (e) {
-        console.error('Failed to parse saved column preferences', e);
-        initDefaultColumns();
-      }
-    } else {
-      initDefaultColumns();
-    }
-  }, []);
-
-  // Save column preferences
-  useEffect(() => {
-    if (Object.keys(visibleColumns).length > 0) {
-      localStorage.setItem(
-        'channels-table-columns',
-        JSON.stringify(visibleColumns),
-      );
-    }
-  }, [visibleColumns]);
-
-  const handleColumnVisibilityChange = (columnKey, checked) => {
-    const updatedColumns = { ...visibleColumns, [columnKey]: checked };
-    setVisibleColumns(updatedColumns);
-  };
-
-  const handleSelectAll = (checked) => {
-    const allKeys = Object.keys(COLUMN_KEYS).map((key) => COLUMN_KEYS[key]);
-    const updatedColumns = {};
-    allKeys.forEach((key) => {
-      updatedColumns[key] = checked;
-    });
-    setVisibleColumns(updatedColumns);
-  };
+  const {
+    showColumnSelector,
+    setShowColumnSelector,
+    visibleColumns,
+    setVisibleColumns,
+    columnOrder,
+    setColumnOrder,
+    handleColumnVisibilityChange,
+    handleSelectAll,
+    handleColumnOrderChange,
+    initDefaultColumns,
+    filterAndSortColumns,
+  } = useTableColumns({
+    tableKey: 'channels',
+    defaultVisibility: getDefaultColumnVisibility(),
+    defaultOrder: getDefaultColumnOrder(),
+  });
 
   // Data formatting
   const setChannelFormat = (channels, enableTagMode) => {
@@ -1260,9 +1240,15 @@ export const useChannelsData = () => {
     getFormValues,
 
     // Column functions
+    showColumnSelector,
+    setShowColumnSelector,
+    visibleColumns,
+    columnOrder,
     handleColumnVisibilityChange,
     handleSelectAll,
+    handleColumnOrderChange,
     initDefaultColumns,
+    filterAndSortColumns,
     getDefaultColumnVisibility,
 
     // Client quota modal

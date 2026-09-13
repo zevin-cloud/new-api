@@ -25,6 +25,7 @@ const UsersActions = ({
   setShowAddUser,
   setShowImportModal,
   setShowBatchGroupModal,
+  setShowColumnSelector,
   selectedRowKeys = [],
   t,
 }) => {
@@ -48,6 +49,17 @@ const UsersActions = ({
       >
         {t('批量导入')}
       </Button>
+
+      {setShowColumnSelector && (
+        <Button
+          size='small'
+          type='tertiary'
+          className='w-full md:w-auto'
+          onClick={() => setShowColumnSelector(true)}
+        >
+          {t('列设置')}
+        </Button>
+      )}
 
       {selectedRowKeys.length > 0 && (
         <Button

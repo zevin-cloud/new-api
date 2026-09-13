@@ -22,6 +22,8 @@ import { useTranslation } from 'react-i18next';
 import { API, showError, showSuccess } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
+import { useTableColumns } from '../common/useTableColumns';
+import { USER_COLUMN_KEYS } from '../../components/table/users/UsersColumnDefs';
 
 export const useUsersData = () => {
   const { t } = useTranslation();
@@ -59,6 +61,45 @@ export const useUsersData = () => {
     searchGroup: '',
     searchUserGroupId: '',
   };
+
+  // Column visibility and order settings
+  const defaultUsersVisibility = {
+    [USER_COLUMN_KEYS.ID]: true,
+    [USER_COLUMN_KEYS.USERNAME]: true,
+    [USER_COLUMN_KEYS.STATUS]: true,
+    [USER_COLUMN_KEYS.DEPARTMENT]: true,
+    [USER_COLUMN_KEYS.ROLE]: true,
+    [USER_COLUMN_KEYS.CREATED_AT]: true,
+    [USER_COLUMN_KEYS.OPERATE]: true,
+  };
+
+  const defaultUsersOrder = [
+    USER_COLUMN_KEYS.ID,
+    USER_COLUMN_KEYS.USERNAME,
+    USER_COLUMN_KEYS.STATUS,
+    USER_COLUMN_KEYS.DEPARTMENT,
+    USER_COLUMN_KEYS.ROLE,
+    USER_COLUMN_KEYS.CREATED_AT,
+    USER_COLUMN_KEYS.OPERATE,
+  ];
+
+  const {
+    showColumnSelector,
+    setShowColumnSelector,
+    visibleColumns,
+    setVisibleColumns,
+    columnOrder,
+    setColumnOrder,
+    handleColumnVisibilityChange,
+    handleSelectAll,
+    handleColumnOrderChange,
+    initDefaultColumns,
+    filterAndSortColumns,
+  } = useTableColumns({
+    tableKey: 'users',
+    defaultVisibility: defaultUsersVisibility,
+    defaultOrder: defaultUsersOrder,
+  });
 
   // Form API reference
   const [formApi, setFormApi] = useState(null);
@@ -356,6 +397,18 @@ export const useUsersData = () => {
     // UI state
     compactMode,
     setCompactMode,
+
+    // Column functions
+    showColumnSelector,
+    setShowColumnSelector,
+    visibleColumns,
+    columnOrder,
+    handleColumnVisibilityChange,
+    handleSelectAll,
+    handleColumnOrderChange,
+    initDefaultColumns,
+    filterAndSortColumns,
+    USER_COLUMN_KEYS,
 
     // Actions
     loadUsers,

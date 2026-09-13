@@ -22,6 +22,8 @@ import { useTranslation } from 'react-i18next';
 import { API, showError, showSuccess } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
+import { useTableColumns } from '../common/useTableColumns';
+import { MODEL_COLUMN_KEYS } from '../../components/table/models/ModelsColumnDefs';
 
 export const useModelsData = () => {
   const { t } = useTranslation();
@@ -58,6 +60,61 @@ export const useModelsData = () => {
     searchKeyword: '',
     searchVendor: '',
   };
+
+  // Column visibility and order settings
+  const defaultModelsVisibility = {
+    [MODEL_COLUMN_KEYS.ICON]: true,
+    [MODEL_COLUMN_KEYS.MODEL_NAME]: true,
+    [MODEL_COLUMN_KEYS.NAME_RULE]: true,
+    [MODEL_COLUMN_KEYS.SYNC_OFFICIAL]: true,
+    [MODEL_COLUMN_KEYS.DESCRIPTION]: true,
+    [MODEL_COLUMN_KEYS.VENDOR_ID]: true,
+    [MODEL_COLUMN_KEYS.TAGS]: true,
+    [MODEL_COLUMN_KEYS.ENDPOINTS]: true,
+    [MODEL_COLUMN_KEYS.BOUND_CHANNELS]: true,
+    [MODEL_COLUMN_KEYS.ENABLE_GROUPS]: true,
+    [MODEL_COLUMN_KEYS.QUOTA_TYPES]: true,
+    [MODEL_COLUMN_KEYS.MAX_CONCURRENCY]: true,
+    [MODEL_COLUMN_KEYS.CREATED_TIME]: true,
+    [MODEL_COLUMN_KEYS.UPDATED_TIME]: true,
+    [MODEL_COLUMN_KEYS.OPERATE]: true,
+  };
+
+  const defaultModelsOrder = [
+    MODEL_COLUMN_KEYS.ICON,
+    MODEL_COLUMN_KEYS.MODEL_NAME,
+    MODEL_COLUMN_KEYS.NAME_RULE,
+    MODEL_COLUMN_KEYS.SYNC_OFFICIAL,
+    MODEL_COLUMN_KEYS.DESCRIPTION,
+    MODEL_COLUMN_KEYS.VENDOR_ID,
+    MODEL_COLUMN_KEYS.TAGS,
+    MODEL_COLUMN_KEYS.ENDPOINTS,
+    MODEL_COLUMN_KEYS.BOUND_CHANNELS,
+    MODEL_COLUMN_KEYS.ENABLE_GROUPS,
+    MODEL_COLUMN_KEYS.QUOTA_TYPES,
+    MODEL_COLUMN_KEYS.MAX_CONCURRENCY,
+    MODEL_COLUMN_KEYS.CREATED_TIME,
+    MODEL_COLUMN_KEYS.UPDATED_TIME,
+    MODEL_COLUMN_KEYS.OPERATE,
+  ];
+
+  const {
+    showColumnSelector,
+    setShowColumnSelector,
+    visibleColumns,
+    setVisibleColumns,
+    columnOrder,
+    setColumnOrder,
+    handleColumnVisibilityChange,
+    handleSelectAll,
+    handleColumnOrderChange,
+    initDefaultColumns,
+    filterAndSortColumns,
+  } = useTableColumns({
+    tableKey: 'models',
+    defaultVisibility: defaultModelsVisibility,
+    defaultOrder: defaultModelsOrder,
+  });
 
   // ---------- helpers ----------
   // Safely extract array items from API payload
@@ -469,6 +526,18 @@ export const useModelsData = () => {
     // UI state
     compactMode,
     setCompactMode,
+
+    // Column functions
+    showColumnSelector,
+    setShowColumnSelector,
+    visibleColumns,
+    columnOrder,
+    handleColumnVisibilityChange,
+    handleSelectAll,
+    handleColumnOrderChange,
+    initDefaultColumns,
+    filterAndSortColumns,
+    MODEL_COLUMN_KEYS,
 
     // Vendor data
     vendors,

@@ -17,8 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import CardPro from '../../common/ui/CardPro';
+import ColumnSelectorModal from '../../common/table/ColumnSelectorModal';
+import { getUsersColumns } from './UsersColumnDefs';
 import UsersTable from './UsersTable';
 import UsersActions from './UsersActions';
 import UsersFilters from './UsersFilters';
@@ -89,8 +91,25 @@ const UsersPage = () => {
     setShowEditUser(true);
   };
 
+  const allColumns = useMemo(() => {
+    return getUsersColumns({ t });
+  }, [t]);
+
   return (
     <>
+      <ColumnSelectorModal
+        visible={usersData.showColumnSelector}
+        onCancel={() => usersData.setShowColumnSelector(false)}
+        allColumns={allColumns}
+        visibleColumns={usersData.visibleColumns}
+        columnOrder={usersData.columnOrder}
+        handleColumnVisibilityChange={usersData.handleColumnVisibilityChange}
+        handleColumnOrderChange={usersData.handleColumnOrderChange}
+        handleSelectAll={usersData.handleSelectAll}
+        initDefaultColumns={usersData.initDefaultColumns}
+        t={usersData.t}
+      />
+
       <EditUserModal
         refresh={refresh}
         visible={showEditUser}
@@ -151,6 +170,7 @@ const UsersPage = () => {
                   onAddUser={handleAddUser}
                   setShowImportModal={setShowImportModal}
                   setShowBatchGroupModal={setShowBatchGroupModal}
+                  setShowColumnSelector={usersData.setShowColumnSelector}
                   selectedRowKeys={selectedRowKeys}
                   t={t}
                 />

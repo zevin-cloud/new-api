@@ -43,11 +43,12 @@ const ModelsTable = (modelsData) => {
     setShowEdit,
     refresh,
     vendorMap,
+    filterAndSortColumns,
     t,
   } = modelsData;
 
   // Get all columns
-  const columns = useMemo(() => {
+  const allColumns = useMemo(() => {
     return getModelsColumns({
       t,
       manageModel,
@@ -58,18 +59,26 @@ const ModelsTable = (modelsData) => {
     });
   }, [t, manageModel, setEditingModel, setShowEdit, refresh, vendorMap]);
 
+  // Filter and sort columns based on settings
+  const visibleColumnsList = useMemo(() => {
+    if (filterAndSortColumns) {
+      return filterAndSortColumns(allColumns);
+    }
+    return allColumns;
+  }, [filterAndSortColumns, allColumns]);
+
   // Handle compact mode by removing fixed positioning
   const tableColumns = useMemo(() => {
     return compactMode
-      ? columns.map((col) => {
+      ? visibleColumnsList.map((col) => {
           if (col.dataIndex === 'operate') {
             const { fixed, ...rest } = col;
             return rest;
           }
           return col;
         })
-      : columns;
-  }, [compactMode, columns]);
+      : visibleColumnsList;
+  }, [compactMode, visibleColumnsList]);
 
   return (
     <CardTable
