@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useContext, useState } from 'react';
-import { Button, Input, Switch } from '@douyinfe/semi-ui';
+import { Button, Input, Switch, Tooltip } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../context/Status';
 import { setStatusData } from '../../helpers/data';
@@ -109,6 +109,52 @@ export default function UsageSettings(props) {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (props.section === 'registration') {
+    const field = fields[0];
+    return (
+      <div>
+        <div className='flex min-h-[48px] flex-wrap items-center gap-x-3 gap-y-1 py-2'>
+          <Switch
+            id={field.key}
+            size='small'
+            aria-label={field.label}
+            aria-describedby={`${field.key}-description`}
+            checked={values[field.key]}
+            disabled={saving}
+            onChange={(value) => {
+              setDraft((previous) => ({ ...previous, [field.key]: value }));
+              setSaved(false);
+            }}
+          />
+          <Tooltip content={field.description}>
+            <label htmlFor={field.key} className='cursor-help'>
+              {field.label}
+            </label>
+          </Tooltip>
+          <span id={`${field.key}-description`} className='sr-only'>
+            {field.description}
+          </span>
+          {changed && (
+            <Button
+              htmlType='button'
+              size='small'
+              onClick={save}
+              loading={saving}
+            >
+              {t('Save these settings')}
+            </Button>
+          )}
+        </div>
+        {error && <p role='alert'>{error}</p>}
+        {saved && (
+          <p role='status' className='sr-only'>
+            {t('Settings saved')}
+          </p>
+        )}
+      </div>
+    );
   }
 
   return (

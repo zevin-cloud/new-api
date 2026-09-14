@@ -89,3 +89,27 @@ it('keeps edits available after the server rejects saving', async () => {
     ).toBeEnabled(),
   );
 });
+
+it('keeps registration compact with help out of flow and save shown only for edits', async () => {
+  render(
+    <UsageSettings section='registration' options={{}} refresh={vi.fn()} />,
+  );
+  const control = screen.getByRole('switch', {
+    name: 'Show registration entry',
+  });
+  expect(
+    screen.queryByRole('button', { name: 'Save these settings' }),
+  ).not.toBeInTheDocument();
+  const description = document.getElementById(
+    control.getAttribute('aria-describedby'),
+  );
+  expect(description).toHaveClass('sr-only');
+  fireEvent.click(control);
+  fireEvent.click(screen.getByRole('button', { name: 'Save these settings' }));
+  expect(await screen.findByRole('status')).toHaveClass('sr-only');
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('button', { name: 'Save these settings' }),
+    ).not.toBeInTheDocument(),
+  );
+});
