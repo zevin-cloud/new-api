@@ -253,10 +253,15 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (hostt
 }
 
 func HasModelBillingConfig(modelName string) bool {
+	return operation_setting.GetUsageSetting().AllowUnpricedModels() || HasConfiguredModelBilling(modelName)
+}
+
+// HasConfiguredModelBilling checks actual pricing, excluding request-time fallback billing.
+func HasConfiguredModelBilling(modelName string) bool {
 	if _, ok := ratio_setting.GetModelPrice(modelName, false); ok {
 		return true
 	}
-	if _, ok, _ := ratio_setting.GetModelRatio(modelName); ok {
+	if ratio_setting.HasConfiguredModelRatio(modelName) {
 		return true
 	}
 	if billing_setting.GetBillingMode(modelName) != billing_setting.BillingModeTieredExpr {

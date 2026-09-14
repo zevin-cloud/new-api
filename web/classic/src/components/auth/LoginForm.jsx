@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
+import { getUsageDisplay } from '../../services/usageSettings';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { UserContext } from '../../context/User';
@@ -694,7 +695,7 @@ const LoginForm = () => {
                 </div>
               )}
 
-              {!status.self_use_mode_enabled && (
+              {getUsageDisplay(status).showRegistration && (
                 <div className='mt-6 text-center text-sm'>
                   <Text className='!text-gray-600 dark:!text-gray-400'>
                     {t('没有账户？')}{' '}
@@ -847,7 +848,7 @@ const LoginForm = () => {
                 </>
               )}
 
-              {!status.self_use_mode_enabled && (
+              {getUsageDisplay(status).showRegistration && (
                 <div className='mt-6 text-center text-sm'>
                   <Text className='!text-gray-600 dark:!text-gray-400'>
                     {t('没有账户？')}{' '}

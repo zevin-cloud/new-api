@@ -51,7 +51,6 @@ const OperationSetting = ({ initialSection } = {}) => {
     DisplayTokenStatEnabled: false,
     DefaultCollapseSidebar: false,
     DemoSiteEnabled: false,
-    SelfUseModeEnabled: false,
 
     /* 顶栏模块管理 */
     HeaderNavModules: '',

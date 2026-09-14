@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
+import UsageSettings from './UsageSettings';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   Button,
@@ -1067,6 +1068,11 @@ const SystemSetting = ({ section } = {}) => {
                       >
                         {t('允许新用户注册')}
                       </Form.Checkbox>
+                      <UsageSettings
+                        section='registration'
+                        options={inputs}
+                        refresh={getOptions}
+                      />
                       <Form.Checkbox
                         field='TurnstileCheckEnabled'
                         noLabel

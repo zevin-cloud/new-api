@@ -31,7 +31,8 @@ const HeaderLogo = ({
   isLoading,
   systemName,
   version,
-  isSelfUseMode,
+  showSiteLabel,
+  siteLabelText,
   isDemoSiteMode,
   t,
 }) => {
@@ -82,14 +83,15 @@ const HeaderLogo = ({
               </span>
             </span>
           )}
-          {(isSelfUseMode || isDemoSiteMode) && !isLoading && (
+          {(showSiteLabel || isDemoSiteMode) && !isLoading && (
             <Tag
-              color={isSelfUseMode ? 'purple' : 'blue'}
-              className='text-xs px-1.5 py-0.5 rounded whitespace-nowrap shadow-sm'
+              color={showSiteLabel ? 'purple' : 'blue'}
+              title={showSiteLabel ? siteLabelText : t('演示站点')}
+              className='text-xs px-1.5 py-0.5 rounded whitespace-nowrap shadow-sm max-w-[16rem] overflow-hidden text-ellipsis'
               size='small'
               shape='circle'
             >
-              {isSelfUseMode ? t('自用模式') : t('演示站点')}
+              {showSiteLabel ? siteLabelText : t('演示站点')}
             </Tag>
           )}
         </div>

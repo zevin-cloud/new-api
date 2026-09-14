@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
+import { getUsageDisplay } from '../../services/usageSettings';
 import { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -56,7 +57,9 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
   const currentDate = new Date();
   const isNewYear = currentDate.getMonth() === 0 && currentDate.getDate() === 1;
 
-  const isSelfUseMode = statusState?.status?.self_use_mode_enabled || false;
+  const { showRegistration, showSiteLabel, siteLabelText } = getUsageDisplay(
+    statusState?.status,
+  );
   const docsLink = statusState?.status?.docs_link || '';
   const isDemoSiteMode = statusState?.status?.demo_site_enabled || false;
 
@@ -237,7 +240,9 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     systemName,
     logo,
     isNewYear,
-    isSelfUseMode,
+    showRegistration,
+    showSiteLabel,
+    siteLabelText,
     docsLink,
     isDemoSiteMode,
     isConsoleRoute,

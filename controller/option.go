@@ -89,6 +89,17 @@ func GetOptions(c *gin.Context) {
 			continue
 		}
 		value := common.Interface2String(v)
+		usage := operation_setting.GetUsageSetting()
+		switch k {
+		case "usage_setting.allow_unpriced_models_enabled":
+			value = strconv.FormatBool(usage.AllowUnpricedModels())
+		case "usage_setting.show_unpriced_models_enabled":
+			value = strconv.FormatBool(usage.ShowUnpricedModels())
+		case "usage_setting.show_registration_enabled":
+			value = strconv.FormatBool(usage.ShowRegistration())
+		case "usage_setting.site_label_enabled":
+			value = strconv.FormatBool(usage.ShowSiteLabel())
+		}
 		isSensitiveKey := strings.HasSuffix(k, "Token") ||
 			strings.HasSuffix(k, "Secret") ||
 			strings.HasSuffix(k, "Key") ||
@@ -144,6 +155,26 @@ func UpdateOption(c *gin.Context) {
 		option.Value = common.Interface2String(option.Value.(int))
 	default:
 		option.Value = fmt.Sprintf("%v", option.Value)
+	}
+	if strings.HasPrefix(option.Key, "usage_setting.") {
+		value := option.Value.(string)
+		switch option.Key {
+		case "usage_setting.site_label_text":
+			value = strings.TrimSpace(value)
+			if err := operation_setting.ValidateSiteLabel(value); err != nil {
+				common.ApiErrorMsg(c, err.Error())
+				return
+			}
+			option.Value = value
+		case "usage_setting.allow_unpriced_models_enabled", "usage_setting.show_unpriced_models_enabled", "usage_setting.show_registration_enabled", "usage_setting.site_label_enabled":
+			if value != "true" && value != "false" {
+				common.ApiErrorMsg(c, "设置值必须为 true 或 false")
+				return
+			}
+		default:
+			common.ApiErrorMsg(c, "未知的使用设置")
+			return
+		}
 	}
 	switch option.Key {
 	case "QuotaForInviter", "QuotaForInvitee":

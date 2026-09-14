@@ -216,7 +216,7 @@ func getModelListGroups(c *gin.Context) (modelListGroups, error) {
 }
 
 func ListModels(c *gin.Context, modelType int) {
-	acceptUnsetRatioModel := operation_setting.SelfUseModeEnabled
+	acceptUnsetRatioModel := operation_setting.GetUsageSetting().ShowUnpricedModels()
 	if !acceptUnsetRatioModel {
 		userId := c.GetInt("id")
 		if userId > 0 {
@@ -278,7 +278,7 @@ func ListModels(c *gin.Context, modelType int) {
 				continue
 			}
 		}
-		if !acceptUnsetRatioModel && !helper.HasModelBillingConfig(modelName) {
+		if !acceptUnsetRatioModel && !helper.HasConfiguredModelBilling(modelName) {
 			continue
 		}
 		userModelNames = append(userModelNames, modelName)

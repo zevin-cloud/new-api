@@ -687,3 +687,38 @@ func TestModelRoutingListsCrossPoolModelsWithoutUserGroupPermission(t *testing.T
 	}
 	assert.ElementsMatch(t, []string{"routing-a", "routing-b"}, names2)
 }
+
+func TestListModelsUnpricedVisibilityIndependentFromCallPermission(t *testing.T) {
+	usage := operation_setting.GetUsageSetting()
+	original := *usage
+	t.Cleanup(func() { *usage = original })
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "zz-unpriced-visible", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "zz-unpriced-denied", ChannelId: 1, Enabled: true},
+	}).Error)
+	grantModelListAccess(t, 1002, []string{"zz-unpriced-visible", "zz-unpriced-denied"})
+	for _, allow := range []bool{false, true} {
+		for _, show := range []bool{false, true} {
+			t.Run(fmt.Sprintf("allow_%t_show_%t", allow, show), func(t *testing.T) {
+				usage.AllowUnpricedModelsEnabled = &allow
+				usage.ShowUnpricedModelsEnabled = &show
+				recorder := httptest.NewRecorder()
+				ctx, _ := gin.CreateTestContext(recorder)
+				ctx.Set("id", 1002)
+				ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+				common.SetContextKey(ctx, constant.ContextKeyUserGroup, "default")
+				common.SetContextKey(ctx, constant.ContextKeyTokenModelLimitEnabled, true)
+				common.SetContextKey(ctx, constant.ContextKeyTokenModelLimit, map[string]bool{"zz-unpriced-visible": true})
+				ListModels(ctx, constant.ChannelTypeOpenAI)
+				ids := decodeListModelsResponse(t, recorder)
+				if show {
+					assert.Contains(t, ids, "zz-unpriced-visible")
+				} else {
+					assert.Empty(t, ids)
+				}
+				assert.NotContains(t, ids, "zz-unpriced-denied")
+			})
+		}
+	}
+}

@@ -22,6 +22,7 @@ import { Card, Spin, Tabs } from '@douyinfe/semi-ui';
 
 import { API, showError, showSuccess, toBoolean } from '../../helpers';
 import { useTranslation } from 'react-i18next';
+import UsageSettings from './UsageSettings';
 import SettingGeminiModel from '../../pages/Setting/Model/SettingGeminiModel';
 import SettingClaudeModel from '../../pages/Setting/Model/SettingClaudeModel';
 import SettingGlobalModel from '../../pages/Setting/Model/SettingGlobalModel';
@@ -109,6 +110,13 @@ const ModelSetting = () => {
   return (
     <>
       <Spin spinning={loading} size='large'>
+        <Card style={{ marginTop: '10px' }}>
+          <UsageSettings
+            section='models'
+            options={inputs}
+            refresh={onRefresh}
+          />
+        </Card>
         {/* OpenAI */}
         <Card style={{ marginTop: '10px' }}>
           <SettingGlobalModel options={inputs} refresh={onRefresh} />

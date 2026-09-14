@@ -60,7 +60,9 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     systemName,
     logo,
     isNewYear,
-    isSelfUseMode,
+    showRegistration,
+    showSiteLabel,
+    siteLabelText,
     docsLink,
     isDemoSiteMode,
     isConsoleRoute,
@@ -131,7 +133,8 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
               isLoading={isLoading}
               systemName={systemName}
               version={statusState?.status?.version}
-              isSelfUseMode={isSelfUseMode}
+              showSiteLabel={showSiteLabel}
+              siteLabelText={siteLabelText}
               isDemoSiteMode={isDemoSiteMode}
               t={t}
             />
@@ -157,7 +160,7 @@ const HeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
             userState={userState}
             isLoading={isLoading}
             isMobile={isMobile}
-            isSelfUseMode={isSelfUseMode}
+            showRegistration={showRegistration}
             logout={logout}
             navigate={navigate}
             t={t}
