@@ -300,4 +300,38 @@
 #### 客户端账号授权弹窗（Claude Code 授权指引与回调链接）
 ![客户端授权弹窗](/Users/zevin/.gemini/antigravity-ide/brain/fb258509-f602-416f-9f4b-dd76fea42234/claude_code_auth_modal_1788783291862.png)
 
+---
 
+## 七、 【后续规划 / 待开发】请求 Prompt 与响应持久化及 LLM 可观测性建设
+
+### 1. 需求背景与痛点
+* **业务诉求**：在企业生产环境中，排查下游调用异常、调试 Prompt 效果、安全合规审计以及追踪多轮对话上下文时，迫切需要获取完整的请求 Prompt 甚至模型生成的 Completion 内容。
+* **现有架构瓶颈与为什么默认不存**：
+  1. **海量存储与 I/O 冲击**：LLM 请求包含超长上下文（几十万 Tokens）甚至大尺寸图片/多媒体（Base64 字符串），若全部直接写入主库（MySQL/PostgreSQL/SQLite）的 `logs` 表，会导致数据库体积急剧膨胀，备份与查询延迟飙升，拖垮核心网关的高并发转发能力。
+  2. **数据合规与隐私风险**：网关全量明文落库涉及个人敏感数据（PII）、密钥或企业内部涉密信息，必须具备脱敏与精细化开关机制。
+
+---
+
+### 2. 候选技术架构与方案比对
+
+| 方案 | 适用场景 | 架构核心与存储组件 | 优势 | 潜在劣势 / 注意事项 |
+| :--- | :--- | :--- | :--- | :--- |
+| **方案 A：内部扩展独立表 + ClickHouse / TTL** | 轻量化、依赖收敛、仅供网关后台自查 | 扩展 `log_prompts` 独立表，通过 `request_id` 关联 `logs`；建议落地配置的 ClickHouse 日志库 | 无需引入独立第三方系统，配合现有 ClickHouse 日志分流与 TTL 自动淘汰 | 需要自研多模态清洗（过滤 Base64）、流式拼接与后台 UI 展示组件 |
+| **方案 B：接入 Langfuse 开源私有化平台（推荐）** | 专业 LLM 运维、多轮对话回溯、Prompt 调试与评测 | **Self-Hosted Langfuse**：<br>Postgres（元数据）+ ClickHouse（Trace 列存）+ Redis + S3/MinIO（大对象） | 开箱即用完整对话树、Prompt 版本管理、成本/延迟指标；异步接收，零阻塞网关 | 需要单独部署并运维一套容器服务（Docker Compose / K8s） |
+| **方案 C：异步日志采集管道（ELK / Fluent Bit + ES）** | 已有成熟企业大数据平台、强依赖关键词全文检索 | 网关异步记录本地 JSON 日志 -> Filebeat/Fluent Bit -> Elasticsearch / OpenSearch | 全文检索 Prompt 极快，对网关性能零损耗，兼容成熟运维体系 | 缺少针对 LLM 的结构化对话树呈现，通常只能按日志行进行文本搜索 |
+
+---
+
+### 3. 待开发落地设计要点（待实施阶段参考）
+
+1. **核心注入点与数据清洗**：
+   - 在 [controller/relay.go](file:///Users/zevin/Desktop/code/new-api/controller/relay.go) 的 `helper.GetAndValidateRequest` 阶段抓取请求文本（复用 `request.GetTokenCountMeta()` 提取纯文本，或结构化解析 `messages`）。
+   - **防御性清洗**：严格清洗 `image_url`、`audio` 等大体积 Base64 数据，防止单条日志几十 MB 击穿存储。
+2. **流式响应（Stream）的 Completion 聚合**：
+   - 流式响应需在各适配器的 `StreamHandler` 中异步累加 `delta.content`，在连接收尾阶段聚合为完整文本。
+3. **多级开关与风控策略**：
+   - 【系统设置】：增加 `SavePromptEnabled`、`SaveCompletionEnabled` 全局主开关。
+   - 【渠道/用户维度】：支持仅针对特定测试渠道或指定高权限用户组开启捕获。
+   - 【数据生命周期】：强制绑定 TTL 过期规则（例如默认仅保留 7 天或 30 天自动清理）。
+4. **异步解耦处理**：
+   - 捕获到的内容统一通过 Goroutine 工作池或消息队列异步写入，绝不阻塞客户端 HTTP 响应连接。
